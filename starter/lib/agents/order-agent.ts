@@ -9,7 +9,7 @@ import { liveSource, replaySource, type ModelSource } from "./model"
 import { reviewOrder } from "@/lib/shift-watch/review"
 import { runTool, toolDefs, type ToolContext } from "./tools"
 
-const MODEL = process.env.AGENT_MODEL ?? "claude-sonnet-5-5"
+const MODEL = process.env.AGENT_MODEL ?? "claude-opus-5-5"
 const MAX_TOOL_CALLS = 12
 
 export const agentMode = (): AgentRun["mode"] => (process.env.AGENT_MODE === "live" ? "live" : "replay")
