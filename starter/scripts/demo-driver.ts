@@ -22,7 +22,7 @@ const DEMOS: Record<string, Line[]> = {
   // Team plan, "One case, step by step": the CD-420603 driver in the terminal queue. One line only: a
   // second message would wake the agent again, and its recording only fits the snapshot state.
   "ord-00603": [
-    { driver_id: "drv-121", order_id: "ord-00603", after_s: 5, text: "Still in the queue. Navigation now says 12:20 at check-in." },
+    { driver_id: "drv-121", order_id: "ord-00603", after_s: 5, text: "Still in the queue. Navigation now says 14:20 at check-in." },
   ],
 }
 

@@ -1,10 +1,10 @@
 import type { BetaMessageParam, BetaToolResultBlockParam, BetaToolUseBlock } from "@anthropic-ai/sdk/resources/beta/messages/messages"
-import { and, eq, ne } from "drizzle-orm"
+import { and, desc, eq, ne } from "drizzle-orm"
 import type { AgentRun, AgentStep, RunRequest } from "@/lib/contract"
 import { nowIso } from "@/lib/clock"
 import { db } from "@/lib/db"
 import { orders } from "@/lib/schema"
-import { agentRuns, agentSteps, proposals } from "@/lib/schema-ours"
+import { agentRuns, agentSteps, driverMessages, proposals } from "@/lib/schema-ours"
 import { liveSource, replaySource, type ModelSource } from "./model"
 import { reviewOrder } from "@/lib/shift-watch/review"
 import { runTool, toolDefs, type ToolContext } from "./tools"
@@ -37,7 +37,9 @@ Reading the records:
 - An alert is a reason to look, not a diagnosis. Acknowledged is not resolved. Approved is not done.
 - Readiness "confirmed" does not mean the pickup is verified.
 - A driver's message is what the driver said at that time, not a location fix.
-- "Now" is the demo clock given in each message. Times are UTC unless a zone is shown.
+- "Now" is the demo clock given in each message. Times in the records are UTC unless a zone is shown.
+- Drivers write local time. Convert a time a driver gives with the zone in the wake-up message before comparing it with a UTC time. If no zone is given and it matters, ask.
+- In messages to a driver, give times in their local time and say whose time it is ("14:00 Hamburg time").
 - Cite only records you read in this run, by table and id. Mock data is marked mock; keep that mark.
 
 Write for operations people: plain words, the decision first, no jargon.`
@@ -47,6 +49,18 @@ async function addStep(step: AgentStep) {
     runId: step.run_id, seq: step.seq, agent: step.agent, kind: step.kind, tool: step.tool,
     input: step.input, resultSummary: step.result_summary, at: step.at,
   })
+}
+
+// shortcut: a replay cites the driver-message ids of the run it was recorded in, and those are random per
+// run. An id this run hasn't seen maps to the order's latest message from the driver; record the ids each
+// run saw if replays ever need to cite more than one driver message.
+async function remapReplayIds(input: Record<string, unknown>, ctx: ToolContext, orderId: string): Promise<Record<string, unknown>> {
+  const text = JSON.stringify(input)
+  const stale = [...new Set(text.match(/dm_[0-9a-f]{8}/g) ?? [])].filter((id) => !ctx.seen.includes(id))
+  if (!stale.length) return input
+  const [latest] = await db.select({ id: driverMessages.id }).from(driverMessages)
+    .where(and(eq(driverMessages.orderId, orderId), eq(driverMessages.direction, "IN"))).orderBy(desc(driverMessages.createdAt)).limit(1)
+  return latest ? JSON.parse(stale.reduce((t, id) => t.split(id).join(latest.id), text)) : input
 }
 
 /** True if the order exists in the dataset. */
@@ -153,7 +167,8 @@ export async function runOrderAgent(runId: string, req: RunRequest): Promise<voi
         }
         if (!(await alive())) return
         toolCalls++
-        const input = (call.input ?? {}) as Record<string, unknown>
+        const recorded = (call.input ?? {}) as Record<string, unknown>
+        const input = agentMode() === "live" ? recorded : await remapReplayIds(recorded, ctx, req.order_id)
         const out = await runTool(call.name, input, ctx)
         const text = JSON.stringify(out.result)
         ctx.seen += text

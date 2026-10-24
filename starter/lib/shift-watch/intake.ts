@@ -11,6 +11,7 @@ import { orders, relatedRecords } from "@/lib/schema"
 import { driverMessages } from "@/lib/schema-ours"
 import { buildCase, toDriverMessage } from "./case"
 import { readByRules, type Reading } from "./read"
+import { driverZone, localTime, utcOffset } from "./zone"
 
 const HEAR_BACK_MINUTES = 15
 let client: Anthropic | null = null
@@ -61,11 +62,11 @@ async function activeJobs(driverId: string) {
   return refs
 }
 
-async function routineAnswer(orderId: string, driverId: string, intent: Reading["intent"]): Promise<string | null> {
+async function routineAnswer(orderId: string, driverId: string, intent: Reading["intent"], local: (iso: string) => string): Promise<string | null> {
   if (intent === "BOOKING_QUESTION") {
     const c = await buildCase(orderId)
     if (!c) return null
-    const lines = c.legs.filter((l) => l.state !== "QUOTED").map((l) => `${l.state === "BOOKED" ? "Booked" : l.state === "REQUESTED" ? "Requested, not confirmed" : "Not booked"}: ${l.label}${l.reference ? ` (${l.reference})` : ""}${l.check_in_cutoff_at ? `, check-in closes ${hhmm(l.check_in_cutoff_at)} UTC` : ""}`)
+    const lines = c.legs.filter((l) => l.state !== "QUOTED").map((l) => `${l.state === "BOOKED" ? "Booked" : l.state === "REQUESTED" ? "Requested, not confirmed" : "Not booked"}: ${l.label}${l.reference ? ` (${l.reference})` : ""}${l.check_in_cutoff_at ? `, check-in closes ${local(l.check_in_cutoff_at)}` : ""}`)
     return lines.length ? `Here is what's on record for your trip:\n${lines.join("\n")}` : "Nothing is booked for this trip yet. We're on it."
   }
   if (intent === "EXPENSE_QUESTION") {
@@ -132,10 +133,13 @@ export async function intake(driverId: string, text: string, opts: { quickReplyV
   // A driver who writes again before we've answered keeps the earlier promise, unless they now need it sooner.
   const earlier = await openPromise(driverId, job.id, nowIso())
   const promised = earlier && earlier <= fresh ? earlier : fresh
-  const routine = await routineAnswer(job.id, driverId, reading.intent)
+  // Drivers get their own clock; the records and operators use UTC.
+  const zone = await driverZone(job.id)
+  const local = (iso: string) => localTime(iso, zone, nowIso())
+  const routine = await routineAnswer(job.id, driverId, reading.intent, local)
   const english = reading.intent === "SAFETY"
-    ? `Thanks for telling us. Please stay somewhere safe. A person is taking over now and will contact you by ${hhmm(promised)} UTC.`
-    : routine ?? (promised === earlier ? `Got it, added to your earlier message. You'll still hear from us by ${hhmm(promised)} UTC.` : `Got it, we're on it. You'll hear from us by ${hhmm(promised)} UTC.`)
+    ? `Thanks for telling us. Please stay somewhere safe. A person is taking over now and will contact you by ${local(promised)}.`
+    : routine ?? (promised === earlier ? `Got it, added to your earlier message. You'll still hear from us by ${local(promised)}.` : `Got it, we're on it. You'll hear from us by ${local(promised)}.`)
   // A routine answer from the records closes the question; anything else is a promise with a time.
   const reply = await store({
     driverId, orderId: job.id, direction: "OUT", author: "shift-watch", text: await inLanguage(english, reading.language), language: reading.language,
@@ -144,7 +148,8 @@ export async function intake(driverId: string, text: string, opts: { quickReplyV
   })
   if (routine) return { message, reply, run_id: null }
 
-  const runReq = { order_id: job.id, reason: "DRIVER_MESSAGE" as const, reason_detail: `Driver message relayed by Shift Watch at ${hhmm(message.created_at)}: '${reading.english ?? subject}'${reading.limit_minutes ? ` (says they can wait ${reading.limit_minutes} more minutes)` : ""}` }
+  const clock = zone ? ` Times the driver writes are local: ${zone.place} time (${zone.zone}, ${utcOffset(zone, message.created_at)}).` : ""
+  const runReq = { order_id: job.id, reason: "DRIVER_MESSAGE" as const, reason_detail: `Driver message relayed by Shift Watch at ${hhmm(message.created_at)} UTC: '${reading.english ?? subject}'${reading.limit_minutes ? ` (says they can wait ${reading.limit_minutes} more minutes)` : ""}.${clock}` }
   const runId = await createRun(runReq)
   if (runId) void runOrderAgent(runId, runReq)
   return { message, reply, run_id: runId }
