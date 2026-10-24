@@ -1,0 +1,158 @@
+{
+  "order_id": "ord-00593",
+  "reason": "LOOSE_END",
+  "source": "live",
+  "model": "claude-sonnet-5-5",
+  "recorded_at": "2026-10-24T15:24:52.713Z",
+  "turns": [
+    {
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "toolu_0173DZVmaFveXVohzxPz8AyT",
+          "name": "read_notes",
+          "input": {},
+          "caller": {
+            "type": "direct"
+          }
+        },
+        {
+          "type": "tool_use",
+          "id": "toolu_0179vQdmZgw4oqqFv7ETtAqF",
+          "name": "get_order",
+          "input": {},
+          "caller": {
+            "type": "direct"
+          }
+        },
+        {
+          "type": "tool_use",
+          "id": "toolu_01VPJkWhwa1UrrQvWYRnQMTn",
+          "name": "read_messages",
+          "input": {},
+          "caller": {
+            "type": "direct"
+          }
+        }
+      ],
+      "stop_reason": "tool_use",
+      "delay_ms": 1524
+    },
+    {
+      "content": [
+        {
+          "type": "thinking",
+          "thinking": "",
+          "signature": "CAQSiggKEAgTGAI4AUIIdGhpbmtpbmcSDPCCmMV2hJFZOzjfyhoMnfha+kelXKjCcmw8IjCUxMa7AnpeXsjh8mwNZbAZyeg2tL+xEKeMlzi6I/JnCA/g89qIkQAHyAXzaBwMHAsqpwc3IGQQfWgIEETvC7mWuO92R7cBf2BENkR6FcqNdvqQ9hUzLyY8tsLu/1nY1XVt+GMpYTHYPGo94E8hhqhu7fI6xEFS3LpEljGuyvPDOjsIqqfZYSY6M1zaS+dLHHYU6wXfvfeWqqjr1ulMSzBovSsvsqvvpoMl/xfNrKeZ2NbZUmXEkd6hfFhr7uYMOT2qJEZH3ZUEB+2SZRoeTbVGRsy36cUnbmnyuXAGPWdT3QpcoELgSxaDKA0y0kfuX4SnwX81HcH5wvXcCE1x34Ey4/xBLzfCiW3+fCjrjOotgznVQCCwGTgwKkiZRtLo1p29D5X9qahSAdxR5JQPantqAGazPy7gZnHIfQVdsDYTTMRcIaCp9lZu+p6C6dPrss01gQsAMBCFgi3F1EldF7Sss8Mzpx21uDzyjP4DBjmavN3J8ml24uD5Ao3yF46bpGlkBm8eAtWapwIl7kwE3uVJM1V8gc/PrTRDEyi8PCe4anqfiIElR+QZ2SDx7BKjwltq320yyLCnaBNGApXdvudQ+MBVNKMQt/GqYmkvnVxgcoYmswfzLIsG7ipmNtBCrwpq3iGzTzhteCnfO25cYoRAMVJC9ThfLQxfInQr8gREbpGGusJhOyKTGoYELuNbUZOvpMrz/UlXSi3mz3pImciY3B+0G1j0hlGG8xsg+4M7jqUx/9ngZQudc6AxVjLZ4NpBNHZz3gxWZ+D9vyfKcHYuQKjUpNZ41iID+58Q7Hvj/UfJYjt6T/V332Z9Eslbb88pXRtlD2dOjJaNQvhi/3F45biPOJSZErhLCW0soeLM5DsQhBwAACb6zioyU+zVCIirdLLfzobJJYH71J+7KR+CNbgBEYpL5EE/ZB+vy8J/9ND7ol/Ae7kFfgws/kIcnWC1xE3H6vyR3D9RBkAE/nGxIUDcqGtFeIWo1HR6Uotd5+Qj7eZibujFaIm6P7MMpaLvd1MUQRHnhn9vCFlcQsG8e24oI4MVHfF/dDzBH1YJxu/5vfW9P6+/PgwxiA0EVF/rZ1O2gBHbvyWoFIAzsOvjn+SRXjKB1ePIXDIDcpL3B+Ef1hBO2le8ObVa+wRjgYQWc11swHP4WnYlpRhK/2qdAHeYtUYgDaZzgGtqD+MtFNtYN4JsGzLCmSk1PLFRLTBV9JWYiQ9XafcLDqyMVI2GX8g0Zb3+myb+It7ZESba5Yj+ycIJulY6UyOG/lSnxw6Eb8PaBTk9nC0P4T0BViS5TUhqgvgpcjqSSRgB"
+        },
+        {
+          "type": "tool_use",
+          "id": "toolu_01M4rSuijfEB7F8KfMwJXvD1",
+          "name": "ask_driver",
+          "input": {
+            "kind": "QUESTION",
+            "text": "Thanks for waiting, Yara. Are you still at Velantora Helsinki? We are working on a plan for you now. Please don't take any other car or leave with one.",
+            "quick_replies": [
+              {
+                "kind": "YES_NO",
+                "label": "Still at site",
+                "value": "yes"
+              },
+              {
+                "kind": "YES_NO",
+                "label": "Already left",
+                "value": "no"
+              }
+            ]
+          },
+          "caller": {
+            "type": "direct"
+          }
+        },
+        {
+          "type": "tool_use",
+          "id": "toolu_01BYkxvDp1GyH1Ken8ZHc3fV",
+          "name": "propose",
+          "input": {
+            "command": "driver.stand_down",
+            "summary": "Release the driver from the Helsinki site and let her travel home. Rebook pickup once the car's location is confirmed.",
+            "rationale": "The driver's 30-minute wait limit passed at 08:27 and nobody has replied. The site says the car is not in its release queue. The customer is checking which site holds the VIN, and the customer asked us not to substitute another car. Delivery is not due until 26 Oct, so there is time to recollect later. Travel cost back to Jyväskylä is not quoted and a person should decide who pays.",
+            "payload": {
+              "driver_id": "drv-139",
+              "assignment_id": "asg-xd08ea06249d22f64",
+              "action": "stand_down_from_pickup_site",
+              "keep_assignment": true,
+              "pickup_event": "leave unset",
+              "note": "Do not collect any car until VIN and holding site are confirmed"
+            },
+            "before_after": [
+              {
+                "label": "Driver",
+                "before": "Waiting at site, past her stated limit",
+                "after": "Released to travel home; assignment kept"
+              },
+              {
+                "label": "Pickup",
+                "before": "Empty pickup, car location unknown",
+                "after": "On hold until VIN and holding site are confirmed"
+              }
+            ],
+            "evidence_refs": [
+              {
+                "table": "messages",
+                "id": "msg-xdfc0efc421f38068",
+                "observed_at": "2026-10-21T07:57:00Z"
+              },
+              {
+                "table": "messages",
+                "id": "msg-x38ab566f95e7b95b",
+                "observed_at": "2026-10-21T07:21:00Z"
+              },
+              {
+                "table": "messages",
+                "id": "msg-x5276d8f5eeec4ae5",
+                "observed_at": "2026-10-21T07:39:00Z"
+              },
+              {
+                "table": "alerts",
+                "id": "alert-xd736bb2556e316a6",
+                "observed_at": "2026-10-21T08:28:00Z"
+              }
+            ],
+            "decision_deadline": "2026-10-21T09:30:00Z"
+          },
+          "caller": {
+            "type": "direct"
+          }
+        },
+        {
+          "type": "tool_use",
+          "id": "toolu_01MSE7A4CqKCGkgZdCEmnMWS",
+          "name": "write_notes",
+          "input": {
+            "markdown": "- 07:03 driver at Velantora Helsinki; car not in handover list. 07:21 site: not in release queue, similar stock ref only. 07:39 customer checking stock, no substitute car. 07:57 driver could wait 30 more min (to 08:27), needs plan for travel back.\n- 09:00 asked driver if still on site; proposed driver.stand_down (release, keep assignment). Awaiting operator.\n- Open: which site holds the VIN; travel home cost/who pays; delivery promise 26 Oct."
+          },
+          "caller": {
+            "type": "direct"
+          }
+        },
+        {
+          "type": "tool_use",
+          "id": "toolu_013N2QeyvvzoWUm2MYXzzDq4",
+          "name": "finish",
+          "input": {
+            "summary": "Driver's wait limit passed. I asked her if she is still on site and proposed releasing her to travel home. Car location is still unresolved.",
+            "waiting_on": "OPERATOR",
+            "decision_deadline": "2026-10-21T09:30:00Z",
+            "deadline_reason": "Driver is past her stated wait limit."
+          },
+          "caller": {
+            "type": "direct"
+          }
+        }
+      ],
+      "stop_reason": "tool_use",
+      "delay_ms": 10133
+    }
+  ]
+}

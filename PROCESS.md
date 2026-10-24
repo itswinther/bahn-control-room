@@ -181,6 +181,27 @@ Format for every entry:
   adapt, so it is only valid from the state it was recorded in.
 - Evidence: `starter/recordings/`, `starter/lib/agents/model.ts`.
 
+### 2026-10-24 · Mike + Claude · first live runs on Sonnet 5.5
+
+- Asked: run the agent live on CD-420603, 420299, 420322 and 420593 and record
+  each run for replay.
+- Checked: every proposal, driver message, note and status, line by line
+  against the plan's rules. CD-420299 checked the timed-out booking before
+  retrying; CD-420322 gave no restart advice and asked for the photo and
+  location nobody had requested; CD-420593 released the waiting driver without
+  taking a different car; all four flagged who pays where money was involved.
+- Changed or threw away: the agent named evidence tables after get_order's
+  sections ("bookings", "travel_quotes"), which Shift Watch's freshness check
+  wouldn't recognise, so the table now comes from the record id's prefix in
+  code. The rest mock counted from now, so CD-420299 got "72 h of rest" before
+  the driver had even collected the car, and the agent repeated it as fact; the
+  tool now takes when the driver reaches the terminal. Two driver messages
+  carried instructions ("keep the car stopped", "don't take another car"); agent
+  messages to drivers now wait for Shift Watch's check. The live CD-420603
+  agent refreshed capacity on its own, so the demo's "caught" moment doesn't
+  happen naturally: open for the team.
+- Evidence: `starter/recordings/` (live, Sonnet 5.5).
+
 _Teammate's earlier log (`AI-PROCESS.md` in the review bundle, 17 entries):
 merge its entries here._
 

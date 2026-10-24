@@ -1,150 +1,183 @@
 {
   "order_id": "ord-00603",
   "reason": "DRIVER_MESSAGE",
-  "source": "hand-written",
-  "model": "simulation (no model call)",
-  "recorded_at": "2026-10-24T20:00:00Z",
+  "source": "live",
+  "model": "claude-sonnet-5-5",
+  "recorded_at": "2026-10-24T15:24:55.262Z",
   "turns": [
     {
-      "delay_ms": 1500,
-      "stop_reason": "tool_use",
       "content": [
         {
-          "type": "text",
-          "text": "Reading my notes, the order and its messages first.",
-          "citations": null
-        },
-        {
           "type": "tool_use",
-          "id": "toolu_sim_01",
+          "id": "toolu_01N7UEPYKR72B1pfULBhKBbj",
           "name": "read_notes",
-          "input": {}
+          "input": {},
+          "caller": {
+            "type": "direct"
+          }
         },
         {
           "type": "tool_use",
-          "id": "toolu_sim_02",
+          "id": "toolu_014Am96bbhHhHrXUexr8YF7E",
           "name": "get_order",
-          "input": {}
+          "input": {},
+          "caller": {
+            "type": "direct"
+          }
         },
         {
           "type": "tool_use",
-          "id": "toolu_sim_03",
+          "id": "toolu_01St11LQKo1WjGh7hrQRfUTE",
           "name": "read_messages",
-          "input": {}
-        }
-      ]
-    },
-    {
-      "delay_ms": 1800,
-      "stop_reason": "tool_use",
-      "content": [
-        {
-          "type": "text",
-          "text": "The driver now expects 12:20 at check-in, after the 12:00 cutoff. Checking the ferry options I already have.",
-          "citations": null
-        },
-        {
-          "type": "tool_use",
-          "id": "toolu_sim_04",
-          "name": "check_ferry_capacity",
-          "input": {
-            "refresh": false
+          "input": {},
+          "caller": {
+            "type": "direct"
           }
         }
-      ]
+      ],
+      "stop_reason": "tool_use",
+      "delay_ms": 1507
     },
     {
-      "delay_ms": 2200,
-      "stop_reason": "tool_use",
       "content": [
         {
-          "type": "text",
-          "text": "The 22:00 crossing had vehicle space and keeps the 23 Oct promise. Changing a booking needs the travel desk, so I'm proposing it.",
-          "citations": null
+          "type": "thinking",
+          "thinking": "",
+          "signature": "CAQSyQUKEAgTGAI4AUIIdGhpbmtpbmcSDKQQg+xl8iSiWR0EOxoMtdwFgdrEB2u5+PgmIjDijHV2YCpD3BsKMa4t0FKQv5OrRmLjV6TIiLcFHykliv1+2kHkaJ+k+vTvW5K+Dqsq5gQIiWHSR+p+CQj0PN6QnXR4jUV5HZndnzVQqLlcAG4iZM82K3Xb4+QvsZjeOXVhmpQyMjrdZeKWxcvt5PZO0kQL2lYopOB93iX535cKsIoEIHvzvMjdmTuStWgavfOdX1eqDVWYhJS/0NwTOC5awuvSqD2Mv9hN4THOCvfwc5GO9UasTcjMXBNRUP+ZD26rcy9KALBrdWEjJv05OWJL+ULPX5P8XPINxTY+Mrkq5lH6JxE/eCS9gFHKy22HHd7gwHdAEpEw5wicG2wJcSc2ieorTT94IGbSB57NXnIfH58RFueA5vEqFBKFN5soVAF/UfXPZCSluk+Qtx7zGOz2Oh4MljJ3eRqxOXay3FGrRFKCz7j3S6nFbVfZHFUTjBamr9j2iuFy3wzSAM2LD/qBDzK7SdlAJcRmaMqYldVRxDRFMdfd7DbTJMhzcnt/zQTUAiywFdqbPPXvEUnghh8JGE3DZUz9Th4oPGbM8Ihad8BDW3fMs2lvaG4Jvcf4DvfpVbziL41+dQShN8k+0UvkPJ13yU36ehRwQe683yW239OI+UM7egKmZQm82d069GHZgONCYkLAxaGtk5sTQc7LKg8m4DBZElaqGvlTzykYUVMhV5XElthTvYvPe9JlVl9pUyMkJDlSy8ejXNwLbDkhiMRUFT/o6MtUB+urhut9aUfcGlxqSOmHxGOjMIbL18fD6K3gUj0IpLzJzi9TzblWha6PIV5FGSWNgVKLpHD1NMBGtr/SOr6czW4k2ZbVUUP+E9GCdR8FDCouzFWcTMKHbW0rQmfQElI756VUIn10OdLxEbTzfe3VoRgB"
         },
         {
           "type": "tool_use",
-          "id": "toolu_sim_05",
+          "id": "toolu_01Vd4wbhhqkYwYmVaqVsxWrf",
+          "name": "check_ferry_capacity",
+          "input": {
+            "refresh": true
+          },
+          "caller": {
+            "type": "direct"
+          }
+        },
+        {
+          "type": "tool_use",
+          "id": "toolu_01Sx2BfV2D1AmgHtLZ8TdUyu",
+          "name": "check_driver_rest",
+          "input": {
+            "driver_id": "drv-121",
+            "check_in_cutoff_at": "2026-10-21T12:00:00Z"
+          },
+          "caller": {
+            "type": "direct"
+          }
+        }
+      ],
+      "stop_reason": "tool_use",
+      "delay_ms": 2117
+    },
+    {
+      "content": [
+        {
+          "type": "thinking",
+          "thinking": "",
+          "signature": "CAQS1QgKEAgTGAI4AUIIdGhpbmtpbmcSDKT8WxZgTNqFMC/oBBoML2+o1lbvnHvDbF4oIjBPUN2ocmEtPczlAa5nYMsP85plZaOZXoVBcHcK5t1fMJB1CC/KdJ1Zi4ig3VV3vxQq8gdnmQRY6aAVhmb4sM2TrLMMI5sxJdHwCN92k4JNPxD/tyl2CNRnDRgYJLKPvS3SLC4PJy8VrsMnPDwO73ArOhGnENOpYR3bmAvXBjsI/gMRZa6ocTcd/qYLFkO6Mml3A8/GX08oeLFJ6dWjdR5A7wOVIu2UYa+f9QDYlSYP1kmaXsuWHfVRzejN9YaB3t7V2OYr0+9Qz0epYA/PAWMKTSzp3fmpFefqZSQLgivwZNexTueloskPex8kg39z8/9Z7quyuDrghpYbvrM/lLQL1DOG68U4qSHTiysGWsL+qnMovMIpz9pucAweBPaTIYQ2X7CJoM4gdcAGMomYnfTzPN/C7GCMGhhIbjEqx8hyyxVuBpDIIecEiD8nTGnN8exZjIcmP0z7alU2GrXYPRiA8MC8ayWRaqHxvwmcMkJ0f0t6nKwgj5BhLZs4lWbz+gVuUZVYnONG2bpdwcCuu0I/Ays/63gCXBde0DHIYTbbfQaknNR5CklRXk8Bw6ANCu1st8/q7F36jwBI+RdT7veYPKmbXcEimpqShE3+I6H0VzkPzGB4k/qYgud5gaftUUHUrUqT9kLcGJxLfqu9bWJoGRrXpyEa9WnAns36GscpsWLv8eTNJ2m8ZDVmvdHEZNswRBT0bB1OvgMMMv9tBnou1o7oPsEcqqd/pLnrLJDD6XuMe+l7hVL6MOqa6M6+GUeUTECOS5LQYMIy99MwQQuPxJyU/j9KA3AbhkX+XGt5S2jyDweVBZCRFvnMUcB5j7apDnvADm7/FxU9aQNv4UrE1gbE2VfG8Rgxm/AX81fthJ+7XA+UGGhNNc9djJ0slJC0/f3R3EUSRQlN4/LI+Xso6vNTszJooSoSgcWEV8iZyG7hNpfsmeNW5zKMQjR7ilFLNw82Ryka9DepRB5MYLoXvqRLRJQl57mUvCbH/GLXBFDSrLFLQYewHNg/n8xrhe5kXTkCAM8smKPueo7lhA4GnKUgjS3kL3exoBQrN0v5Sg3EqM0+oiFDDLmvDDlo6z0KMEs2TlgLZRHY9oWXV9WR5GiwUj5KcaobtyilOB5bV53BKiD9KKYFj9G4GvRx5pkbcQBHqaxzD5sujPX/Cu2NjOx6IDutgc71gk15LWWJXKLklJjKdLtyWBPfByNBXNirxSb8MZH06hTDJAz+r8I9DoY+WkGHxFCXwF2TD/GxYs/83BxqF2CFvWNPj8HqgzejDJkqj6LYWwOxFUgESX6Zr4gLkdwhasMlBWzE9jdFwL0/Lz/hAzUHplVrLK+m7p+p88bc0GpgNIEq/Hf8jeJBhujR5rJgHWMjZrBJRF2oDZZ8ot/I8AFTnP1Cc9W/k+ZhHQKmiBgB"
+        },
+        {
+          "type": "tool_use",
+          "id": "toolu_019YRsYj4WfSnsiHUUHE3dpn",
           "name": "propose",
           "input": {
-            "command": "travel.rebook_ferry",
-            "summary": "Book the 22:00 crossing; delivery promise unchanged",
-            "rationale": "The driver said at 09:00 that check-in would be 12:20, after the 12:00 cutoff. The 22:00 crossing had vehicle space and still meets the 23 Oct promise.",
+            "command": "travel.rebook_crossing",
+            "summary": "Move the Golf to the 21 Oct 22:00 Vela Coast sailing (€45); keep the current booking until the new one is confirmed.",
+            "rationale": "Driver says navigation shows check-in at 12:20, and the cutoff is 12:00, so the booked 14:00 crossing will probably be missed. A fresh carrier check at 09:00 shows vehicle space on two sailings. The 22:00 sailing (check-in 20:00, arrives 23 Oct 04:00) gives the driver time to rest and should still make the delivery promise. The 22 Oct 08:00 sailing arrives 23 Oct 14:00 and would miss the promise window. Driver rest check shows 2 hours before the 12:00 cutoff, which is not enough, so rushing is not safe. The carrier has not confirmed the earlier transfer request or fare. This is a quote, not a booking. Do not tell the driver to leave the queue or contact the customer until the booking is confirmed.",
             "payload": {
-              "travel_option_id": "opt_mock_603_2200",
-              "release_reservation_id": "res-x1082202e8d139d61",
-              "release_after_new_booking": true
+              "option_id": "opt_mock_603_2200",
+              "replaces_booking": "res-x1082202e8d139d61",
+              "keep_original_until_confirmed": true
             },
             "before_after": [
               {
-                "label": "Ferry",
-                "before": "14:00 crossing, booked (WBV-FERRY-00603)",
-                "after": "22:00 crossing, quoted"
+                "label": "Departure",
+                "before": "21 Oct 14:00 UTC (check-in 12:00)",
+                "after": "21 Oct 22:00 UTC (check-in 20:00)"
               },
               {
-                "label": "Check-in closes",
-                "before": "12:00 UTC; driver says 12:20",
-                "after": "20:00 UTC"
+                "label": "Arrival",
+                "before": "22 Oct 20:00 UTC",
+                "after": "23 Oct 04:00 UTC"
               },
               {
-                "label": "Delivery promise",
-                "before": "23 Oct 10:00-12:00 UTC",
-                "after": "Unchanged; ferry arrives 23 Oct 04:00, Lahti about 05:30 UTC (estimate)"
-              },
-              {
-                "label": "Old booking",
-                "before": "Active",
-                "after": "Released only once the new booking is confirmed"
-              }
-            ],
-            "evidence_refs": [
-              {
-                "table": "travel_reservations",
-                "id": "res-x1082202e8d139d61",
-                "observed_at": "2026-10-15T05:01:00Z"
-              },
-              {
-                "table": "travel_options",
-                "id": "opt_mock_603_2200",
-                "observed_at": null,
-                "mock": true
+                "label": "Cost",
+                "before": "already booked",
+                "after": "€45.00 quoted"
               }
             ],
             "cost": {
               "amount_minor": 4500,
               "currency": "EUR",
-              "note": "Change fee (mock)"
+              "note": "Quoted fare, not confirmed; the carrier has not confirmed the earlier request"
             },
-            "decision_deadline": "2026-10-21T12:00:00Z"
-          }
-        }
-      ]
-    },
-    {
-      "delay_ms": 1200,
-      "stop_reason": "tool_use",
-      "content": [
-        {
-          "type": "tool_use",
-          "id": "toolu_sim_06",
-          "name": "write_notes",
-          "input": {
-            "markdown": "## CD-420603\n- Booked WBV-FERRY-00603, departs 14:00, check-in closes 12:00 (travel_reservations). Boarding unconfirmed.\n- Driver says 12:20 at check-in (message relayed by Shift Watch when it woke me, simulated).\n- Carrier request for a later crossing at 08:43, not confirmed (ops-travel note).\n- Bahn's capacity refresh approved 07:59, never ran.\n- Proposed the 22:00 crossing from the cached list (mock).\n- Open: who pays the change fee; Lahti receiver unconfirmed."
+            "decision_deadline": "2026-10-21T11:30:00Z",
+            "evidence_refs": [
+              {
+                "table": "bookings",
+                "id": "res-x1082202e8d139d61",
+                "observed_at": "2026-10-21T09:00:02Z"
+              },
+              {
+                "table": "ferry_capacity_check",
+                "id": "opt_mock_603_2200",
+                "observed_at": "2026-10-21T09:00:04.792Z",
+                "mock": true
+              },
+              {
+                "table": "driver_rest_check",
+                "id": "drv-121",
+                "observed_at": "2026-10-21T09:00:04Z",
+                "mock": true
+              },
+              {
+                "table": "conversations",
+                "id": "conv-xdf71bc9a940be234",
+                "observed_at": "2026-10-21T08:43:00Z"
+              },
+              {
+                "table": "alerts",
+                "id": "alert-x5259ff7f2e03f0e6",
+                "observed_at": "2026-10-21T07:00:00Z"
+              }
+            ]
+          },
+          "caller": {
+            "type": "direct"
           }
         },
         {
           "type": "tool_use",
-          "id": "toolu_sim_07",
+          "id": "toolu_01935G6YTntxknn4JZarWpCm",
+          "name": "write_notes",
+          "input": {
+            "markdown": "- 09:00 driver (relayed): still in queue, nav says 12:20 at check-in. Booking WBV-FERRY-00603 cutoff 12:00 → likely missed.\n- 09:00 fresh carrier check (mock): space on 21 Oct 22:00 (arr 23 Oct 04:00, €45) and 22 Oct 08:00 (arr 23 Oct 14:00, misses promise).\n- Rest check (mock): 2h before 12:00 cutoff, does not fit.\n- Notes 08:43: carrier desk has not confirmed slot/fare; keep original booking; don't tell driver to turn away; don't change promise.\n- Proposed rebook to 22:00 sailing. Open: ops decision, carrier confirmation, driver instruction after that."
+          },
+          "caller": {
+            "type": "direct"
+          }
+        },
+        {
+          "type": "tool_use",
+          "id": "toolu_01UKcBTeMi8jAPYCTyywFnAd",
           "name": "finish",
           "input": {
-            "summary": "22:00 crossing proposed; waiting on Shift Watch and the travel desk",
+            "summary": "Driver will likely miss the 12:00 check-in. Proposed moving to the 22:00 sailing; waiting for an operator decision.",
             "waiting_on": "OPERATOR",
-            "next_check_at": "2026-10-21T09:30:00Z",
-            "decision_deadline": "2026-10-21T12:00:00Z",
-            "deadline_reason": "Current crossing's check-in closes; the driver needs a plan"
+            "decision_deadline": "2026-10-21T11:30:00Z",
+            "deadline_reason": "Check-in cutoff for the current booking is 12:00 UTC.",
+            "next_check_at": "2026-10-21T10:00:00Z"
+          },
+          "caller": {
+            "type": "direct"
           }
         }
-      ]
+      ],
+      "stop_reason": "tool_use",
+      "delay_ms": 10606
     }
   ]
 }

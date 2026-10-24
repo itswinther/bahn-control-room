@@ -148,6 +148,8 @@ export type DriverMessage = {
   hear_back_by: string | null
   /** True for the scripted demo driver and any line we invented. */
   simulated: boolean
+  /** Agent messages to a driver wait for Shift Watch's checks (no driving advice) before they go out. */
+  status: "PENDING_CHECK" | "SENT" | "HELD"
   created_at: string
 }
 

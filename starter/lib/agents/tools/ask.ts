@@ -17,7 +17,7 @@ export const DRIVING_ADVICE =/\b(restart|re-start|drive on|keep driving|continue
 export const askToolDefs: BetaTool[] = [
   {
     name: "ask_driver",
-    description: "Send the order's driver a question or an acknowledgement through Shift Watch. Questions need no approval; instructions do (use propose). Offer quick replies so the driver can answer with one tap. The reply wakes you later as a new message.",
+    description: "Send the order's driver a question or an acknowledgement. Shift Watch checks it before it goes out. Questions need no approval; instructions do (use propose). Offer quick replies so the driver can answer with one tap. The reply wakes you later as a new message.",
     input_schema: {
       type: "object",
       properties: {
@@ -72,9 +72,12 @@ export async function askDriver(input: Input, ctx: ToolContext): Promise<ToolOut
   const quickReplies = Array.isArray(input.quick_replies) ? (input.quick_replies as QuickReply[]) : []
   await db.insert(driverMessages).values({
     id, driverId, orderId: ctx.orderId, direction: "OUT", author: "shift-watch", text,
-    language: "en", translation: null, quickReplies, hearBackBy: null, simulated: false, createdAt: nowIso(),
+    language: "en", translation: null, quickReplies, hearBackBy: null, simulated: false, status: "PENDING_CHECK", createdAt: nowIso(),
   })
-  return { result: { sent: true, id, driver_id: driverId, note: "The driver's reply will wake you as a new message." }, summary: `Asked the driver: ${text}` }
+  return {
+    result: { queued: true, id, driver_id: driverId, note: "Shift Watch checks the message, then sends it. The driver's reply will wake you as a new message." },
+    summary: `Asked the driver (after Shift Watch's check): ${text}`,
+  }
 }
 
 export async function askSite(input: Input, ctx: ToolContext): Promise<ToolOutput> {

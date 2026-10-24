@@ -1,7 +1,7 @@
 import type { BetaTool } from "@anthropic-ai/sdk/resources/beta/messages/messages"
 import { and, desc, eq, inArray, lte } from "drizzle-orm"
 import type { BeforeAfter, EvidenceRef, WaitingOn } from "@/lib/contract"
-import { route } from "@/lib/agents/rules"
+import { route, tableFor } from "@/lib/agents/rules"
 import { nowIso } from "@/lib/clock"
 import { db } from "@/lib/db"
 import { driverRest, ferryCapacity } from "@/lib/mocks"
@@ -52,10 +52,14 @@ export const toolDefs: BetaTool[] = [
   },
   {
     name: "check_driver_rest",
-    description: "Check whether the driver can rest enough before a check-in cutoff.",
+    description: "Check whether the driver can rest enough between reaching the terminal and the check-in cutoff of the sailing you are considering.",
     input_schema: {
       type: "object",
-      properties: { driver_id: { type: "string" }, check_in_cutoff_at: { type: "string", description: "ISO 8601 UTC" } },
+      properties: {
+        driver_id: { type: "string" },
+        check_in_cutoff_at: { type: "string", description: "ISO 8601 UTC, of the sailing you are considering" },
+        available_from: { type: ["string", "null"], description: "ISO 8601 UTC: when the driver can be at the terminal, after any pickup and drive still ahead. Leave null if the driver is already there." },
+      },
       required: ["driver_id", "check_in_cutoff_at"], additionalProperties: false,
     },
   },
@@ -165,6 +169,7 @@ async function propose(input: Input, ctx: ToolContext): Promise<ToolOutput> {
   const command = str(input.command)
   if (!command || !/^[a-z_]+\.[a-z_]+$/.test(command)) return fail("command must look like domain.action")
   const refs = (Array.isArray(input.evidence_refs) ? (input.evidence_refs as EvidenceRef[]) : [])
+    .map((r) => (r?.id ? { ...r, table: tableFor(r.id, r.table) } : r))
     .map((r) => (r?.id && ctx.observed[r.id] ? { ...r, observed_at: ctx.observed[r.id].at, mock: ctx.observed[r.id].mock } : r))
   if (!refs.length) return fail("A proposal needs at least one evidence record.")
   const unseen = refs.filter((r) => !r?.id || !ctx.seen.includes(r.id))
@@ -220,7 +225,10 @@ export async function runTool(name: string, input: Input, ctx: ToolContext): Pro
     }
     case "check_driver_rest": {
       if (!str(input.driver_id) || !isIso(input.check_in_cutoff_at)) return fail("driver_id and an ISO check_in_cutoff_at are required")
-      const r = driverRest(input.driver_id as string, input.check_in_cutoff_at as string, nowIso())
+      if (input.available_from != null && !isIso(input.available_from)) return fail("available_from must be ISO 8601 UTC or null")
+      const from = str(input.available_from) ?? nowIso()
+      const r = driverRest(input.driver_id as string, input.check_in_cutoff_at as string, from)
+      ctx.observed[input.driver_id as string] = { at: nowIso(), mock: true }
       return { result: r, summary: `${r.rest_hours_before_check_in} h of rest possible; ${r.fits ? "fits" : "too little"}` }
     }
     case "write_notes": {

@@ -1,0 +1,89 @@
+{
+  "order_id": "ord-00322",
+  "reason": "DRIVER_MESSAGE",
+  "source": "live",
+  "model": "claude-sonnet-5-5",
+  "recorded_at": "2026-10-24T15:24:48.624Z",
+  "turns": [
+    {
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "toolu_01RXMrp42rYKoYaNo8wCk8kg",
+          "name": "read_notes",
+          "input": {},
+          "caller": {
+            "type": "direct"
+          }
+        },
+        {
+          "type": "tool_use",
+          "id": "toolu_013hpJwoU81Wi8FDusboXvFE",
+          "name": "get_order",
+          "input": {},
+          "caller": {
+            "type": "direct"
+          }
+        },
+        {
+          "type": "tool_use",
+          "id": "toolu_014tTeDcv8M65psi1aLKq19o",
+          "name": "read_messages",
+          "input": {},
+          "caller": {
+            "type": "direct"
+          }
+        }
+      ],
+      "stop_reason": "tool_use",
+      "delay_ms": 1426
+    },
+    {
+      "content": [
+        {
+          "type": "thinking",
+          "thinking": "",
+          "signature": "CAQSnQcKEAgTGAI4AUIIdGhpbmtpbmcSDEXaMfQPb8Vhp0KpRhoMZdGZoJa7TtcvWBFUIjBlk2xGl8IpYK63wr/ow5xD1Q0UFD7mbvfktZQEadCaNIxXKwmh/8227JIWJpoJ8iIquga8DDNQ26QGk535IFbcmDpIvAwFUzGedIor/exnakfqEHoHCgoVDr2Jtje+uIGOS5mPFctJtKi4BhniWqeRNTvUrqKCoHerLcJmvUPEzHCdkE/tg3Dx9XgVXxu8kN85W/fI6oGU7mS5NIUMjHw8E+9QI80umXPaANpLcQLWFZTTYMrp5QIgcueal4FEg3TwJlZ/t0JW4i4A8y1grsuwe/oPQddHtIkwuN1o7O8w9IhIALohHq+6n3ug2EjsDHSwMiJl+SCXWDPLfECDRGQlYmmOOkg4D44/SqCFGnE2llXhyxUOpW1onuewKTFzlMIcgGBGRGt1uUEovhncc7GTRN2xPxj08twvoFmLfLlWSfPL5TQh2xioloTfIXYDkpt3pwrnGPy3l+592rt7Tnv7JflCvSYad9GuJmLPrm6cVKrHRuUq5qLH0O1JclQAMX2I7IntlLnfJPMvSq7I8oZAPIN4IxaycvgtJ0B5PwK8SfFN081LfX7Lm8a56wTTOU1/EWHf+yRvuDpRqllUtfgz/Vl2YUECl8FhrhZ4MMa+dBDyfGjdg9H9TSOsomIhpo9hfJPM5nqdUnef+A4JWc8p1FNd6eMy7LfrigreIogV6wNcV37lX6q6+cgzrFwvYU4oBVJHHpihtFJqNxwmnDG6yQVzhuUyBmhgOzWHGGSN2HeoNHMiG8DP90UsGxZStW+BhWUQQBGBblEbxHgzBP+YqwWQkhwrlm/k3ZW51VWE28P/Zczc5e+T5BsHmql7tE4yZAnoyKDfLQS1g/FczxJaJJcnHEJ20Ns6R9HAlQiRMzOJ19edmJ7e3gwetwaAFxVIbBR4IStdRvKbSJLInXKDzkJRWg3Yu7VbUqZIWl0RHyA21dC79B77UVldkgNoBsCW5gqXchbgj5s9ULgeIoYGXpjGQ/6E+WiBCf6i2OTsVI759pcm4uLIwykM4NYMCBfY5u9L13QmSgAaRgouiSl1tu/fzZi+G/qX9vI7wswRuvEdCG0LcmYvDxULnPRO5bLrdefmU9AiN2n85vuSSpr0QQwp93cHyG9BrQzDfZo9xxsiSBLuRX267cguXh5CimjC6NY85IZGsPoZLM4VGAE="
+        },
+        {
+          "type": "tool_use",
+          "id": "toolu_01GM1PJZ2sbHmtuaFp9n94FN",
+          "name": "ask_driver",
+          "input": {
+            "kind": "ACK",
+            "text": "Thanks, Kasper. Please keep the car stopped. A warning light going off does not mean the car is cleared to drive, and nobody has approved onward driving. The owner's decision is still pending and our coordinator will tell you the next step. If you can, please send the dashboard photo and the service-area name or a location pin."
+          },
+          "caller": {
+            "type": "direct"
+          }
+        },
+        {
+          "type": "tool_use",
+          "id": "toolu_012niKyaMNKKQFd1toeJv3km",
+          "name": "write_notes",
+          "input": {
+            "markdown": "- 09:00 driver (drv-319) asked if he can carry on to Hamburg since the warning light went off. Not cleared: no diagnosis, no owner decision (incident-x589908b2ed24936a, work-xbfed2fad876cbd13 due 09:15).\n- 08:40 customer asked to keep the car stopped and will check with its service contact.\n- I replied to the driver: stay stopped, photo and location requested. No permission given.\n- Open: dashboard photo (doc-condition-request-01), exact location, owner's recovery decision, delivery promise replan (promise 10:00-14:00 UTC; the ETA is stale). Shift lead owns it."
+          },
+          "caller": {
+            "type": "direct"
+          }
+        },
+        {
+          "type": "tool_use",
+          "id": "toolu_01PeYZNLuG1FuUcbTdP2ok87",
+          "name": "finish",
+          "input": {
+            "summary": "Driver asked to continue after the warning light went off. I told him to stay stopped, because nobody has cleared driving. Shift lead still owns the recovery decision, which was due 09:15.",
+            "waiting_on": "OPERATOR",
+            "next_check_at": "2026-10-21T09:15:00Z"
+          },
+          "caller": {
+            "type": "direct"
+          }
+        }
+      ],
+      "stop_reason": "tool_use",
+      "delay_ms": 6136
+    }
+  ]
+}

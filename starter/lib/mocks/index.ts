@@ -50,9 +50,9 @@ export function ferryCapacity(orderId: string, refresh: boolean, nowIso: string)
   }
 }
 
-/** Hours the driver can rest before a check-in cutoff. Six hours or more counts as enough for the demo. */
-export function driverRest(driverId: string, checkInCutoffAt: string, nowIso: string) {
-  const hours = (Date.parse(checkInCutoffAt) - Date.parse(nowIso)) / 3_600_000
+/** Hours the driver can rest between reaching the terminal and the cutoff. Six or more counts as enough for the demo. */
+export function driverRest(driverId: string, checkInCutoffAt: string, availableFrom: string) {
+  const hours = (Date.parse(checkInCutoffAt) - Date.parse(availableFrom)) / 3_600_000
   const restHours = Math.max(0, Math.round((hours - 1) * 10) / 10) // keep an hour for the drive to the gate
   return {
     mock: true,
