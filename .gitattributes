@@ -1,0 +1,7 @@
+# Keep Bahn's packet byte-exact on every clone. On Windows, line-ending
+# conversion changes bytes inside the attachments and breaks their hashes.
+attachments/** -text
+dataset/** -text
+*.pdf binary
+*.jpg binary
+*.webp binary
