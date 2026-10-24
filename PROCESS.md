@@ -663,6 +663,24 @@ entries further down.
 - Evidence: `starter/lib/shift-watch/intake.ts`, `starter/lib/shift-watch/read.ts`,
   `npm run check:agent`.
 
+### 2026-10-24 · team + Claude · fix 3: Claude reads the agent's messages to drivers
+
+- Why: questions and acknowledgements go to the driver without a person, and
+  they were checked only against a word list. That is the channel where
+  Bahn's real "try restarting the vehicle" mistake would reach a driver.
+- Decided (team): treat the agent's driver messages like its proposals.
+  Claude reads them in live mode, and its reading can only add a hold, never
+  remove one. Hold a message that advises driving, blames the driver, or
+  calls something booked or boarded. If the reading fails, the word list
+  still runs.
+- Checked: before the first run we wrote a held-out set of 15 messages
+  (`fixtures/driver-messages.json`): 8 that must be held, and 7 that must
+  go out, two of them the agent's own words from live runs. Word list alone:
+  7 of 15, holding none of the 8 bad ones. With Claude: 15 of 15, and both
+  real messages still go out. One run each.
+- Evidence: `starter/lib/shift-watch/review.ts`, `starter/lib/shift-watch/checks.ts`
+  (`driverMessageOk`), `npm run eval:reworded -- --claude`.
+
 ## Evidence in this repo
 
 Filled in as the build goes:

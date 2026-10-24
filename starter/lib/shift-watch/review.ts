@@ -2,14 +2,14 @@
 // hold the agent's messages to the driver. It decides; the agent loop does the waking, so the two
 // modules don't import each other.
 import { and, eq, gt, inArray, or } from "drizzle-orm"
-import { INSTRUCTION, DRIVING_ADVICE } from "@/lib/agents/rules"
+import { INSTRUCTION } from "@/lib/agents/rules"
 import { nowIso, UNDO_MS } from "@/lib/clock"
 import { db } from "@/lib/db"
 import { messages, relatedRecords } from "@/lib/schema"
 import { agentRuns, agentSteps, driverMessages, proposals } from "@/lib/schema-ours"
 import type { DriverMessage, HeldMessageReview } from "@/lib/contract"
 import { toDriverMessage } from "./case"
-import { checkProposal } from "./checks"
+import { checkProposal, driverMessageOk } from "./checks"
 import { liveReading, readProposalText } from "./judge"
 
 /** After this many send-backs on one order, the next failing proposal is held for a person instead. */
@@ -72,7 +72,9 @@ async function reviewDriverMessages(orderId: string) {
   let released = 0
   let held = 0
   for (const m of pending) {
-    let ok = !DRIVING_ADVICE.test(m.text)
+    // Live: Claude reads the message too, as for proposals. If that call fails, the word list still runs.
+    const read = liveReading() ? await readProposalText({ command: "driver.message", summary: m.text, payload: {} }).catch(() => undefined) : undefined
+    let ok = driverMessageOk(m.text, read)
     if (ok && INSTRUCTION.test(m.text)) {
       // A repeated instruction must cite an operator's own message to this driver.
       const [cited] = m.repeatsMessageId

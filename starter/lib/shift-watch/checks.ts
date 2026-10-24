@@ -109,6 +109,12 @@ export function checkProposal(p: CheckInput, read?: TextReading): CheckResult {
   }
 }
 
+/** An agent's message to a driver goes out without a person unless it advises driving, blames, or calls
+ *  something booked or boarded. The word list is the floor; Claude's reading (live) can only add. */
+export function driverMessageOk(text: string, read?: TextReading): boolean {
+  return !DRIVING_ADVICE.test(text) && !(read && (read.driving_advice || read.blames || read.claims_booked || read.claims_boarded))
+}
+
 /** Who may decide each approval level. */
 export function mayDecide(p: { approval: Proposal["approval"]; owner_desk: Desk }, reviewer: string): boolean {
   if (p.approval === "SHIFT_LEAD") return reviewer === "ops-shift"
