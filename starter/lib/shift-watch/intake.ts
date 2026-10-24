@@ -23,7 +23,10 @@ async function readByClaude(text: string): Promise<Reading> {
       type: "object", additionalProperties: false, required: ["language", "intent", "limit_minutes", "english"],
       properties: {
         language: { type: "string", description: "ISO 639-1 code of the message" },
-        intent: { type: "string", enum: ["SAFETY", "BOOKING_QUESTION", "EXPENSE_QUESTION", "KEYS_QUESTION", "ORDER"], description: "SAFETY if the driver, the car or anyone may be unsafe" },
+        intent: {
+          type: "string", enum: ["SAFETY", "BOOKING_QUESTION", "EXPENSE_QUESTION", "KEYS_QUESTION", "ORDER"],
+          description: "SAFETY: the driver, the car or anyone may be unsafe (warning light, breakdown, accident). BOOKING_QUESTION: the driver asks what is booked or for a booking reference. EXPENSE_QUESTION: the driver asks about a claim or payment. KEYS_QUESTION: the driver asks what to do with the keys. ORDER: anything else, including updates on their progress, delays, a missed time or a problem on the job; these go to the order's agent. A report that mentions a ferry or check-in is ORDER unless it asks what is booked.",
+        },
         limit_minutes: { type: ["integer", "null"], description: "Minutes the driver says they can still wait, if stated" },
         english: { type: ["string", "null"], description: "English translation, or null if already English" },
       },
