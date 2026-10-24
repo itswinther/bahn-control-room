@@ -416,6 +416,28 @@ Format for every entry:
 - Evidence: `starter/lib/shift-watch/queue.ts`, `starter/lib/shift-watch/decide.ts`,
   `starter/lib/shift-watch/intake.ts`.
 
+### 2026-10-24 · Mike + Claude · local time, the old booking, and keeping Sonnet
+
+- Decided (Mike): keep Sonnet 5.5 for the agent; `opus-agent` stays unmerged.
+  Times should be local to the country the driver is in. The fallback booking
+  was Claude's call, which Mike left open.
+- Changed:
+  - Drivers get every time in their local time ("by 11:15 Hamburg time").
+    The agent gets the zone with each driver message, and its prompt says to
+    convert before comparing. Operators stay in UTC.
+  - The demo line now reads the way a driver at the Hamburg terminal would
+    write it: "14:20 at check-in", which is 12:20 UTC. Re-recorded live; the
+    agent read it as "14:20 Hamburg (12:20 UTC)".
+  - Approving a new crossing no longer releases the old one at once. It is
+    kept until its own check-in closes, since the driver might still make
+    it, and then it counts as released.
+- Checked: the replay of the new recording failed at first. The recording
+  cited the driver's message by an id that is random per run, so the
+  evidence check refused it. That is the check working, but it would break
+  any recording that cites a driver message. Replay now maps such an id to
+  the order's latest driver message (marked as a shortcut in the code).
+- Evidence: `starter/lib/shift-watch/zone.ts`, `starter/recordings/ord-00603.DRIVER_MESSAGE.json`.
+
 _Teammate's earlier log (`AI-PROCESS.md` in the review bundle, 17 entries):
 merge its entries here._
 
