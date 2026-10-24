@@ -697,6 +697,24 @@ entries further down.
 - Evidence: `starter/lib/shift-watch/checks.ts` (`booksOrBuys`),
   `starter/lib/shift-watch/decide.ts`, `npm run check:agent`.
 
+### 2026-10-24 · team + Claude · fix 5: a fare Bahn's people would believe
+
+- Why: our mock 22:00 crossing for CD-420603 cost €45. The dataset's own
+  quote for the same carrier and route is €387. A Bahn operator watching the
+  demo would stop at that number.
+- Changed: both mock sailings now cost €390, and so does the frontend's
+  sample data. The demo's recording quoted the old fare, so we re-recorded
+  that one run live rather than edit a recorded run by hand.
+- Checked: we read the new run before keeping it. It made the same call: the
+  same evidence, the 22:00 crossing, the 08:00 one ruled out as too late,
+  keep the old booking, don't tell the driver to leave the queue. Shift Watch
+  passed it in live mode. Then we played the whole demo in replay from a
+  reset: driver line, proposal in the queue, approve with Bahn paying. It
+  booked the 22:00 crossing (mock), kept WBV-FERRY-00603 as a fallback until
+  12:00 UTC, and told the driver in Hamburg time.
+- Evidence: `starter/lib/mocks/index.ts`, `starter/recordings/ord-00603.DRIVER_MESSAGE.json`,
+  `starter/fixtures/order-agent.ts`.
+
 ## Evidence in this repo
 
 Filled in as the build goes:
