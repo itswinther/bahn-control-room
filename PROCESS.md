@@ -84,6 +84,154 @@ Format for every entry:
 - Evidence: <commit, file or output>
 ```
 
+### 2026-10-24 · team + Claude · understanding the problem, before the plan
+
+The first day's log, kept as it was written (19 entries). The scripts and files it names
+(`LOGISTICS-ISSUES.md`, `order.js`, `quiet.js`, the review bundle with `findings.json`) were
+written outside this repo. Its last two entries, the team plan and the plan check, are the
+entries further down.
+
+#### 1. Read the packet before building anything.
+- **Asked:** clone the repo, read the brief, `OPERATIONS-CONTEXT.md` and the dataset README, then list the common logistics issues as a markdown file.
+- **Checked:** Claude didn't just summarise the docs. It counted the real records (alerts, incidents, work items, proposals, conversation topics), so every issue in `LOGISTICS-ISSUES.md` points to a field and an example order.
+- **Didn't take the first answer:** the first version was built from the docs and data summaries only, and Claude said it hadn't opened the attachments. We asked it to.
+
+#### 2. Open every attachment, not a sample.
+- **Asked:** first a sample, then "open all to get a full view": 30 PDFs, 12 receipts and 16 photos.
+- **Checked:** rather than reading 58 files by eye, Claude extracted the PDF text with `pdftotext` and checked every file against the dataset: release driver vs assigned driver, paper date vs booked slot, receipt amount vs claim, photo vs the car on the order.
+- **What the full pass found that the sample missed:**
+  - two release papers dated after the pickup they authorise (ord-00725, ord-00958);
+  - a car marked delivered whose delivery photos show an empty forecourt (ord-00612);
+  - a corrected expense claim sharing a receipt with the original, a risk of paying twice (ord-00326).
+- **Held back:** Claude flagged ord-00020's pickup photo as possibly the wrong model of Porsche. Because the packet's images are generated, it marked this "needs human review" rather than calling it an error. We kept that hedge.
+
+#### 3. Tested our own idea, and dropped part of it.
+- **Our idea:** that the errors came from agents mis-parsing addresses and VINs. We also proposed blind double-typing with paste disabled, and addresses picked from a maps search.
+- **Checked:** Claude compared all 132 addresses with the original text the customer typed (`raw_input`). All 132 match, so nothing was mis-parsed. The bad address on ord-00023 was typed as just "Berlin". The missing VIN on ord-00009 came in through the API.
+- **Threw away:** double-typing. Most orders come from customers and the API, not staff, so there's no typist to target. Blocking paste makes 17-character VINs worse. The EU doesn't require the VIN check digit, so it can't be the validator.
+- **Kept, with changes:**
+  - Maps search: kept, but it must store how precise the match is and reject city-only matches. Dealer problems turned out to be about which entrance and who has the keys, not the street address.
+  - VINs: replaced double-typing with decoding the VIN against the stated make and model, plus scanning the VIN at pickup.
+
+#### 4. Questioned the starter's board.
+- **Asked:** look into "the board of lanes is not the answer".
+- **Checked:** Claude read `board.ts`, `attention.ts` and the mockups. It found that the only critical case (ord-00322, red warning light) sits in the 5th column, beyond the right edge of the board mockup at 1440px.
+- **Didn't take the first answer:** instead of accepting "43 need a person", Claude sorted the flagged orders by what they really need: about 10 need a decision, 13 need an agent to do legwork first, and 6 are owned by someone or waiting on others.
+- **Caveat we noted:** that split uses Claude's simplified version of the starter's logic, run on the data files, not the running app.
+
+#### 5. Checked what Bahn tells us about its agents.
+- **Asked:** do the files say which models, prompts or context Bahn's agents use?
+- **Answer:** no. There are only four agent records and the format of their proposals. The useful part is that format: evidence links, "recheck the current state before writing", and person review that keeps both the original and the edited payload.
+- **What we'll reuse:** on ord-00322, a person edited out the agent's "try restarting the vehicle" advice. That's a ready-made example of why approvals matter. We'll design our agent's output in the same shape.
+
+#### 6. Overseer agent idea: who escalates what, to whom.
+- **Asked:** the four challenge areas share the same root causes, so could one overseer agent decide what to escalate and to which level?
+- **Checked:** rather than design levels from scratch, Claude mapped who owns each open issue in the data: 11 human roles, plus owners on work items, alerts and incidents. It also read the 10 notes people wrote when reviewing agent proposals. Those notes act as Bahn's real approval rules (for example "don't say it's booked until it is", "no mechanical advice", "photos don't show who caused the damage").
+- **Found:** 9 open alerts have no owner, so assigning one is a natural first job for an overseer. Whether the agent may contact the seller or receiver depends on whether they're the paying customer. The brief doesn't settle that, so it's a question for Bahn.
+
+#### 7. Tested the escalation idea on one real order (ord-00458, seller hold on a Ferrari Roma).
+- **Asked:** read the starter's full API response for the order, the same data the order page uses.
+- **Found:**
+  - **One blocker counted five times:** an alert, a work item, two customer emails and a site call all describe the same problem.
+  - **Two days with no contact:** the customer reported the missing release on 19 Oct. Nobody called the pickup site until 21 Oct 08:34, and that call found the real problem: the seller had put a hold on the car over an unpaid invoice. A cheap agent call on 19 Oct would have found it two days earlier.
+  - **"High" severity didn't mean "a person must decide".** The case was waiting on the customer, with a check due at 10:00, so it belongs in "waiting", not "decide now".
+- **Didn't take at face value:** the customer's message "Der Ferrari Roma steht bei uns in der Filiale" means "the Ferrari Roma is at our branch". But the car is at a different dealer's site (Calverona, a separate customer account). We treat this as loose wording or a claim to check, not a fact.
+
+#### 8. A second order, the opposite of the first (ord-00347, Mercedes EQE, Hamburg to Aarhus).
+- **Found:** the alert is only "medium", but a real decision is due **10 minutes after the snapshot**: withdraw the live driver offer or keep it. Neither the car nor its keys can be found, the offer has been open for 6 days, and any driver could accept it and travel for nothing. The starter's headline says "Looking for a driver", which is the opposite of what should happen right now.
+- **Lesson:** paired with ord-00458 (high severity, nothing to decide), this shows that **alert severity doesn't predict urgency**. What matters is the deadline for the decision and the cost of getting it wrong. Severity can't be used to sort the queue.
+- **Root cause noted:** readiness was marked "confirmed" on 15 Oct, but the customer's handover sheet named a yard while the site profile said showroom. The dispatch agent published the offer on the strength of "confirmed". So **readiness confirmed doesn't mean the pickup location is confirmed**.
+- **Kept both orders as test cases** for the overseer: it should put 347 in "decide now" and 458 in "waiting".
+
+#### 9. The "missed ferry" chain (ord-00299, BMW M4, Leipzig to Helsinki).
+- **Checked the times rather than trusting the alert text.** The alert says the "customer promise needs a decision". But the later sailing arrives 25 Oct 16:00 UTC, about 43 hours before the 27 Oct delivery window. So no date change and no customer approval are needed. It's a travel-desk decision about cost: the €387 ferry plus one hotel night.
+- **Found that Bahn's agent asked permission for a lookup.** "Verify booking outcome" is just a read, so it needs no approval. But it was bundled with "review the later crossing with the customer", which does, so the whole proposal waited for review. Rule for our agent: **split proposals by approval level**.
+- **Found the root cause:** the driver accepted a ferry route on 19 Oct and nobody booked the ferry for 2 days. The **driver** found the gap. As with ord-00347, an outside party caught Bahn's mistake. Rule for the overseer: a ferry route with a driver assigned but no ferry booked gets flagged.
+- **Didn't take for granted:** the time from the Finnish ferry terminal to Helsinki isn't in the data, so the 43-hour margin is hedged.
+
+#### 10. A "quiet" delivered order with a hidden problem (ord-00194, Volvo V60, Lyon to Vantaa).
+- **Visible issue:** a small question about which reference is on the invoice.
+- **What Claude did beyond that:** lined up every expense claim's time and country against the journey events. It found two **approved** driver claims (fuel at 18 Oct 00:40 UTC, a toll at 18 Oct 18:01 UTC) recorded **in France**. At those times the car should have been at the Hamburg terminal or on the ferry. The toll receipt PDF opened in step 2 confirms "FRANCE, 18.10.2026 20:01". The ferry was never confirmed as used.
+- **Didn't jump to a conclusion:** this could be loose country data from the generator, or a real problem. Following the rule from ord-00055, the agent flags it and a person decides. The agent never decides who is at fault. "Payment recorded: false", so a hold before payout is still possible.
+- **Also found:** the gate turned the car away **12 minutes after** check-in closed (16 Oct). The €219 replacement ferry has no record of who pays.
+
+#### 11. New information from Bahn: GPS on some cars, plus pattern matching for route deviations.
+- **Checked what the packet has:** only coarse progress from the driver's phone app (distance remaining, ETA). There are no coordinates, the data covers 25 orders, and there are frequent gaps of 3–9 hours and uploads up to 3 hours late. ord-00194 has **no tracking at all**, so its expense mismatch can't be settled from the packet. In Bahn's real system, GPS would answer it in seconds.
+- **Treat it as another source, not as truth:** car GPS, the driver app, gate scans and what the driver says are four separate sources of evidence with different weight. A deviation is a reason to ask the driver first, not a diagnosis.
+- **Open questions for Bahn:** whose tracker is it (Bahn's or the carmaker's), how many cars have one, how often it reports, and what the rules are on privacy for freelance drivers.
+- **Scaled back after asking Bahn:** they said GPS triggers are small nudges, not a main focus. We dropped the idea of a GPS-centred demo (a simulated trace). GPS stays as one low-weight input to the overseer, a reason to ask the driver, and never escalates anything on its own. Claude's first suggestion was to make it a demo highlight. Bahn's answer overrode that.
+
+#### 12. New information from Bahn: they run one agent per order, which starts sub-agents (for example to book a flight).
+- **Reconciled with the packet:** the dataset's agents are split by job (dispatch, travel, monitor, copilot). Those best fit the *sub-agents* an order's agent calls on, not separate standalone agents.
+- **How the overseer changed:** it no longer does case work, because each order's agent already holds its own case. Its job becomes: (1) things no single order can see, such as shared sites, drivers on several jobs, bundles and ferry space; (2) deciding whose escalation reaches a person first; (3) checking in on stalled agents. Each of our four test orders shows a stall the overseer would catch.
+- **Design choice:** order agents report a structured status (waiting on, next check, decision deadline, proposed actions with their approval level). The overseer reads that, so there's no chatty back-and-forth between agents. The overseer is mostly rules, with the language model used only to summarise.
+
+#### 13. We have no access to Bahn's order agents. Their records stand in for their status.
+- **Checked:** the repo contains no agent code, only four agent records and the proposals they produced. The starter doesn't include an agent.
+- **Decision:** the overseer works out each order's status from the packet (waiting on, next check, deadlines, pending proposals, last activity, shared site or driver). It runs on the data alone. We build **one real agent** ourselves, with mocked tools, which writes proposals in Bahn's format. Check-ins actually trigger our agent. On every other order, the nudge goes to the owning desk.
+- **Leaning towards ord-00299 (ferry)** for the real agent: the most steps, and one money decision at the end.
+
+#### 14. The safety stop and the cross-order cluster, pulled straight from the data.
+- **Tooling:** Claude wrote a small script, `order.js`, that dumps every record linked to an order, so we no longer paste API output by hand.
+- **ord-00322 (Bentley, red warning light):**
+  - **Nobody knows where the car is.** The driver said "service-area car park". The last app reading was at 05:00, 233 km from Hamburg, 3 hours before the stop. The agent asked for a location pin at 08:37, and the driver replied without one.
+  - **The dashboard photo was never actually requested**, even though the driver offered it at 08:22. The edited agent message only asked for the location.
+  - **A tracking-gap alert at 05:16 went unanswered for 3 hours.**
+  - **The driver has been on duty about 26 hours, including overnight**, and is now stranded far from home in Munich.
+  - **The delivery yard belongs to the customer**, so telling it "the car isn't coming today" counts as contacting the customer.
+- **The cluster:** the Driver marketplace desk has **four decisions due between 09:10 and 09:20**: ord-00347, 00689, 00941 and 00992. The overseer's job is to order them by deadline and consequence:
+  - ord-00689 has a pickup **tomorrow with no driver**;
+  - ord-00992's pickup depends on the same driver finishing another order (ord-00735);
+  - ord-00154's uncertain ferry affects the same Marseille release desk as ord-00689.
+- **Decision:** the "too many decisions due at once" view is the overseer's main demo moment. No single order's agent can see it.
+
+#### 15. Checked the quiet orders for accuracy, then the two driver-availability cases.
+- **Built `quiet.js`:** it runs every hidden-problem check we'd found across all 100 orders.
+- **The first run flagged 24 of the 66 quiet orders. We checked each flag by hand, and three rules turned out to be noise:**
+  - **"Offer expires before the slot"** fired on **9 of 9** market orders. That's just the normal booking cutoff.
+  - **"No signed release yet"** fired a day or two ahead. In every case in the data, the release is verified 1.3–2 h before the slot.
+  - **"App ETA after the promise"** fired on ord-00439 for a 40-minute overrun five days out. The **starter itself would show this one in red.**
+- **After fixing those rules, 17 are flagged.** Most are cheap agent work or a batch backlog. Only about 4 need a person soon. We **kept these false alarms in the log** because they show how we tuned the rules.
+- **ord-00449:** the ill driver's train leaves **85 minutes after the snapshot**. Bahn has paid for a train, a flight and a hotel, and the slot can't be saved by a later flight. So the real deadline is the train, not tomorrow's pickup. Nobody has flagged this.
+- **ord-00399:** the driver (still on ord-00326, whose ETA is slipping) can't make a 1-hour slot. But the customer's own availability runs until 17:00 local, and the site is open until then. An afternoon pickup could work without a new agreement from the customer, though the release paper would need reissuing.
+
+#### 16. The delivery handovers (ord-00437, ord-00164) and the yard relay (ord-00702).
+- **ord-00437 (Bentley to a third-party business in Munich, delivery today):**
+  - The access hours were corrected to 18:00 local, but **nobody is authorised to sign**. A contact named on the order (Celia Hollowmere) has been unconfirmed since 15 Oct.
+  - The ETA has slipped to 13:58 UTC against a 14:00 promise end.
+  - The pickup photos haven't been reviewed, and the receiver will inspect the car on arrival.
+  - **Rule found:** a place can tell us *about access*, but only the customer can grant *authority to sign*.
+- **ord-00164 (delivered 12 Oct, signed handover missing):**
+  - The delivery site belongs to the **customer**, so the signature should be at the customer's own reception.
+  - The work item has been overdue for about 45 h, with no message to the driver or the site, and the customer has chased twice.
+  - The delivery photos have been unreviewed for 9 days.
+- **ord-00702 (relay through a yard):**
+  - The second driver warned only **13 minutes before** the yard's release cutoff. A check before the slot would have caught it hours earlier.
+  - The yard is open 09:00–17:00 tomorrow, but the chosen slot is only 09:00–11:00. That's the same "narrower than available" pattern as ord-00399.
+  - The final delivery is in the **same city** as the yard. So a realistic new date is simply tomorrow, which the agent could propose, but only once a driver is booked.
+- **Pattern found:** Calverona appears in 3 test orders, as a seller's hold site (ord-00458), a pickup site (ord-00399) and a customer (ord-00437). An account-level view is something only the overseer could provide.
+
+#### 17. Put everything into a review bundle for a second person.
+- **Why:** we wanted a read that isn't anchored on ours. The review page asks the reviewer to push back on specific lines (levels, deadlines, contact rules, thresholds) rather than approve it as a whole.
+- **What's in it:** the bundle includes the scripts, so every number can be re-run. Its "Limits" section lists what we didn't check.
+- **Made it readable by AI as well as people:** `findings.json` is the one source of truth, and every claim is tagged with how sure we are: verified in the data, computed, estimate or inference. `REVIEW.md` is *generated* from it, so the two can't drift apart. `AGENTS.md` tells an AI reviewer how to verify claims and asks for replies in a fixed JSON format.
+- **Checked the citations by script:** a check confirmed that all 46 record IDs and 48 order IDs cited in the JSON exist in the dataset. That guards against made-up references.
+
+#### 18. Built demo and test cases on the before/after replay idea.
+- **The idea:** we can't reach Bahn's order agents, so "before" is what happened in the data and "after" is our agent rerun from an earlier cut-off time. Replies to our agent come from the real messages sent after the cut-off.
+- **What we built:** 26 cases.
+  - 11 replays. The strongest catch a problem while the driver is still on site: wrong-car photos (ord-00071) and a missing signature (ord-00164).
+  - 3 overseer tests.
+  - 4 controls that must stay quiet.
+  - 8 guardrails using invented messages: an address change by email, keys left unattended, a taxi cost, hidden instructions in a message, "can I drive on?", health details, and a question that tempts the agent to leak another customer's job.
+- **Checked by script:** all 43 IDs exist, and every replayed reply is timestamped after its cut-off, so there's no future leak. We also caught a possible error: the guardrail's route direction was checked against the order's pickup and delivery addresses.
+
+#### 19. Talked to Bahn and revised the plan.
+- **Confirmed:** an overseer that ties the four areas together counts for Part 2. Driver chat is handled only by people today, and support sits in Intercom. Operations should feel like they're talking to one agent. Scaling is the real technical question. Cost isn't graded.
+- **Corrected one of our claims:** Bahn said problems that span several orders are "not super common". We had called links between orders the overseer's unique value. We split that into two things: ranking people's attention across orders is needed on every shift, while problems that genuinely span orders are a secondary feature.
+- **New insight:** Bahn's order agents schedule follow-ups at a fixed interval (two days in their example). That explains the 44-hour stall on ord-00458. We added a rule: time follow-ups from the decision deadline.
+- **Our answer to scaling:** order agents publish a small status, the overseer runs rules over all of them and calls the model only for cases that cross a threshold, and the work is split by desk or region.
+
 ### 2026-10-24 · team + Claude · reading the packet
 
 - Asked: read the brief, operations context, dataset README, schema and every
@@ -151,7 +299,7 @@ Format for every entry:
   later: it is flagged, so the pitch line says "3 more".
 - Evidence: decision 7.
 
-### 2026-10-24 · Mike + Claude · Backend 1 contract
+### 2026-10-24 · team + Claude · Backend 1 contract
 
 - Asked: draft the shared contract, our tables and sample data (checkpoint 0).
 - Checked: `npm run typecheck`; `drizzle-kit export` creates our 6 tables next
@@ -168,7 +316,7 @@ Format for every entry:
 - Evidence: `starter/lib/contract.ts`, `starter/lib/schema-ours.ts`,
   `starter/fixtures/order-agent.ts`.
 
-### 2026-10-24 · Mike + Claude · Backend 1 agent loop (checkpoint A)
+### 2026-10-24 · team + Claude · Backend 1 agent loop (checkpoint A)
 
 - Asked: build the order agent's Claude tool loop, its first tools, the ferry
   and rest mocks, the demo clock and the two agent routes.
@@ -183,7 +331,7 @@ Format for every entry:
   so it can't invent a source. Not yet live-tested: needs an API key.
 - Evidence: `starter/lib/agents/`, `starter/scripts/check-agent-rules.ts`.
 
-### 2026-10-24 · Mike + Claude · replay mode and a subagent test
+### 2026-10-24 · team + Claude · replay mode and a subagent test
 
 - Asked: run a simulated version without an API key, have a separate agent
   test it end to end, and continue checkpoint B.
@@ -203,7 +351,7 @@ Format for every entry:
   adapt, so it is only valid from the state it was recorded in.
 - Evidence: `starter/recordings/`, `starter/lib/agents/model.ts`.
 
-### 2026-10-24 · Mike + Claude · first live runs on Sonnet 5.5
+### 2026-10-24 · team + Claude · first live runs on Sonnet 5.5
 
 - Asked: run the agent live on CD-420603, 420299, 420322 and 420593 and record
   each run for replay.
@@ -224,7 +372,7 @@ Format for every entry:
   happen naturally: open for the team.
 - Evidence: `starter/recordings/` (live, Sonnet 5.5).
 
-### 2026-10-24 · Mike + Claude · team calls after the live runs
+### 2026-10-24 · team + Claude · team calls after the live runs
 
 - Asked: three calls the live runs raised.
 - Changed or threw away: the staged "careless agent" run for CD-420603. The
@@ -240,7 +388,7 @@ Format for every entry:
   support desk's 08:13 message. Progress notes are sparse (about one per run).
 - Evidence: `starter/lib/agents/rules.ts`, `starter/recordings/`.
 
-### 2026-10-24 · Mike + Claude · scripted demo driver
+### 2026-10-24 · team + Claude · scripted demo driver
 
 - Asked: build the scripted driver for the video.
 - Checked: ran it against replay: the message lands on the demo clock, the
@@ -253,7 +401,7 @@ Format for every entry:
   `--direct` mode that stands in for Shift Watch's intake until it lands.
 - Evidence: `starter/scripts/demo-driver.ts`, `starter/app/api/clock/`.
 
-### 2026-10-24 · Mike + Claude · Shift Watch's proposal checks (Backend 2)
+### 2026-10-24 · team + Claude · Shift Watch's proposal checks (Backend 2)
 
 - Asked: build Shift Watch's seven checks and replay Bahn's 14 recorded
   proposals through them.
@@ -271,7 +419,7 @@ Format for every entry:
   up in `travel_options`.
 - Evidence: `starter/lib/shift-watch/checks.ts`, `npm run eval:proposals`.
 
-### 2026-10-24 · Mike + Claude · Shift Watch reviews each run
+### 2026-10-24 · team + Claude · Shift Watch reviews each run
 
 - Asked: wire the checks to the agent's output.
 - Checked: replayed the four live runs through the server. All four proposals
@@ -286,7 +434,7 @@ Format for every entry:
   a person, so agent and Shift Watch can't bounce forever.
 - Evidence: `starter/lib/shift-watch/review.ts`.
 
-### 2026-10-24 · Mike + Claude · the queue and the case view's data
+### 2026-10-24 · team + Claude · the queue and the case view's data
 
 - Asked: build the queue and case routes the frontend needs.
 - Checked: on the snapshot with the four live runs replayed, the queue lists 25
@@ -304,7 +452,7 @@ Format for every entry:
   model; a Claude-written version is optional later.
 - Evidence: `starter/lib/shift-watch/queue.ts`, `starter/lib/shift-watch/case.ts`.
 
-### 2026-10-24 · Mike + Claude · what happens after Approve
+### 2026-10-24 · team + Claude · what happens after Approve
 
 - Asked: build approve, edit and reject, and carry the decision out.
 - Checked: end to end on the four replayed proposals. The wrong desk gets 403,
@@ -320,7 +468,7 @@ Format for every entry:
   cited evidence when the payload doesn't name it clearly.
 - Evidence: `starter/lib/shift-watch/decide.ts`.
 
-### 2026-10-24 · Mike + Claude · driver messages in (demo beat 1)
+### 2026-10-24 · team + Claude · driver messages in (demo beat 1)
 
 - Asked: the front door for drivers. Match a message to the driver's job,
   answer at once with a "you'll hear back by" time, answer routine questions
@@ -341,7 +489,7 @@ Format for every entry:
 - Evidence: `starter/lib/shift-watch/intake.ts`, `starter/lib/shift-watch/read.ts`,
   `starter/app/api/driver/`.
 
-### 2026-10-24 · teammate + Mike + Claude · acting on a code review
+### 2026-10-24 · team + Claude · acting on a teammate's code review
 
 - Asked: a teammate reviewed Backend 1 and 2 at `3feb634` against the plan and
   found six gaps. Claude checked every claim in the code before fixing
@@ -370,7 +518,7 @@ Format for every entry:
   eval:reworded`, `starter/lib/shift-watch/chat.ts`,
   `starter/lib/shift-watch/decide.ts`.
 
-### 2026-10-24 · Mike + Claude · stress tests, undo, and Sonnet against Opus
+### 2026-10-24 · team + Claude · stress tests, undo, and Sonnet against Opus
 
 - Asked: more test runs to find issues; then undo; then two things for the
   control-room criterion: why the agent stopped, and what happens if nobody
@@ -416,11 +564,11 @@ Format for every entry:
 - Evidence: `starter/lib/shift-watch/queue.ts`, `starter/lib/shift-watch/decide.ts`,
   `starter/lib/shift-watch/intake.ts`.
 
-### 2026-10-24 · Mike + Claude · local time, the old booking, and keeping Sonnet
+### 2026-10-24 · team + Claude · local time, the old booking, and keeping Sonnet
 
-- Decided (Mike): keep Sonnet 5.5 for the agent; `opus-agent` stays unmerged.
+- Decided (team): keep Sonnet 5.5 for the agent; `opus-agent` stays unmerged.
   Times should be local to the country the driver is in. The fallback booking
-  was Claude's call, which Mike left open.
+  was Claude's call, which the team left open.
 - Changed:
   - Drivers get every time in their local time ("by 11:15 Hamburg time").
     The agent gets the zone with each driver message, and its prompt says to
@@ -437,9 +585,6 @@ Format for every entry:
   any recording that cites a driver message. Replay now maps such an id to
   the order's latest driver message (marked as a shortcut in the code).
 - Evidence: `starter/lib/shift-watch/zone.ts`, `starter/recordings/ord-00603.DRIVER_MESSAGE.json`.
-
-_Teammate's earlier log (`AI-PROCESS.md` in the review bundle, 17 entries):
-merge its entries here._
 
 ## Evidence in this repo
 
