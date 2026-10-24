@@ -146,6 +146,21 @@ Format for every entry:
 - Evidence: `starter/lib/contract.ts`, `starter/lib/schema-ours.ts`,
   `starter/fixtures/order-agent.ts`.
 
+### 2026-10-24 · Mike + Claude · Backend 1 agent loop (checkpoint A)
+
+- Asked: build the order agent's Claude tool loop, its first tools, the ferry
+  and rest mocks, the demo clock and the two agent routes.
+- Checked: `npm run typecheck`; `scripts/check-agent-rules.ts` asserts who
+  approves each kind of proposal and the mock results. Claude reviewed its own
+  loop and found two bugs before any run: once the 12-call cap was hit it could
+  loop forever, and two runs could start on the same order. Both fixed.
+- Changed or threw away: a hand-written loop instead of the SDK's tool runner,
+  so every call is saved as a step and the cap is enforced in code. The
+  approval level and owning desk are set in code from the command, never by
+  the agent. A proposal may only cite record ids the agent read in that run,
+  so it can't invent a source. Not yet live-tested: needs an API key.
+- Evidence: `starter/lib/agents/`, `starter/scripts/check-agent-rules.ts`.
+
 _Teammate's earlier log (`AI-PROCESS.md` in the review bundle, 17 entries):
 merge its entries here._
 
