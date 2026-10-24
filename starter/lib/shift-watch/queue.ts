@@ -1,11 +1,11 @@
 // The decision queue: what needs a person now, worked out by rules on every request against the
 // demo clock, so it still works when the agents are down. Safety first, then earliest deadline.
-import { eq, inArray } from "drizzle-orm"
+import { and, eq, inArray } from "drizzle-orm"
 import type { Desk, QueueItem, QueueResponse } from "@/lib/contract"
 import { nowIso } from "@/lib/clock"
 import { db } from "@/lib/db"
 import { alerts, conversations, orders, relatedRecords } from "@/lib/schema"
-import { agentSteps, driverMessages, orderStatus, proposals } from "@/lib/schema-ours"
+import { agentRuns, agentSteps, driverMessages, orderStatus, proposals } from "@/lib/schema-ours"
 
 type Row = Record<string, unknown>
 const s = (v: unknown) => (typeof v === "string" ? v : null)
@@ -21,6 +21,9 @@ const deskFor = (signal: string): Desk => DESK_BY_SIGNAL.find(([re]) => re.test(
 
 /** Tools whose results are worth showing as "already checked" on a card. */
 const SHOWN_TOOLS = new Set(["check_ferry_capacity", "check_driver_rest", "check_booking_outcome", "ask_site", "ask_driver"])
+
+/** Bahn's lookup commands, and the agent tool that does the same lookup. */
+const DONE_BY: [RegExp, string][] = [[/^travel\.refresh_/, "check_ferry_capacity"], [/verify_booking_outcome$/, "check_booking_outcome"]]
 
 type Reason = { text: string; owner: Desk; deadline: string | null; deadlineReason: string | null }
 
@@ -46,6 +49,9 @@ export async function buildQueue(): Promise<QueueResponse> {
     db.select().from(orderStatus),
   ])
   const chat = await db.select().from(driverMessages).orderBy(driverMessages.createdAt)
+  const lookups = await db.select({ orderId: agentRuns.orderId, tool: agentSteps.tool, at: agentSteps.at }).from(agentSteps)
+    .innerJoin(agentRuns, eq(agentRuns.id, agentSteps.runId))
+    .where(and(eq(agentSteps.kind, "TOOL_CALL"), inArray(agentSteps.tool, DONE_BY.map(([, tool]) => tool))))
   const ref = new Map(orderRows.map((o) => [o.id, o.reference]))
   const byOrder = (collection: string) => {
     const map = new Map<string, Row[]>()
@@ -75,9 +81,15 @@ export async function buildQueue(): Promise<QueueResponse> {
     if (owner) continue
     add(a.orderId, { text: `Alert with no owner: ${label(a.signal)}. Routed to ${DESK_NAME[deskFor(a.signal)]}.`, owner: deskFor(a.signal), deadline: null, deadlineReason: null })
   }
+  // An approved lookup Bahn never ran is done once our agent has run the same check since.
+  const ranSince = (orderId: string, command: string, since: string) => {
+    const tool = DONE_BY.find(([re]) => re.test(command))?.[1]
+    return !!tool && lookups.some((l) => l.orderId === orderId && l.tool === tool && l.at > since)
+  }
   for (const [orderId, list] of bahnProposals) for (const p of list) {
     const reviewedAt = s((p.review as Row | null)?.reviewed_at)
     if (p.status !== "APPROVED_AWAITING_EXECUTION" || !reviewedAt || nowMs - Date.parse(reviewedAt) < 15 * MINUTE) continue
+    if (ranSince(orderId, String(p.command), reviewedAt)) continue
     add(orderId, { text: `Approved at ${when(reviewedAt, now)} but not carried out: ${s(p.summary)}`, owner: (s((p.review as Row).reviewer_id) as Desk) ?? "ops-shift", deadline: reviewedAt, deadlineReason: "Approved, waiting to run" })
   }
   for (const c of threadRows) {

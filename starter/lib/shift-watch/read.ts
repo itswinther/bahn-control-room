@@ -12,6 +12,7 @@ export function readByRules(text: string): Reading {
     : /\b(paid|payout|expense|claim|receipt|reimburse)\b/.test(t) ? "EXPENSE_QUESTION"
     : /\bkeys?\b/.test(t) ? "KEYS_QUESTION"
     : "ORDER"
-  const limit = t.match(/(\d+)\s*(more\s*)?(min|minutes)\b/)
-  return { language: "en", intent, limit_minutes: limit ? Number(limit[1]) : null, english: null }
+  // A waiting limit ("30 more minutes", "can wait 20 minutes"), not a delay ("20 minutes late").
+  const limit = t.match(/(\d+)\s*more\s*min(ute)?s?\b|\b(?:wait|another|up to)\s*(\d+)\s*min(ute)?s?\b/)
+  return { language: "en", intent, limit_minutes: limit ? Number(limit[1] ?? limit[3]) : null, english: null }
 }

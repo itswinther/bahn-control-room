@@ -68,7 +68,10 @@ export function driverRest(driverId: string, checkInCutoffAt: string, availableF
  * booking, so a retry after a timeout can't book twice.
  */
 // shortcut: kept in memory, so a server restart forgets keys; a real carrier API keeps them server-side.
-const bookings = new Map<string, { reference: string; option: FerryOption }>()
+// On globalThis so every route sees the same store, as with the demo clock.
+const store = globalThis as { __mockBookings?: Map<string, { reference: string; option: FerryOption }> }
+const bookings = (store.__mockBookings ??= new Map())
+export const clearBookings = () => bookings.clear()
 export function bookFerry(orderId: string, optionId: string, key: string, nowIso: string) {
   const done = bookings.get(key)
   if (done) return { mock: true, ok: true as const, ...done, repeated: true }

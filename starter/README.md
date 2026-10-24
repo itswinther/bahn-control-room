@@ -1,3 +1,72 @@
+# Shift Watch
+
+Our entry builds on Bahn's starter below. It adds:
+
+- **An order agent per order:** Claude with tools, which proposes one step at a time.
+- **Shift Watch:** it checks every proposal, answers drivers, and keeps one decision queue for the people on shift.
+
+Everything runs without an API key: by default, agent runs are replayed from recordings of live Sonnet 5.5 runs.
+
+## Run it from a fresh clone
+
+You need Node.js 24 or later and Docker. From `starter/`:
+
+```sh
+cp .env.example .env
+npm ci
+docker compose up -d --wait
+npm run db:push           # Bahn's tables plus our six
+npm run db:seed
+npm run attachments:seed
+npm run dev               # http://localhost:3000, replay mode
+```
+
+Then play the demo case, CD-420603. Its driver is stuck in the ferry queue:
+
+```sh
+curl -X POST http://localhost:3000/api/clock   # restart the demo at 21 Oct 09:00 UTC
+npm run demo:driver -- ord-00603              # the driver writes in
+```
+
+1. Shift Watch answers the driver at once.
+2. The agent's recorded run proposes the 22:00 crossing.
+3. The proposal shows up in `GET /api/queue`.
+4. Approve it with `POST /api/proposals/:id/decision`. Send `{ "decision": "APPROVED", "reviewer": "ops-travel", "who_pays": "BAHN" }`.
+
+`POST /api/clock` clears our tables and starts the demo again. Each recording plays once per reset.
+
+## Check it
+
+```sh
+npm run typecheck
+npm run check:agent        # the rules enforced in code
+npm run eval:proposals     # Bahn's 14 recorded proposals through Shift Watch: 14 of 14
+npm run eval:reworded      # held-out reworded mistakes: rules alone (add -- --claude with a key)
+```
+
+## Live mode
+
+Set these in `.env`:
+
+- `AGENT_MODE=live`
+- `ANTHROPIC_API_KEY=...`
+- `AGENT_MODEL` (default `claude-sonnet-5-5`)
+
+In live mode:
+
+- Agents run live.
+- Shift Watch also has Claude read each proposal's text and each driver's message, in any language.
+- The operator chat (`POST /api/shift-watch/chat`) works. It needs a key even in replay mode.
+
+To re-record the demo runs:
+
+1. Add `RECORD=1` to `.env` and start `npm run dev`.
+2. Run `npm run record`. It overwrites `recordings/`, so read each run before committing it.
+
+How the agent and Shift Watch work, and what they may and may not do, is in `lib/agents/README.md` and `../PROCESS.md`.
+
+---
+
 # Optional Control Room starter
 
 This is a small read-only starting point for the Car Delivery Control Room challenge. It uses Next.js with TypeScript, Postgres, Drizzle and Next.js API routes. The database comes from the fictional dataset in `../dataset/data`. No live Bahn system is connected.

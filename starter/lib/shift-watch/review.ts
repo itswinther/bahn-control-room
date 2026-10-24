@@ -8,6 +8,7 @@ import { db } from "@/lib/db"
 import { messages, relatedRecords } from "@/lib/schema"
 import { agentRuns, agentSteps, driverMessages, proposals } from "@/lib/schema-ours"
 import { checkProposal } from "./checks"
+import { liveReading, readProposalText } from "./judge"
 
 /** After this many send-backs on one order, the next failing proposal is held for a person instead. */
 const MAX_SEND_BACKS = 2
@@ -43,11 +44,13 @@ async function reviewProposals(orderId: string): Promise<ReviewOutcome["sendBack
   const sentBack = (await db.select({ id: proposals.id }).from(proposals).where(and(eq(proposals.orderId, orderId), eq(proposals.status, "SENT_BACK")))).length
   let sendBack: ReviewOutcome["sendBack"] = null
   for (const p of pending) {
+    // Live: Claude also reads the text. If that call fails, the rules still run on their own.
+    const read = liveReading() ? await readProposalText(p).catch(() => undefined) : undefined
     const result = checkProposal({
       command: p.command, summary: p.summary, payload: p.payload, created_at: p.createdAt,
       evidence: p.evidenceRefs.map((e) => ({ table: e.table, id: e.id, observed_at: e.observed_at })),
       failures, outcomeCheckedSince: (iso) => checkedAt.some((at) => at > iso),
-    })
+    }, read)
     let outcome = result.outcome
     const reasons = [...result.reasons]
     if (outcome === "SEND_BACK" && sentBack >= MAX_SEND_BACKS) {

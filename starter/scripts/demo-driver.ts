@@ -19,10 +19,10 @@ type Line = {
 }
 
 const DEMOS: Record<string, Line[]> = {
-  // Team plan, "One case, step by step": the CD-420603 driver in the terminal queue.
+  // Team plan, "One case, step by step": the CD-420603 driver in the terminal queue. One line only: a
+  // second message would wake the agent again, and its recording only fits the snapshot state.
   "ord-00603": [
     { driver_id: "drv-121", order_id: "ord-00603", after_s: 5, text: "Still in the queue. Navigation now says 12:20 at check-in." },
-    { driver_id: "drv-121", order_id: "ord-00603", wait_for_reply: true, text: "Thanks. I'll stay in the queue until you tell me." },
   ],
 }
 
@@ -45,7 +45,7 @@ async function send(line: Line) {
   if (!direct) {
     const res = await fetch(`${base}/api/driver/messages`, {
       method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ driver_id: line.driver_id, text: line.text }),
+      body: JSON.stringify({ driver_id: line.driver_id, text: line.text, simulated: true }),
     })
     if (res.status === 404) throw new Error("POST /api/driver/messages doesn't exist yet. Use --direct until Shift Watch's intake is built.")
     return `${res.status} ${await res.text()}`

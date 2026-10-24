@@ -13,6 +13,16 @@ const BOOKING_OUTCOMES: Record<string, { found: boolean; detail: string }> = {
   "ord-00299": { found: false, detail: "No booking or hold exists for the 07:10 request. The 24 Oct 12:00 sailing still shows vehicle space at EUR 387." },
 }
 
+const CHANGE_OUTCOMES: Record<string, { confirmed: boolean; detail: string }> = {
+  // CD-420603: the 08:43 request to move WBV-FERRY-00603 to a later crossing.
+  "ord-00603": { confirmed: false, detail: "The carrier desk has not moved WBV-FERRY-00603. The 08:43 request for a later crossing is still open." },
+}
+
+/** Whether a change already requested from the carrier went through (mock). */
+export function changeOutcome(orderId: string) {
+  return { mock: true, ...(CHANGE_OUTCOMES[orderId] ?? { confirmed: false, detail: "The carrier has no change recorded on this booking." }) }
+}
+
 export function siteReply(orderId: string, siteId: string) {
   const answer = SITE_REPLIES[`${orderId}:${siteId}`]
   return answer ? { mock: true, answered: true, answer } : { mock: true, answered: false, answer: "No answer yet. Try again later." }

@@ -1,5 +1,5 @@
 import type { BetaMessageParam, BetaToolResultBlockParam, BetaToolUseBlock } from "@anthropic-ai/sdk/resources/beta/messages/messages"
-import { eq } from "drizzle-orm"
+import { and, eq, ne } from "drizzle-orm"
 import type { AgentRun, AgentStep, RunRequest } from "@/lib/contract"
 import { nowIso } from "@/lib/clock"
 import { db } from "@/lib/db"
@@ -97,6 +97,11 @@ export async function runOrderAgent(runId: string, req: RunRequest): Promise<voi
   }
 
   await step("WAKE", null, {}, `${req.reason}: ${req.reason_detail}`)
+
+  // A recording is only valid from the state it was recorded in, so each one plays once per demo reset.
+  const replayed = agentMode() !== "live" && (await db.select({ id: agentRuns.id }).from(agentRuns)
+    .where(and(eq(agentRuns.orderId, req.order_id), eq(agentRuns.reason, req.reason), ne(agentRuns.id, runId))).limit(1)).length > 0
+  if (replayed) return void (await end("STOPPED", `The ${req.reason} recording for ${req.order_id} already played since the demo reset`))
 
   const source: ModelSource | null = agentMode() === "live"
     ? liveSource({ model: MODEL, system: SYSTEM, tools: toolDefs, orderId: req.order_id, reason: req.reason, record: process.env.RECORD === "1" })

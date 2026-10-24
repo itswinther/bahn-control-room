@@ -33,7 +33,7 @@ export function tableFor(id: string, fallback: string): string {
 // out without a person; anything that tells the driver what to do with the car needs a proposal.
 
 /** Advice about driving or fixing the car. No trailing \b, so "restarting" matches: Bahn's real mistake was "Try restarting the vehicle". */
-export const DRIVING_ADVICE = /\b(restart|re-start|drive on|keep driving|continue driving|carry on|safe to drive|you can drive|turn (it|the engine) (off and on|back on)|reset)/i
+export const DRIVING_ADVICE = /\b(restart|re-start|drive on|keep driving|continue driving|carry on|safe to drive|you can drive|turn (it|the engine) (off and on|back on)|reset (it|the (car|engine|ecu|warning|fault|light|system)))/i
 
 /** Telling the driver what to do. Allowed only when repeating an instruction a person already gave. */
 export const INSTRUCTION = /\b(please (keep|stay|wait|leave|go|don't|do not)|keep the car|stay (at|where|put)|don't|do not|wait (at|for|here))\b/i

@@ -2,6 +2,7 @@
 // agents. Pure functions: they run the same on our agent's proposals and on Bahn's 14 recorded ones.
 import type { Approval, Check, CheckName, CheckOutcome, Desk, Proposal } from "@/lib/contract"
 import { DRIVING_ADVICE, route } from "@/lib/agents/rules"
+import { nowIso } from "@/lib/clock"
 
 export type CheckEvidence = { table: string; id: string; observed_at: string | null }
 
@@ -18,6 +19,9 @@ export type CheckInput = {
 }
 
 export type CheckResult = Check & { approval: Approval }
+
+/** What a model read in the proposal's text (live mode only). It can add flags, never remove them. */
+export type TextReading = { blames: boolean; driving_advice: boolean; contacts_customer: boolean; claims_booked: boolean; claims_boarded: boolean }
 
 const FRESH_MINUTES = 30
 
@@ -48,7 +52,7 @@ function hasLookup(p: CheckInput): boolean {
   return Object.entries(p.payload).some(([k, v]) => LOOKUP_KEY.test(k) && v === true)
 }
 
-export function checkProposal(p: CheckInput): CheckResult {
+export function checkProposal(p: CheckInput, read?: TextReading): CheckResult {
   const reasons: { check: CheckName; message: string; outcome: CheckOutcome }[] = []
   const add = (check: CheckName, outcome: CheckOutcome, message: string) => reasons.push({ check, outcome, message })
   const text = `${p.summary} ${words(p.payload)}`
@@ -67,17 +71,17 @@ export function checkProposal(p: CheckInput): CheckResult {
   }
 
   // CD-420020: "Keep boarding unconfirmed." Booked or boarded needs a reservation or gate record.
-  const claimsBoarded = Object.entries(p.payload).some(([k, v]) => /boarding_confirmed|mark_boarded/.test(k) && v === true) || /\b(has boarded|boarding (is )?confirmed)\b/i.test(p.summary)
-  const claimsBooked = Object.entries(p.payload).some(([k, v]) => /booking_confirmed|mark_booked/.test(k) && v === true) || /\b(is|was) (already )?booked\b/i.test(p.summary)
+  const claimsBoarded = Object.entries(p.payload).some(([k, v]) => /boarding_confirmed|mark_boarded/.test(k) && v === true) || /\b(has boarded|boarding (is )?confirmed)\b/i.test(p.summary) || !!read?.claims_boarded
+  const claimsBooked = Object.entries(p.payload).some(([k, v]) => /booking_confirmed|mark_booked/.test(k) && v === true) || /\b(is|was) (already )?booked\b/i.test(p.summary) || !!read?.claims_booked
   if (claimsBoarded && !p.evidence.some((e) => e.table === "ferry_terminal_events")) add("quote_not_booking", "SEND_BACK", "Boarding is only confirmed by a gate record, and none is cited.")
   if (claimsBooked && !p.evidence.some((e) => e.table === "travel_reservations")) add("quote_not_booking", "SEND_BACK", "Something is called booked without a reservation record.")
 
   // CD-420055: photos show a condition, "not when or by whom".
-  const blames = Object.entries(p.payload).some(([k, v]) => /attribution|fault|liab/.test(k) && typeof v === "string") || /\bdriver (caused|damaged|is (at fault|responsible))\b/i.test(p.summary)
+  const blames = Object.entries(p.payload).some(([k, v]) => /attribution|fault|liab/.test(k) && typeof v === "string") || /\bdriver (caused|damaged|is (at fault|responsible))\b/i.test(p.summary) || !!read?.blames
   if (blames) add("no_blame", "HOLD", "Only a person decides who caused damage.")
 
   // CD-420322: "Remove restart advice."
-  const advises = DRIVING_ADVICE.test(text) || Object.entries(p.payload).some(([k, v]) => /authori[sz]e_(restart|driving|drive)/.test(k) && v === true)
+  const advises = DRIVING_ADVICE.test(text) || Object.entries(p.payload).some(([k, v]) => /authori[sz]e_(restart|driving|drive)/.test(k) && v === true) || !!read?.driving_advice
   if (advises) add("no_driving_advice", "SEND_BACK", "Don't tell the driver to drive, restart or diagnose the car.")
 
   // CD-420299: a booking timed out with no reference. Don't retry before its outcome is checked.
@@ -87,7 +91,7 @@ export function checkProposal(p: CheckInput): CheckResult {
   }
 
   // The brief: the agent never contacts a customer. And one approval per proposal, so lookups don't wait.
-  const customer = contactsCustomer(p)
+  const customer = contactsCustomer(p) || (!p.command.startsWith("customer.") && !!read?.contacts_customer)
   if (customer && hasLookup(p)) {
     add("one_step_per_approval", "SEND_BACK", "Split it: run the lookups now, and put the customer step in its own proposal for a person to send.")
     add("contact_rules", "SEND_BACK", "The customer is contacted only by a person.")
@@ -100,7 +104,7 @@ export function checkProposal(p: CheckInput): CheckResult {
   return {
     outcome,
     reasons: reasons.map(({ check, message }) => ({ check, message })),
-    checked_at: new Date().toISOString(),
+    checked_at: nowIso(),
     approval: lookupOnly ? "NONE" : route(p.command).approval,
   }
 }
