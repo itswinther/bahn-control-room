@@ -12,7 +12,7 @@ import { loadOrder } from "@/lib/present/load"
 import { buildRecordView } from "@/lib/present/record"
 import { relatedRecords } from "@/lib/schema"
 import { driverMessages, orderStatus, proposals } from "@/lib/schema-ours"
-import { mayDecide } from "./checks"
+import { booksOrBuys, mayDecide } from "./checks"
 
 export type DecisionResult = { ok: true; proposal: Proposal } | { ok: false; status: number; error: string }
 
@@ -58,7 +58,7 @@ async function execute(p: typeof proposals.$inferSelect, payload: Record<string,
   const done = (summary: string, next: string[], references: Execution["references"] = []): Execution =>
     ({ status: "SUCCEEDED", at: now, result_summary: summary, references, next_steps: next, error: null })
 
-  if (p.command.startsWith("travel.") && /book|rebook|crossing/.test(p.command)) {
+  if (p.command.startsWith("travel.") && booksOrBuys(p.command)) {
     // Recheck current state before writing: book against a fresh capacity check, keyed by order and
     // sailing, so a second proposal for the same crossing can't book it twice.
     // First check, as the agents ask: a change already requested from the carrier may have gone

@@ -681,6 +681,22 @@ entries further down.
 - Evidence: `starter/lib/shift-watch/review.ts`, `starter/lib/shift-watch/checks.ts`
   (`driverMessageOk`), `npm run eval:reworded -- --claude`.
 
+### 2026-10-24 · team + Claude · fix 4: one definition of "this books something"
+
+- Why: the agent names its own commands. The freshness check knew "book" and
+  "rebook", while the code that books on approval matched "book" or
+  "crossing" anywhere in the name. So `travel.change_crossing` built on a
+  three-hour-old list passed the check, then booked on approval. Approving
+  `travel.cancel_booking` tried to book a ferry instead.
+- Changed: both now use the same function. Moving a booking to another
+  crossing or sailing counts as booking. A cancellation is no longer treated
+  as one: it is recorded for the travel desk to carry out.
+- Checked: the five ways of naming a rebooking are all sent back on a stale
+  list, cancellation, refresh and verify commands don't count as bookings,
+  and Bahn's 14 proposals still match.
+- Evidence: `starter/lib/shift-watch/checks.ts` (`booksOrBuys`),
+  `starter/lib/shift-watch/decide.ts`, `npm run check:agent`.
+
 ## Evidence in this repo
 
 Filled in as the build goes:
