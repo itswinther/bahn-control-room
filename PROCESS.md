@@ -641,6 +641,28 @@ entries further down.
   two moving cars plus open threads with nothing due. 74 orders stay quiet.
 - Evidence: `starter/lib/shift-watch/queue.ts`.
 
+### 2026-10-24 · team + Claude · fix 2: keyword reading never closes a driver's message
+
+- Why: without a key, or when Claude's call fails, the driver's message is
+  read by keywords. "Booked" made "I missed the ferry I was booked on" a
+  booking question, which got a list of bookings back and closed the
+  conversation. And a flat tyre on the hard shoulder wasn't safety.
+- Decided (team): when the keywords read the message, the driver still gets
+  the answer from the records, plus a time we'll come back by, and the agent
+  wakes. The keywords lean towards safety: a false alarm costs a person a
+  minute, while a miss leaves a driver on the hard shoulder.
+- Changed: added safety words in English, Finnish and German. "Accident" now
+  matches as a whole word, so "accidentally" no longer counts. A failed
+  Claude reading now falls back as a reading done by keywords.
+- Checked: all 9 safety messages from our set now read as safety, and
+  "accidentally" and the demo line stay ordinary. On a running server in
+  replay mode, the missed-ferry message got the bookings, "we'll get back to
+  you by 11:15 Hamburg time", a woken agent and a queue card.
+- Known limit: in replay, any driver message on CD-420603 plays the demo's
+  recording, whatever the driver wrote.
+- Evidence: `starter/lib/shift-watch/intake.ts`, `starter/lib/shift-watch/read.ts`,
+  `npm run check:agent`.
+
 ## Evidence in this repo
 
 Filled in as the build goes:

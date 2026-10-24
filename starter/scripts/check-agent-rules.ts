@@ -49,5 +49,9 @@ assert.equal(readByRules("I can wait another 30 minutes").limit_minutes, 30)
 assert.equal(readByRules("I can stay 30 more minutes").limit_minutes, 30)
 assert.equal(readByRules("I will be 20 minutes late").limit_minutes, null)
 assert.equal(readByRules("Still in the queue").intent, "ORDER")
+for (const t of ["Flat tyre, I'm on the hard shoulder", "The car won't start", "Burning smell from the engine", "Brakes feel spongy",
+  "I feel unwell", "Varoitusvalo palaa", "Die Motorkontrollleuchte ist an"]) assert.equal(readByRules(t).intent, "SAFETY", t)
+assert.equal(readByRules("I accidentally sent the wrong photo").intent, "ORDER")
+assert.equal(readByRules("Still in the queue. Navigation now says 14:20 at check-in.").intent, "ORDER") // the demo line
 
 console.log("agent rules: ok")
