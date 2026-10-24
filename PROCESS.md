@@ -100,7 +100,7 @@ Format for every entry:
 ### 2026-10-24 · team + Claude · challenge partner talk
 
 - Asked: what do the partner's answers change?
-- Checked: the transcript against the plan.
+- Checked: the insights from conversation against the plan.
 - Changed or threw away: moved the focus to driver communication; dropped the
   cost display (cost is not graded).
 - Evidence: decision 5.
