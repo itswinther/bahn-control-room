@@ -14,9 +14,9 @@ bottom. Every entry points to the commit, file or output that backs it up.
 1. **We measured before designing, and it changed the pitch.**
    We asked Claude to dig into the dataset for an "overseer" idea. It measured
    how long Bahn's people took to review agent proposals (mostly 2–14 minutes)
-   and how long drivers waited for a reply (median 12 minutes, longest 152,
-   counting the 20 replies addressed to the driver; a first count of 24 wrongly
-   included internal notes). People respond fast, so speed was not the problem. We dropped
+   and how long drivers waited for a reply (median 12 minutes, longest 152, from
+   20 replies addressed to the driver; see decision 7 for how that count was
+   corrected). People respond fast, so speed was not the problem. We dropped
    "faster" from the pitch and focused on the quality of what reaches a person.
    Evidence: `dataset/data/agent_proposals.jsonl`, `dataset/data/messages.jsonl`.
 
@@ -50,6 +50,27 @@ bottom. Every entry points to the commit, file or output that backs it up.
    Claude assumed our teammate's review bundle came from a competing team and
    repeated that in our shared docs. We corrected it, and fixed every doc that
    said so.
+
+7. **A teammate checked Claude's plan against the data and found four errors
+   before anyone built on them.**
+   - Claude's plan promised the replay would catch all 5 corrected or failed
+     proposals. Run by hand, it catches the 4 that people corrected before they
+     ran. CD-420299's booking used a 2-minute-old quote and failed at the ferry
+     company, so only a retry can be held. Two pending proposals get flagged
+     for bundling a customer contact, which is right, not a false alarm.
+   - A plain "older than 30 minutes" rule would have flagged two refresh
+     proposals whose job is to refresh that data. The rule now applies only to
+     booking and buying, and Claude added that missing evidence counts as stale.
+   - The demo's ferry quotes for CD-420603 don't exist in the dataset, so they
+     became labelled mock fixtures.
+   - CD-420593's "30 more minutes" had already run out at 08:27.
+   - Claude's reply-time count included internal operator notes. The
+     teammate's method, counting only replies addressed to the driver, gives a
+     median of 12 minutes and a longest of 152 from 20 replies.
+   Claude re-ran each check against the data before we changed the plan; all
+   four held.
+   Evidence: `starter/fixtures/proposal-replay-expected.json` (expected result
+   per proposal), the team plan's change list.
 
 ## Log
 
@@ -114,20 +135,21 @@ Format for every entry:
   and three demo beats.
 - Evidence: decision 4.
 
-### 2026-10-24 · Mike + Claude · checking the plan against the data
+### 2026-10-24 · teammate + Claude · checking the plan against the data
 
-- Asked: check the team plan's data claims before anyone builds on them.
-- Checked: all 14 recorded proposals against the plan's seven checks; the
-  CD-420603 travel records; CD-420593's message times; driver reply times by
-  two methods. The other laptop's Claude re-checked each point and agreed.
-- Changed or threw away: the target "catch the 5" (CD-420299's booking failed
-  at the ferry company and can't be caught in advance); the plain 30-minute
-  freshness rule (it would flag two refresh proposals whose job is refreshing);
-  "will wait 30 more minutes" for CD-420593 (its limit passed at 08:27); the
-  24-reply count. Added: a booking with no capacity evidence counts as stale.
-  New pitch line: catches all 4 that people corrected, holds the retry after
-  the 1 failure, and finds 3 more that bundle a customer step with a lookup.
-- Evidence: `starter/fixtures/proposal-replay-expected.json`.
+- Asked (teammate): run Bahn's 14 recorded proposals through the plan's seven
+  checks by hand, and check the demo case, the stated driver limit and the
+  reply-time numbers against the records.
+- Checked (Claude): re-ran each finding against the dataset. The 2- , 76- and
+  92-minute evidence ages, the missing ferry quotes for CD-420603, the 07:57
+  message on CD-420593, and both reply-time methods (24 replies with internal
+  notes vs 20 replies addressed to the driver).
+- Changed or threw away: the "catches all 5" target and pitch line; the plain
+  30-minute rule; the claim that CD-420603's quotes were real; "will wait 30
+  more minutes"; the earlier reply-time numbers. Open call: whether CD-420299's
+  "verify booking outcome" counts as bundling a customer review. Settled
+  later: it is flagged, so the pitch line says "3 more".
+- Evidence: decision 7.
 
 ### 2026-10-24 · Mike + Claude · Backend 1 contract
 
