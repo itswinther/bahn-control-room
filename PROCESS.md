@@ -286,6 +286,24 @@ Format for every entry:
   a person, so agent and Shift Watch can't bounce forever.
 - Evidence: `starter/lib/shift-watch/review.ts`.
 
+### 2026-10-24 · Mike + Claude · the queue and the case view's data
+
+- Asked: build the queue and case routes the frontend needs.
+- Checked: on the snapshot with the four live runs replayed, the queue lists 25
+  orders (the starter's board flags 43) and counts 75 as quiet, in about 340 ms,
+  with the safety case first. Reading the output found three problems: a
+  driver waiting past her limit sank to the bottom because its proposal had no
+  deadline; a fix for that briefly sorted CD-420603 by the time an old action
+  was approved, which mixed "overdue since" with "decide by"; and the case view
+  missed CD-420603's 08:43 change request, because the starter reads a
+  different field than this record uses. All three fixed. The agent must now
+  give a decision deadline, or say why there is none.
+- Changed or threw away: one card per decision would have put up to four cards
+  on one order; an order's loose ends now go on its proposal card, or on one
+  card per order. The shift summary comes from rules, so it works without the
+  model; a Claude-written version is optional later.
+- Evidence: `starter/lib/shift-watch/queue.ts`, `starter/lib/shift-watch/case.ts`.
+
 _Teammate's earlier log (`AI-PROCESS.md` in the review bundle, 17 entries):
 merge its entries here._
 
