@@ -49,6 +49,11 @@ export type Review = {
   who_pays: WhoPays | null
   reviewer: string
   at: string
+  /** The decision takes effect here (a few seconds after `at`); until then the reviewer or the shift lead can
+   *  undo it with POST /api/proposals/:id/undo, and nothing has reached the driver or a carrier. */
+  takes_effect_at: string
+  /** When it took effect: the booking ran or the rejection went back to the agent. Null while it can be undone. */
+  settled_at: string | null
 }
 
 export type Execution = {

@@ -1,9 +1,9 @@
 // What happens after a person decides: record the decision, carry it out (mock services), and tell
 // the driver. Only the right person may decide, and a double click can't book twice.
-import { and, eq, inArray } from "drizzle-orm"
+import { and, eq, inArray, sql } from "drizzle-orm"
 import type { DecisionRequest, Execution, Proposal, Review, RunRequest } from "@/lib/contract"
 import { agentMode, createRun, runOrderAgent } from "@/lib/agents/order-agent"
-import { nowIso } from "@/lib/clock"
+import { nowIso, UNDO_MS } from "@/lib/clock"
 import { db } from "@/lib/db"
 import { bookFerry, ferryCapacity } from "@/lib/mocks"
 import { changeOutcome } from "@/lib/mocks/replies"
@@ -114,27 +114,61 @@ export async function decide(proposalId: string, req: DecisionRequest): Promise<
 
   // An edit changes the fields it names; the rest of the agent's payload stays.
   const finalPayload = req.decision === "EDITED" && req.final_payload ? { ...p.payload, ...req.final_payload } : p.payload
-  const review: Review = { decision: req.decision, final_payload: finalPayload, note: req.note ?? null, who_pays: req.who_pays ?? null, reviewer: req.reviewer, at: nowIso() }
+  const at = nowIso()
+  const review: Review = {
+    decision: req.decision, final_payload: finalPayload, note: req.note ?? null, who_pays: req.who_pays ?? null, reviewer: req.reviewer, at,
+    takes_effect_at: new Date(Date.parse(at) + UNDO_MS).toISOString(), settled_at: null,
+  }
   // Conditional on the status, so two clicks at once can't both go through.
   const claimed = await db.update(proposals)
     .set({ status: approving ? "APPROVED" : "REJECTED", review, cost: p.cost ? { ...p.cost, who_pays: req.who_pays ?? null } : null })
-    .where(and(eq(proposals.id, p.id), inArray(proposals.status, ["PENDING_REVIEW", "HELD"]))).returning({ id: proposals.id })
+    .where(and(eq(proposals.id, p.id), inArray(proposals.status, ["PENDING_REVIEW", "HELD"]))).returning()
   if (!claimed.length) return { ok: false, status: 409, error: "Someone else decided this a moment ago." }
+  // Nothing irreversible happens until the undo window passes. If the server restarts in between, the
+  // next queue or case read settles it (settleDue).
+  setTimeout(() => void settle(p.id).catch(() => {}), UNDO_MS + 100)
+  return { ok: true, proposal: toContract(claimed[0]) }
+}
 
-  if (approving) {
-    const execution = await execute(p, finalPayload)
+const unsettled = (now: string) => and(inArray(proposals.status, ["APPROVED", "REJECTED"]), sql`${proposals.review}->>'settled_at' IS NULL`, sql`${proposals.review}->>'takes_effect_at' <= ${now}`)
+
+/** Carry out a decision once its undo window has passed. Claimed in one update, so it runs once. */
+export async function settle(proposalId: string): Promise<void> {
+  const now = nowIso()
+  const [p] = await db.update(proposals).set({ review: sql`${proposals.review} || ${JSON.stringify({ settled_at: now })}::jsonb` })
+    .where(and(eq(proposals.id, proposalId), unsettled(now))).returning()
+  if (!p) return
+  if (p.status === "APPROVED") {
+    const execution = await execute(p, p.review!.final_payload)
     await db.update(proposals).set({ status: execution.status === "SUCCEEDED" ? "EXECUTED" : "FAILED", execution }).where(eq(proposals.id, p.id))
   }
   const [after] = await db.select().from(proposals).where(eq(proposals.id, p.id))
   await refreshStatus(p.orderId, after)
   // A rejection with a reason goes back to the agent to find another way. Live only: a replay has no
   // recording for it.
-  if (!approving && req.note && agentMode() === "live") {
-    const next: RunRequest = { order_id: p.orderId, reason: "OPERATOR_REQUEST", reason_detail: `${req.reviewer} rejected ${p.id} ("${p.summary}"): ${req.note}` }
+  if (p.status === "REJECTED" && p.review?.note && agentMode() === "live") {
+    const next: RunRequest = { order_id: p.orderId, reason: "OPERATOR_REQUEST", reason_detail: `${p.review.reviewer} rejected ${p.id} ("${p.summary}"): ${p.review.note}` }
     const runId = await createRun(next)
     if (runId) void runOrderAgent(runId, next)
   }
-  return { ok: true, proposal: toContract(after) }
+}
+
+/** Settle every decision whose undo window has passed: the timers don't survive a restart. */
+export async function settleDue(): Promise<void> {
+  for (const { id } of await db.select({ id: proposals.id }).from(proposals).where(unsettled(nowIso()))) await settle(id)
+}
+
+/** Take a decision back while its undo window is open: the card returns to the queue as it was. */
+export async function undo(proposalId: string, reviewer: string): Promise<DecisionResult> {
+  const [p] = await db.select().from(proposals).where(eq(proposals.id, proposalId))
+  if (!p) return { ok: false, status: 404, error: "Proposal not found" }
+  if (!p.review || p.review.settled_at || !["APPROVED", "REJECTED"].includes(p.status)) return { ok: false, status: 409, error: "This decision has already taken effect." }
+  if (reviewer !== p.review.reviewer && reviewer !== "ops-shift") return { ok: false, status: 403, error: `Only ${p.review.reviewer} or the shift lead can undo this.` }
+  const [back] = await db.update(proposals)
+    .set({ status: p.check?.outcome === "HOLD" ? "HELD" : "PENDING_REVIEW", review: null, cost: p.cost ? { ...p.cost, who_pays: null } : null })
+    .where(and(eq(proposals.id, p.id), inArray(proposals.status, ["APPROVED", "REJECTED"]), sql`${proposals.review}->>'settled_at' IS NULL`, sql`${proposals.review}->>'takes_effect_at' > ${nowIso()}`))
+    .returning()
+  return back ? { ok: true, proposal: toContract(back) } : { ok: false, status: 409, error: "Too late to undo: the decision has taken effect." }
 }
 
 async function refreshStatus(orderId: string, p: typeof proposals.$inferSelect) {

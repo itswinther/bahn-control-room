@@ -150,5 +150,7 @@ export async function intake(driverId: string, text: string, opts: { quickReplyV
 export async function thread(driverId: string): Promise<DriverMessage[]> {
   const rows = await db.select().from(driverMessages).where(eq(driverMessages.driverId, driverId)).orderBy(asc(driverMessages.createdAt))
   // The driver only sees what was actually sent to them.
-  return rows.filter((m) => m.direction === "IN" || m.status === "SENT").map(toDriverMessage)
+  // A message a person just released waits out its undo window before the driver sees it.
+  const now = nowIso()
+  return rows.filter((m) => m.direction === "IN" || (m.status === "SENT" && m.createdAt <= now)).map(toDriverMessage)
 }
