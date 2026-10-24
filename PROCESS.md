@@ -240,6 +240,19 @@ Format for every entry:
   support desk's 08:13 message. Progress notes are sparse (about one per run).
 - Evidence: `starter/lib/agents/rules.ts`, `starter/recordings/`.
 
+### 2026-10-24 · Mike + Claude · scripted demo driver
+
+- Asked: build the scripted driver for the video.
+- Checked: ran it against replay: the message lands on the demo clock, the
+  agent reads it in the driver chat and the recorded proposal comes back.
+  Claude caught its own bug before the first run: the script stamped messages
+  with the computer's clock (24 Oct), so the agent, which only reads up to the
+  demo clock, would never have seen them. Fixed with a clock route the screens
+  can use too.
+- Changed or threw away: waiting for Backend 2's driver route. The script has a
+  `--direct` mode that stands in for Shift Watch's intake until it lands.
+- Evidence: `starter/scripts/demo-driver.ts`, `starter/app/api/clock/`.
+
 _Teammate's earlier log (`AI-PROCESS.md` in the review bundle, 17 entries):
 merge its entries here._
 
