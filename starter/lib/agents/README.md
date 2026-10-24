@@ -17,6 +17,9 @@ hands Shift Watch one proposal. Everything here is built against `lib/contract.t
 - **Wake an agent:** `POST /api/agents/run` with `{ order_id, reason, reason_detail }` returns
   `202 { run_id }`; `409` if that order already has a run going. Follow it with
   `GET /api/runs/:runId` (poll while `status` is `RUNNING`).
+- **Agents wake themselves (live only):** once a minute the server wakes each order's agent whose
+  `next_check_at` has come due, with reason `NEXT_CHECK`, once per check (`wakeDue` in
+  `order-agent.ts`, started from `instrumentation.ts`). Replay has no recordings for it, so it stays off.
 - **Demo clock and reset:** `GET /api/clock` gives the demo time. `POST /api/clock` restarts the
   demo: it clears our six tables and the mock bookings and sets the clock back to 09:00.
 - **Scripted driver:** `npm run demo:driver -- ord-00603` sends the driver's line through Shift

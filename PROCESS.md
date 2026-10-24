@@ -715,6 +715,27 @@ entries further down.
 - Evidence: `starter/lib/mocks/index.ts`, `starter/recordings/ord-00603.DRIVER_MESSAGE.json`,
   `starter/fixtures/order-agent.ts`.
 
+### 2026-10-24 · team + Claude · fix 6: agents wake themselves
+
+- Why: the challenge partner described each order's agent sending an email,
+  sleeping, and scheduling itself to wake up. Ours recorded a
+  `next_check_at` on every run and never acted on it, so an agent only woke
+  when a driver wrote or someone pressed a button.
+- Decided (team): once a minute, the server wakes each agent whose own next
+  check has come due, once per check. Live mode only: replay has no
+  recordings for these wake-ups, and a failed run would only add noise to
+  the cards. If the wake-up never happens, the queue still shows "Agent's
+  next check is overdue", so a person sees it either way.
+- Checked: live, from a reset, we planted a check due at 08:59 on
+  CD-420603. The agent woke once at 09:00 (the demo clock), read the order,
+  refreshed the ferry list and proposed the 22:00 crossing. Shift Watch
+  passed it. It set its next check to 11:00 and was not woken again in
+  between. Its reasoning was off in one place: it checked the driver's rest
+  against the old 12:00 cutoff. The proposal card shows that to the person
+  deciding.
+- Evidence: `starter/lib/agents/order-agent.ts` (`wakeDue`),
+  `starter/instrumentation.ts`, `starter/lib/agents/README.md`.
+
 ## Evidence in this repo
 
 Filled in as the build goes:

@@ -1,10 +1,10 @@
 import type { BetaMessageParam, BetaToolResultBlockParam, BetaToolUseBlock } from "@anthropic-ai/sdk/resources/beta/messages/messages"
-import { and, desc, eq, ne } from "drizzle-orm"
+import { and, desc, eq, gte, lte, ne } from "drizzle-orm"
 import type { AgentRun, AgentStep, RunRequest } from "@/lib/contract"
 import { nowIso } from "@/lib/clock"
 import { db } from "@/lib/db"
 import { orders } from "@/lib/schema"
-import { agentRuns, agentSteps, driverMessages, proposals } from "@/lib/schema-ours"
+import { agentRuns, agentSteps, driverMessages, orderStatus, proposals } from "@/lib/schema-ours"
 import { liveSource, replaySource, type ModelSource } from "./model"
 import { reviewOrder } from "@/lib/shift-watch/review"
 import { runTool, toolDefs, type ToolContext } from "./tools"
@@ -84,6 +84,20 @@ export async function createRun(req: RunRequest): Promise<string | null> {
     throw error
   }
   return id
+}
+
+/** Wake each order's agent when the next check it set comes due. Live only: a replay has no recording for it.
+ *  Once per check: a run started at or after the due time counts as having done it. */
+export async function wakeDue(): Promise<void> {
+  if (agentMode() !== "live") return
+  const now = nowIso()
+  for (const st of await db.select().from(orderStatus).where(lte(orderStatus.nextCheckAt, now))) {
+    const [ran] = await db.select({ id: agentRuns.id }).from(agentRuns).where(and(eq(agentRuns.orderId, st.orderId), gte(agentRuns.startedAt, st.nextCheckAt!))).limit(1)
+    if (ran) continue
+    const req: RunRequest = { order_id: st.orderId, reason: "NEXT_CHECK", reason_detail: `The check you set for ${st.nextCheckAt!.slice(11, 16)} UTC is due. Where you left it: ${st.summary}` }
+    const id = await createRun(req)
+    if (id) void runOrderAgent(id, req)
+  }
 }
 
 export async function runOrderAgent(runId: string, req: RunRequest): Promise<void> {
