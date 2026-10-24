@@ -2,6 +2,7 @@
 // agents. Pure functions: they run the same on our agent's proposals and on Bahn's 14 recorded ones.
 import type { Approval, Check, CheckName, CheckOutcome, Desk, Proposal } from "@/lib/contract"
 import { DRIVING_ADVICE, route } from "@/lib/agents/rules"
+import { nowIso } from "@/lib/clock"
 
 export type CheckEvidence = { table: string; id: string; observed_at: string | null }
 
@@ -100,7 +101,7 @@ export function checkProposal(p: CheckInput): CheckResult {
   return {
     outcome,
     reasons: reasons.map(({ check, message }) => ({ check, message })),
-    checked_at: new Date().toISOString(),
+    checked_at: nowIso(),
     approval: lookupOnly ? "NONE" : route(p.command).approval,
   }
 }

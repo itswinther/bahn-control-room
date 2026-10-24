@@ -9,15 +9,18 @@ hands Shift Watch one proposal. Everything here is built against `lib/contract.t
   `recordings/<order>.<reason>.json` back through the real loop, so tools and database writes run
   for real. Recorded so far, live on Sonnet 5.5: `ord-00603.DRIVER_MESSAGE`, `ord-00299.LOOSE_END`,
   `ord-00322.DRIVER_MESSAGE`, `ord-00593.LOOSE_END`. A replay is only valid from the state it was
-  recorded in (the snapshot).
+  recorded in (the snapshot), so each recording plays once per demo reset; a second wake-up for the
+  same order and reason stops with "already played". There is no `SENT_BACK` recording, so a
+  send-back during a replay fails the next run.
 - **Live:** `AGENT_MODE=live` plus `ANTHROPIC_API_KEY` in `.env`. Add `RECORD=1` to save the run
   as a recording.
 - **Wake an agent:** `POST /api/agents/run` with `{ order_id, reason, reason_detail }` returns
   `202 { run_id }`; `409` if that order already has a run going. Follow it with
   `GET /api/runs/:runId` (poll while `status` is `RUNNING`).
-- **Demo clock:** `GET /api/clock` gives the demo time; `POST /api/clock` resets it to 09:00.
-- **Scripted driver:** `npm run demo:driver -- ord-00603 --direct`. `--direct` stands in for
-  Shift Watch's intake until `POST /api/driver/messages` exists.
+- **Demo clock and reset:** `GET /api/clock` gives the demo time. `POST /api/clock` restarts the
+  demo: it clears our six tables and the mock bookings and sets the clock back to 09:00.
+- **Scripted driver:** `npm run demo:driver -- ord-00603` sends the driver's line through Shift
+  Watch's intake. `--direct` skips intake and wakes the agent itself.
 - **Checks:** `npm run check:agent` (asserts on the code-enforced rules and mocks).
 
 ## Rules enforced in code, not only in the prompt

@@ -61,7 +61,7 @@ export function legsFrom(view: RecordView, ours: Proposal[], rawReservations: Re
     })
   }
   // Bookings our proposals made once a person approved them.
-  for (const p of ours) for (const ref of p.execution?.status === "SUCCEEDED" ? p.execution.references.filter((x) => x.kind === "ferry_booking") : []) legs.push({
+  for (const p of ours) for (const ref of p.execution?.status === "SUCCEEDED" ? p.execution.references.filter((x) => x.kind === "ferry_booking" && !legs.some((l) => l.reference === x.value)) : []) legs.push({
     label: "Ferry, booked after a person approved it (mock)", kind: "FERRY", state: "BOOKED", reference: ref.value,
     departs_at: null, check_in_cutoff_at: p.execution!.references.find((x) => x.kind === "check_in_cutoff")?.value ?? null, boarding: "UNCONFIRMED", source: { table: "proposals", id: p.id, observed_at: p.execution!.at },
   })

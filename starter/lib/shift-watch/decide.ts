@@ -5,8 +5,10 @@ import type { DecisionRequest, Execution, Proposal, Review } from "@/lib/contrac
 import { nowIso } from "@/lib/clock"
 import { db } from "@/lib/db"
 import { bookFerry, ferryCapacity } from "@/lib/mocks"
+import { changeOutcome } from "@/lib/mocks/replies"
 import { loadOrder } from "@/lib/present/load"
 import { buildRecordView } from "@/lib/present/record"
+import { relatedRecords } from "@/lib/schema"
 import { driverMessages, orderStatus, proposals } from "@/lib/schema-ours"
 import { mayDecide } from "./checks"
 
@@ -31,6 +33,15 @@ async function ferryBookings(orderId: string) {
   return loaded ? buildRecordView(loaded.bundle).reservations.filter((r) => r.kind === "FERRY") : []
 }
 
+/** The order's carrier change requests that nobody has confirmed yet. */
+async function openChangeRequests(orderId: string) {
+  const rows = await db.select({ details: relatedRecords.details }).from(relatedRecords)
+    .where(and(eq(relatedRecords.orderId, orderId), eq(relatedRecords.collection, "travel_reservations")))
+  type WithRequest = { id: string; booking_reference?: string; amendment_request: { status: string; requested_at: string } }
+  return rows.map((r) => r.details as Partial<WithRequest>)
+    .filter((r): r is WithRequest => !!r.id && !!r.amendment_request?.requested_at && /^REQUESTED/.test(r.amendment_request.status ?? ""))
+}
+
 async function tellDriver(orderId: string, text: string) {
   const loaded = await loadOrder(orderId)
   const driver = loaded && buildRecordView(loaded.bundle).assignments.find((a) => a.status === "IN_PROGRESS" || a.status === "ASSIGNED")?.driver.id
@@ -49,25 +60,36 @@ async function execute(p: typeof proposals.$inferSelect, payload: Record<string,
     ({ status: "SUCCEEDED", at: now, result_summary: summary, references, next_steps: next, error: null })
 
   if (p.command.startsWith("travel.") && /book|rebook|crossing/.test(p.command)) {
-    // Recheck current state before writing: book against a fresh capacity check, keyed by the proposal.
+    // Recheck current state before writing: book against a fresh capacity check, keyed by order and
+    // sailing, so a second proposal for the same crossing can't book it twice.
+    // First check, as the agents ask: a change already requested from the carrier may have gone
+    // through, and booking around it would book twice.
+    const ferries = await ferryBookings(p.orderId)
+    const requests = await openChangeRequests(p.orderId)
+    const moved = requests.length ? changeOutcome(p.orderId) : null
+    if (moved?.confirmed) return done(`Not booked: the carrier already made the requested change. ${moved.detail}`, ["Nothing new was booked", "The agent reads the changed booking on its next run"])
     const optionId = optionFor(p.orderId, payload, p.evidenceRefs, now)
     if (!optionId) return { status: "FAILED", at: now, result_summary: "No ferry option to book", references: [], next_steps: ["The agent proposes again with a named option"], error: "No ferry option in the proposal" }
-    const booking = bookFerry(p.orderId, optionId, p.id, now)
+    const booking = bookFerry(p.orderId, optionId, `${p.orderId}:${optionId}`, now)
     if (!booking.ok) return { status: "FAILED", at: now, result_summary: `Booking failed: ${booking.error}`, references: [], next_steps: ["Nothing was booked and the old booking is unchanged", "The agent checks the options again"], error: booking.error }
-    // Released only now, after the new booking is confirmed.
-    const ferries = await ferryBookings(p.orderId)
+    if (booking.repeated) return done(`Already booked: ${booking.reference} (mock). Nothing new was booked.`, ["No change for the driver"], [{ kind: "ferry_booking", value: booking.reference }])
+    // Released only now, after the new booking is confirmed. A change request still open on it is
+    // withdrawn with it, so the carrier can't also move the old booking.
     const old = str(payload.release_reservation_id) ?? str(payload.replaces_booking) ?? ferries.find((r) => r.status === "BOOKED")?.id ?? null
     const oldRef = ferries.find((r) => r.id === old)?.reference ?? old
+    const withdrawn = requests.filter((r) => r.id === old)
     const o = booking.option
     const told = await tellDriver(p.orderId, `New crossing booked: ${o.provider}, departs ${o.departs_at.slice(11, 16)} UTC on ${day(o.departs_at)}. Check-in closes ${o.check_in_cutoff_at.slice(11, 16)} UTC. Booking reference ${booking.reference}.`)
     return done(
-      `Booked the ${o.departs_at.slice(11, 16)} crossing (${booking.reference}, mock)${old ? `, then released ${oldRef}` : ""}`,
+      `Booked the ${o.departs_at.slice(11, 16)} crossing (${booking.reference}, mock)${withdrawn.length ? `, withdrew the ${withdrawn.map((r) => r.amendment_request.requested_at.slice(11, 16)).join(", ")} change request` : ""}${old ? `, then released ${oldRef}` : ""}`,
       [
+        ...requests.map((r) => `Checked first: ${changeOutcome(p.orderId).detail}`),
         told ? "Shift Watch sent the driver the new crossing with its reference and check-in time" : "No active driver to tell; the driver desk needs to pass it on",
         "Boarding stays unconfirmed until the gate scan",
         "The agent checks again after check-in closes",
       ],
-      [{ kind: "ferry_booking", value: booking.reference }, ...(old ? [{ kind: "released_booking", value: old }] : []), { kind: "check_in_cutoff", value: o.check_in_cutoff_at }],
+      [{ kind: "ferry_booking", value: booking.reference }, ...(old ? [{ kind: "released_booking", value: old }] : []),
+        ...withdrawn.map((r) => ({ kind: "withdrawn_request", value: `${r.booking_reference ?? r.id} ${r.amendment_request.requested_at}` })), { kind: "check_in_cutoff", value: o.check_in_cutoff_at }],
     )
   }
   if (p.command.startsWith("customer.")) return done("Sent to the customer by a person", ["The customer's reply comes back to the support desk", "The agent reads it on its next run"])

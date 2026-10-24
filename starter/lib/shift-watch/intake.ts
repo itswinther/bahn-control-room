@@ -119,7 +119,7 @@ export async function intake(driverId: string, text: string, opts: { quickReplyV
   const promised = new Date(now + Math.min(HEAR_BACK_MINUTES, reading.limit_minutes ?? HEAR_BACK_MINUTES) * 60_000).toISOString()
   const routine = await routineAnswer(job.id, driverId, reading.intent)
   const english = reading.intent === "SAFETY"
-    ? `Thanks for telling us. Please stay somewhere safe and keep the car stopped. A person is taking over now and will contact you by ${hhmm(promised)} UTC.`
+    ? `Thanks for telling us. Please stay somewhere safe. A person is taking over now and will contact you by ${hhmm(promised)} UTC.`
     : routine ?? `Got it, we're on it. You'll hear from us by ${hhmm(promised)} UTC.`
   // A routine answer from the records closes the question; anything else is a promise with a time.
   const reply = await store({

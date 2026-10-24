@@ -32,6 +32,8 @@ assert.equal(tableFor("opt_mock_603_2200", "ferry_capacity_check"), "travel_opti
 assert.equal(tableFor("something-else", "notes"), "notes")
 
 assert.ok(DRIVING_ADVICE.test("Try restarting the vehicle once"))
+assert.ok(DRIVING_ADVICE.test("Reset the warning light and go"))
+assert.ok(!DRIVING_ADVICE.test("We will reset the booking reference"))
 assert.ok(INSTRUCTION.test("Please keep the car stopped."))
 assert.ok(!INSTRUCTION.test("Are you still at the site?"))
 assert.equal(mayDecide({ approval: "SHIFT_LEAD", owner_desk: "ops-shift" }, "ops-travel"), false)
@@ -44,6 +46,8 @@ assert.equal(bookFerry("ord-00299", "travel-xc1d8163d5443a606", "prop_test2", no
 assert.equal(readByRules("A red warning light came on").intent, "SAFETY")
 assert.equal(readByRules("Is the ferry booked? I have no reference").intent, "BOOKING_QUESTION")
 assert.equal(readByRules("I can wait another 30 minutes").limit_minutes, 30)
+assert.equal(readByRules("I can stay 30 more minutes").limit_minutes, 30)
+assert.equal(readByRules("I will be 20 minutes late").limit_minutes, null)
 assert.equal(readByRules("Still in the queue").intent, "ORDER")
 
 console.log("agent rules: ok")
