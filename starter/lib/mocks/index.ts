@@ -62,3 +62,20 @@ export function driverRest(driverId: string, checkInCutoffAt: string, availableF
     note: restHours >= 6 ? "Enough time to rest before check-in." : "Too little rest before check-in.",
   }
 }
+
+/**
+ * Book a ferry option (mock). The key makes it idempotent: the same key always returns the same
+ * booking, so a retry after a timeout can't book twice.
+ */
+// shortcut: kept in memory, so a server restart forgets keys; a real carrier API keeps them server-side.
+const bookings = new Map<string, { reference: string; option: FerryOption }>()
+export function bookFerry(orderId: string, optionId: string, key: string, nowIso: string) {
+  const done = bookings.get(key)
+  if (done) return { mock: true, ok: true as const, ...done, repeated: true }
+  const option = ferryCapacity(orderId, true, nowIso).options.find((o) => o.id === optionId)
+  if (!option) return { mock: true, ok: false as const, error: `No ferry option ${optionId} for this order.` }
+  if (!option.vehicle_space) return { mock: true, ok: false as const, error: `No vehicle space left on the ${option.departs_at.slice(11, 16)} sailing.` }
+  const result = { reference: `MOCK-${option.provider.split(" ").map((w) => w[0]).join("")}-${option.departs_at.slice(5, 10).replace("-", "")}${option.departs_at.slice(11, 13)}-${key.slice(-4).toUpperCase()}`, option }
+  bookings.set(key, result)
+  return { mock: true, ok: true as const, ...result, repeated: false }
+}

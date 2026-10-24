@@ -304,6 +304,22 @@ Format for every entry:
   model; a Claude-written version is optional later.
 - Evidence: `starter/lib/shift-watch/queue.ts`, `starter/lib/shift-watch/case.ts`.
 
+### 2026-10-24 · Mike + Claude · what happens after Approve
+
+- Asked: build approve, edit and reject, and carry the decision out.
+- Checked: end to end on the four replayed proposals. The wrong desk gets 403,
+  approving a cost without choosing who pays gets 400, approving twice gets 409,
+  two clicks at once give one 200 and one 409, and the safety proposal needs
+  the shift lead. The first test run showed the old 14:00 booking still listed
+  as booked (that run's payload named it under a key we didn't read), and "the
+  agent checks again after check-in closes" wasn't true yet. Both fixed: a new
+  crossing releases the order's current ferry booking once the new one is
+  confirmed, and the agent's next check moves to the new check-in time.
+- Changed or threw away: trusting the payload's field names. The agents name
+  the option differently each time, so the booking takes it from the proposal's
+  cited evidence when the payload doesn't name it clearly.
+- Evidence: `starter/lib/shift-watch/decide.ts`.
+
 _Teammate's earlier log (`AI-PROCESS.md` in the review bundle, 17 entries):
 merge its entries here._
 

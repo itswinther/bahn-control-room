@@ -1,6 +1,6 @@
 // Shift Watch's proposal checks. Each comes from a correction Bahn's own people made to their
 // agents. Pure functions: they run the same on our agent's proposals and on Bahn's 14 recorded ones.
-import type { Approval, Check, CheckName, CheckOutcome } from "@/lib/contract"
+import type { Approval, Check, CheckName, CheckOutcome, Desk, Proposal } from "@/lib/contract"
 import { DRIVING_ADVICE, route } from "@/lib/agents/rules"
 
 export type CheckEvidence = { table: string; id: string; observed_at: string | null }
@@ -103,4 +103,11 @@ export function checkProposal(p: CheckInput): CheckResult {
     checked_at: new Date().toISOString(),
     approval: lookupOnly ? "NONE" : route(p.command).approval,
   }
+}
+
+/** Who may decide each approval level. */
+export function mayDecide(p: { approval: Proposal["approval"]; owner_desk: Desk }, reviewer: string): boolean {
+  if (p.approval === "SHIFT_LEAD") return reviewer === "ops-shift"
+  if (p.approval === "DESK") return reviewer === p.owner_desk || reviewer === "ops-shift"
+  return reviewer.startsWith("ops-") // a customer message: any person sends it
 }

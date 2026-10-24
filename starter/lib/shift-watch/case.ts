@@ -7,6 +7,7 @@ import { loadOrder } from "@/lib/present/load"
 import { buildRecordView } from "@/lib/present/record"
 import type { RecordView } from "@/lib/present/types"
 import { agentNotes, agentRuns, agentSteps, driverMessages, orderStatus, proposals } from "@/lib/schema-ours"
+import { toContract } from "./decide"
 
 const KINDS = new Set<TravelLeg["kind"]>(["FERRY", "TRAIN", "FLIGHT", "BUS", "TAXI", "HOTEL", "DRIVE"])
 const kindOf = (k: string): TravelLeg["kind"] => (KINDS.has(k as TravelLeg["kind"]) ? (k as TravelLeg["kind"]) : "DRIVE")
@@ -14,8 +15,17 @@ const kindOf = (k: string): TravelLeg["kind"] => (KINDS.has(k as TravelLeg["kind
 /** Booked is not boarded: boarding stays unconfirmed until a gate record says otherwise. */
 export function legsFrom(view: RecordView, ours: Proposal[], rawReservations: Record<string, unknown>[] = []): TravelLeg[] {
   const legs: TravelLeg[] = []
+  const released = new Set(ours.flatMap((p) => p.execution?.references.filter((x) => x.kind === "released_booking").map((x) => x.value) ?? []))
   for (const r of view.reservations) {
     const ferry = r.kind === "FERRY"
+    if (released.has(r.id)) {
+      legs.push({
+        label: `${r.kindLabel}${r.route ? `: ${r.route}` : ""} (released after the new booking was confirmed)`, kind: kindOf(r.kind), state: "NOT_BOOKED",
+        reference: r.reference, departs_at: r.departureAt, check_in_cutoff_at: r.checkInCutoffAt, boarding: null,
+        source: { table: "travel_reservations", id: r.id, observed_at: r.bookedAt },
+      })
+      continue
+    }
     legs.push({
       label: `${r.kindLabel}${r.route ? `: ${r.route}` : ""}${r.status === "BOOKED" ? "" : ` (${r.statusLabel.toLowerCase()})`}`,
       kind: kindOf(r.kind), state: r.status === "BOOKED" ? "BOOKED" : "NOT_BOOKED", reference: r.reference,
@@ -51,19 +61,12 @@ export function legsFrom(view: RecordView, ours: Proposal[], rawReservations: Re
     })
   }
   // Bookings our proposals made once a person approved them.
-  for (const p of ours) for (const ref of p.execution?.status === "SUCCEEDED" ? p.execution.references : []) legs.push({
-    label: `${p.summary} (booked after approval)`, kind: "FERRY", state: "BOOKED", reference: ref.value,
-    departs_at: null, check_in_cutoff_at: null, boarding: "UNCONFIRMED", source: { table: "proposals", id: p.id, observed_at: p.execution!.at },
+  for (const p of ours) for (const ref of p.execution?.status === "SUCCEEDED" ? p.execution.references.filter((x) => x.kind === "ferry_booking") : []) legs.push({
+    label: "Ferry, booked after a person approved it (mock)", kind: "FERRY", state: "BOOKED", reference: ref.value,
+    departs_at: null, check_in_cutoff_at: p.execution!.references.find((x) => x.kind === "check_in_cutoff")?.value ?? null, boarding: "UNCONFIRMED", source: { table: "proposals", id: p.id, observed_at: p.execution!.at },
   })
   return legs
 }
-
-const toProposal = (p: typeof proposals.$inferSelect): Proposal => ({
-  id: p.id, order_id: p.orderId, run_id: p.runId, proposed_by: p.proposedBy, command: p.command, summary: p.summary,
-  rationale: p.rationale, payload: p.payload, before_after: p.beforeAfter, evidence_refs: p.evidenceRefs,
-  approval: p.approval, owner_desk: p.ownerDesk, cost: p.cost, decision_deadline: p.decisionDeadline,
-  status: p.status, check: p.check, review: p.review, execution: p.execution, created_at: p.createdAt,
-})
 
 export async function buildCase(orderId: string): Promise<CaseResponse | null> {
   const loaded = await loadOrder(orderId)
@@ -77,7 +80,7 @@ export async function buildCase(orderId: string): Promise<CaseResponse | null> {
     db.select().from(driverMessages).where(eq(driverMessages.orderId, orderId)).orderBy(asc(driverMessages.createdAt)),
   ])
   const stepRows = runRows.length ? await db.select().from(agentSteps).where(inArray(agentSteps.runId, runRows.map((r) => r.id))).orderBy(asc(agentSteps.at), asc(agentSteps.seq)) : []
-  const ours = propRows.map(toProposal)
+  const ours = propRows.map(toContract)
   return {
     view,
     proposals: ours,

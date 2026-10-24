@@ -3,6 +3,8 @@ import assert from "node:assert/strict"
 import { DRIVING_ADVICE, INSTRUCTION, route, tableFor } from "../lib/agents/rules"
 import { driverRest, ferryCapacity } from "../lib/mocks"
 import { bookingOutcome, siteReply } from "../lib/mocks/replies"
+import { mayDecide } from "../lib/shift-watch/checks"
+import { bookFerry } from "../lib/mocks"
 
 assert.deepEqual(route("travel.rebook_ferry"), { approval: "DESK", owner_desk: "ops-travel" })
 assert.deepEqual(route("customer.send_update"), { approval: "CUSTOMER_VIA_PERSON", owner_desk: "ops-support" })
@@ -31,5 +33,12 @@ assert.equal(tableFor("something-else", "notes"), "notes")
 assert.ok(DRIVING_ADVICE.test("Try restarting the vehicle once"))
 assert.ok(INSTRUCTION.test("Please keep the car stopped."))
 assert.ok(!INSTRUCTION.test("Are you still at the site?"))
+assert.equal(mayDecide({ approval: "SHIFT_LEAD", owner_desk: "ops-shift" }, "ops-travel"), false)
+assert.equal(mayDecide({ approval: "DESK", owner_desk: "ops-travel" }, "ops-travel"), true)
+assert.equal(mayDecide({ approval: "DESK", owner_desk: "ops-travel" }, "ops-dispatch"), false)
+assert.equal(mayDecide({ approval: "DESK", owner_desk: "ops-travel" }, "ops-shift"), true)
+const b1 = bookFerry("ord-00603", "opt_mock_603_2200", "prop_test1", now), b2 = bookFerry("ord-00603", "opt_mock_603_2200", "prop_test1", now)
+assert.ok(b1.ok && b2.ok && b1.reference === b2.reference && b2.repeated) // same key, same booking
+assert.equal(bookFerry("ord-00299", "travel-xc1d8163d5443a606", "prop_test2", now).ok, false) // sold out
 
 console.log("agent rules: ok")
