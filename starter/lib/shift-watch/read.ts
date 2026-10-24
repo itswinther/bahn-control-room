@@ -7,7 +7,8 @@ export type Reading = { language: string; intent: Exclude<Intent, "WHICH_CAR">; 
 export function readByRules(text: string): Reading {
   const t = text.toLowerCase()
   const intent: Reading["intent"] =
-    /warning light|breakdown|broke down|accident|crash|smoke|injur|unsafe|not safe|engine (light|fault)/.test(t) ? "SAFETY"
+    // Leans to safety: a false alarm costs a person a minute, a missed one leaves a driver on the hard shoulder.
+    /warning (light|lamp)|breakdown|broke(n)? down|\baccident\b|crash|collision|smoke|\bfire\b|burning|injur|hurt|unsafe|not safe|engine (light|fault)|flat (tyre|tire)|puncture|(won'?t|doesn'?t|not) start|brakes?\b|hard shoulder|overheat|unwell|\bsick\b|dizzy|\bhit (a|an)\b|varoitusvalo|moottorivika|onnettomuus|(warn|kontroll)leuchte|unfall|panne|advarselslampe|ulykke/.test(t) ? "SAFETY"
     : /\b(booked|booking|reference|ferry ref|ticket)\b/.test(t) ? "BOOKING_QUESTION"
     : /\b(paid|payout|expense|claim|receipt|reimburse)\b/.test(t) ? "EXPENSE_QUESTION"
     : /\bkeys?\b/.test(t) ? "KEYS_QUESTION"

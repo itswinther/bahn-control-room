@@ -23,8 +23,8 @@ const FERRY: Record<string, FerryFixture> = {
   "ord-00603": {
     cached_checked_at: "2026-10-21T07:10:00Z",
     options: [
-      { id: "opt_mock_603_2200", provider: "Vela Coast Lines", departs_at: "2026-10-21T22:00:00Z", check_in_cutoff_at: "2026-10-21T20:00:00Z", arrives_at: "2026-10-23T04:00:00Z", vehicle_space: true, price_minor: 4500, currency: "EUR" },
-      { id: "opt_mock_603_0800", provider: "Vela Coast Lines", departs_at: "2026-10-22T08:00:00Z", check_in_cutoff_at: "2026-10-22T06:00:00Z", arrives_at: "2026-10-23T14:00:00Z", vehicle_space: true, price_minor: 4500, currency: "EUR" },
+      { id: "opt_mock_603_2200", provider: "Vela Coast Lines", departs_at: "2026-10-21T22:00:00Z", check_in_cutoff_at: "2026-10-21T20:00:00Z", arrives_at: "2026-10-23T04:00:00Z", vehicle_space: true, price_minor: 39000, currency: "EUR" },
+      { id: "opt_mock_603_0800", provider: "Vela Coast Lines", departs_at: "2026-10-22T08:00:00Z", check_in_cutoff_at: "2026-10-22T06:00:00Z", arrives_at: "2026-10-23T14:00:00Z", vehicle_space: true, price_minor: 39000, currency: "EUR" },
     ],
   },
   // CD-420299: the cached list is the dataset's own two quotes from 07:00 (travel_options); the

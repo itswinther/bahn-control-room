@@ -586,6 +586,156 @@ entries further down.
   the order's latest driver message (marked as a shortcut in the code).
 - Evidence: `starter/lib/shift-watch/zone.ts`, `starter/recordings/ord-00603.DRIVER_MESSAGE.json`.
 
+### 2026-10-24 · team + Claude · second review: as a driver, as an operator
+
+- Asked: read the whole repo the way a driver and an operator would, against
+  the brief and our talk with the challenge partner. Check the data again,
+  and test whether the method holds up outside our own test set.
+- Decided (team): look first, change nothing until we'd seen the whole list.
+  The screens are left out of this pass; our frontend teammate owns them.
+- Checked:
+  - Data: Bahn's checker passes (100 orders, 4,366 records), all 58
+    attachment hashes match, and the database row counts match the manifest.
+    An old clone of Bahn's repo on one laptop had 11 PDFs broken by Windows
+    line endings. Ours is protected by `.gitattributes`.
+  - The mock ferry times for CD-420603 agree with the dataset: the 22:00
+    sailing keeps the 23 Oct promise and the 08:00 one misses it.
+  - We didn't count our 14 of 14 on Bahn's proposals: the rules were written
+    from those same 14. On held-out mistakes the rules alone caught 0 of 10;
+    with Claude reading, 15 of 15.
+  - We wrote 14 driver messages of our own (a missed ferry, a flat tyre on
+    the hard shoulder, a seller refusing the keys, warning lights in Finnish
+    and German). Claude's reading in live mode: 14 of 14. The replay rules:
+    about 3 of 14.
+- Found, worst first:
+  1. The queue at demo start missed 3 of the starter's "danger" orders.
+     They include CD-420593, where the driver's wait ran out at 08:27.
+  2. Without a key, a driver writing "I missed the ferry I was booked on"
+     got a list of bookings back, and nobody was told.
+  3. The agent's messages to drivers were checked against a word list only,
+     even in live mode. It missed 6 of 7 ways of saying "keep driving".
+  4. The freshness check and the code that books on approval used different
+     ideas of "a booking": `travel.change_crossing` could book from a stale
+     list, and approving `travel.cancel_booking` tried to book a ferry.
+  5. The mock fare for CD-420603 was €45; the dataset's own quote is €387.
+  6. Nothing woke an agent on its own: `next_check_at` was stored and never
+     acted on.
+- Evidence: `npm run eval:reworded -- --claude`; the driver-message set is in
+  the step entries below.
+
+### 2026-10-24 · team + Claude · fix 1: the queue shows every urgent order
+
+- Why: an owned alert was treated as handled, so it never reached the queue.
+  And the queue only knew our own chat, so a driver's wait limit in Bahn's
+  messages was invisible.
+- Changed:
+  - A high or critical alert stays in front of its owner until it is
+    resolved. Acknowledged is not resolved.
+  - When a driver says how long they can wait, and nobody has answered them
+    in that thread since, the end of that wait becomes a card with that
+    deadline.
+- Checked: at 09:00 the queue went from 23 to 26 orders, adding exactly the
+  three danger orders (CD-420593, CD-420299, CD-420702). CD-420593 now sits
+  right after the safety card, with "Driver's wait ran out at 08:27". The 20
+  orders the starter flags and we still leave out are a missing position on
+  two moving cars plus open threads with nothing due. 74 orders stay quiet.
+- Evidence: `starter/lib/shift-watch/queue.ts`.
+
+### 2026-10-24 · team + Claude · fix 2: keyword reading never closes a driver's message
+
+- Why: without a key, or when Claude's call fails, the driver's message is
+  read by keywords. "Booked" made "I missed the ferry I was booked on" a
+  booking question, which got a list of bookings back and closed the
+  conversation. And a flat tyre on the hard shoulder wasn't safety.
+- Decided (team): when the keywords read the message, the driver still gets
+  the answer from the records, plus a time we'll come back by, and the agent
+  wakes. The keywords lean towards safety: a false alarm costs a person a
+  minute, while a miss leaves a driver on the hard shoulder.
+- Changed: added safety words in English, Finnish and German. "Accident" now
+  matches as a whole word, so "accidentally" no longer counts. A failed
+  Claude reading now falls back as a reading done by keywords.
+- Checked: all 9 safety messages from our set now read as safety, and
+  "accidentally" and the demo line stay ordinary. On a running server in
+  replay mode, the missed-ferry message got the bookings, "we'll get back to
+  you by 11:15 Hamburg time", a woken agent and a queue card.
+- Known limit: in replay, any driver message on CD-420603 plays the demo's
+  recording, whatever the driver wrote.
+- Evidence: `starter/lib/shift-watch/intake.ts`, `starter/lib/shift-watch/read.ts`,
+  `npm run check:agent`.
+
+### 2026-10-24 · team + Claude · fix 3: Claude reads the agent's messages to drivers
+
+- Why: questions and acknowledgements go to the driver without a person, and
+  they were checked only against a word list. That is the channel where
+  Bahn's real "try restarting the vehicle" mistake would reach a driver.
+- Decided (team): treat the agent's driver messages like its proposals.
+  Claude reads them in live mode, and its reading can only add a hold, never
+  remove one. Hold a message that advises driving, blames the driver, or
+  calls something booked or boarded. If the reading fails, the word list
+  still runs.
+- Checked: before the first run we wrote a held-out set of 15 messages
+  (`fixtures/driver-messages.json`): 8 that must be held, and 7 that must
+  go out, two of them the agent's own words from live runs. Word list alone:
+  7 of 15, holding none of the 8 bad ones. With Claude: 15 of 15, and both
+  real messages still go out. One run each.
+- Evidence: `starter/lib/shift-watch/review.ts`, `starter/lib/shift-watch/checks.ts`
+  (`driverMessageOk`), `npm run eval:reworded -- --claude`.
+
+### 2026-10-24 · team + Claude · fix 4: one definition of "this books something"
+
+- Why: the agent names its own commands. The freshness check knew "book" and
+  "rebook", while the code that books on approval matched "book" or
+  "crossing" anywhere in the name. So `travel.change_crossing` built on a
+  three-hour-old list passed the check, then booked on approval. Approving
+  `travel.cancel_booking` tried to book a ferry instead.
+- Changed: both now use the same function. Moving a booking to another
+  crossing or sailing counts as booking. A cancellation is no longer treated
+  as one: it is recorded for the travel desk to carry out.
+- Checked: the five ways of naming a rebooking are all sent back on a stale
+  list, cancellation, refresh and verify commands don't count as bookings,
+  and Bahn's 14 proposals still match.
+- Evidence: `starter/lib/shift-watch/checks.ts` (`booksOrBuys`),
+  `starter/lib/shift-watch/decide.ts`, `npm run check:agent`.
+
+### 2026-10-24 · team + Claude · fix 5: a fare Bahn's people would believe
+
+- Why: our mock 22:00 crossing for CD-420603 cost €45. The dataset's own
+  quote for the same carrier and route is €387. A Bahn operator watching the
+  demo would stop at that number.
+- Changed: both mock sailings now cost €390, and so does the frontend's
+  sample data. The demo's recording quoted the old fare, so we re-recorded
+  that one run live rather than edit a recorded run by hand.
+- Checked: we read the new run before keeping it. It made the same call: the
+  same evidence, the 22:00 crossing, the 08:00 one ruled out as too late,
+  keep the old booking, don't tell the driver to leave the queue. Shift Watch
+  passed it in live mode. Then we played the whole demo in replay from a
+  reset: driver line, proposal in the queue, approve with Bahn paying. It
+  booked the 22:00 crossing (mock), kept WBV-FERRY-00603 as a fallback until
+  12:00 UTC, and told the driver in Hamburg time.
+- Evidence: `starter/lib/mocks/index.ts`, `starter/recordings/ord-00603.DRIVER_MESSAGE.json`,
+  `starter/fixtures/order-agent.ts`.
+
+### 2026-10-24 · team + Claude · fix 6: agents wake themselves
+
+- Why: the challenge partner described each order's agent sending an email,
+  sleeping, and scheduling itself to wake up. Ours recorded a
+  `next_check_at` on every run and never acted on it, so an agent only woke
+  when a driver wrote or someone pressed a button.
+- Decided (team): once a minute, the server wakes each agent whose own next
+  check has come due, once per check. Live mode only: replay has no
+  recordings for these wake-ups, and a failed run would only add noise to
+  the cards. If the wake-up never happens, the queue still shows "Agent's
+  next check is overdue", so a person sees it either way.
+- Checked: live, from a reset, we planted a check due at 08:59 on
+  CD-420603. The agent woke once at 09:00 (the demo clock), read the order,
+  refreshed the ferry list and proposed the 22:00 crossing. Shift Watch
+  passed it. It set its next check to 11:00 and was not woken again in
+  between. Its reasoning was off in one place: it checked the driver's rest
+  against the old 12:00 cutoff. The proposal card shows that to the person
+  deciding.
+- Evidence: `starter/lib/agents/order-agent.ts` (`wakeDue`),
+  `starter/instrumentation.ts`, `starter/lib/agents/README.md`.
+
 ## Evidence in this repo
 
 Filled in as the build goes:

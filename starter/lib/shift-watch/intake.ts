@@ -36,7 +36,8 @@ async function readByClaude(text: string): Promise<Reading> {
     messages: [{ role: "user", content: text }],
   })
   const block = response.content.find((b) => b.type === "text")
-  return block?.type === "text" ? (JSON.parse(block.text) as Reading) : readByRules(text)
+  if (block?.type !== "text") throw new Error(`No reading (stop reason ${response.stop_reason})`)
+  return JSON.parse(block.text) as Reading
 }
 
 async function inLanguage(english: string, language: string): Promise<string> {
@@ -110,7 +111,8 @@ export async function intake(driverId: string, text: string, opts: { quickReplyV
     }
   }
 
-  const reading = live() ? await readByClaude(subject).catch(() => readByRules(subject)) : readByRules(subject)
+  let byRules = !live()
+  const reading = live() ? await readByClaude(subject).catch(() => ((byRules = true), readByRules(subject))) : readByRules(subject)
   const message = await store({
     driverId, orderId: job?.id ?? null, direction: "IN", author: "driver", text, language: reading.language,
     translation: reading.english, quickReplies: [], hearBackBy: null, simulated: !!opts.simulated, intent: reading.intent,
@@ -137,16 +139,19 @@ export async function intake(driverId: string, text: string, opts: { quickReplyV
   const zone = await driverZone(job.id)
   const local = (iso: string) => localTime(iso, zone, nowIso())
   const routine = await routineAnswer(job.id, driverId, reading.intent, local)
+  // A routine answer closes the question only when Claude read it. Keywords misread ("the ferry I was
+  // booked on" isn't a booking question), so then the driver gets the answer and a promise, and the agent wakes.
+  const closes = !!routine && !byRules
   const english = reading.intent === "SAFETY"
     ? `Thanks for telling us. Please stay somewhere safe. A person is taking over now and will contact you by ${local(promised)}.`
-    : routine ?? (promised === earlier ? `Got it, added to your earlier message. You'll still hear from us by ${local(promised)}.` : `Got it, we're on it. You'll hear from us by ${local(promised)}.`)
-  // A routine answer from the records closes the question; anything else is a promise with a time.
+    : routine ? `${routine}${closes ? "" : `\nWe'll also look at your message and get back to you by ${local(promised)}.`}`
+    : promised === earlier ? `Got it, added to your earlier message. You'll still hear from us by ${local(promised)}.` : `Got it, we're on it. You'll hear from us by ${local(promised)}.`
   const reply = await store({
     driverId, orderId: job.id, direction: "OUT", author: "shift-watch", text: await inLanguage(english, reading.language), language: reading.language,
-    translation: reading.language === "en" ? null : english, quickReplies: [], hearBackBy: routine ? null : promised, simulated: false, intent: null,
+    translation: reading.language === "en" ? null : english, quickReplies: [], hearBackBy: closes ? null : promised, simulated: false, intent: null,
     repeatsMessageId: null, status: "SENT",
   })
-  if (routine) return { message, reply, run_id: null }
+  if (closes) return { message, reply, run_id: null }
 
   const clock = zone ? ` Times the driver writes are local: ${zone.place} time (${zone.zone}, ${utcOffset(zone, message.created_at)}).` : ""
   const runReq = { order_id: job.id, reason: "DRIVER_MESSAGE" as const, reason_detail: `Driver message relayed by Shift Watch at ${hhmm(message.created_at)} UTC: '${reading.english ?? subject}'${reading.limit_minutes ? ` (says they can wait ${reading.limit_minutes} more minutes)` : ""}.${clock}` }

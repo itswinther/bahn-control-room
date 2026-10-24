@@ -28,10 +28,12 @@ const FRESH_MINUTES = 30
 const action = (command: string) => command.split(".")[1] ?? ""
 const words = (payload: Record<string, unknown>) => JSON.stringify(payload)
 
-/** Books, buys or rebooks something. Refresh, verify and check commands exist to refresh data, so they don't count. */
+/** Books, buys or rebooks something, or moves a booking to another crossing. Refresh, verify and check commands
+ *  exist to refresh data, so they don't count. decide.ts books only what this says books, so the two can't drift. */
 export function booksOrBuys(command: string): boolean {
   const a = action(command)
-  return /(^|_)(book|rebook|buy|purchase|reserve)(_|$)/.test(a) && !/^(refresh|verify|check)/.test(a)
+  return (/(^|_)(book|rebook|buy|purchase|reserve)(_|$)/.test(a) || /(^|_)(change|move|switch|swap)_(\w+_)?(crossing|sailing|ferry)/.test(a))
+    && !/^(refresh|verify|check)/.test(a)
 }
 
 const LOOKUP_KEY = /^(verify|refresh|check|look_for|review|compare)_|^look_for/
@@ -107,6 +109,12 @@ export function checkProposal(p: CheckInput, read?: TextReading): CheckResult {
     checked_at: nowIso(),
     approval: lookupOnly ? "NONE" : route(p.command).approval,
   }
+}
+
+/** An agent's message to a driver goes out without a person unless it advises driving, blames, or calls
+ *  something booked or boarded. The word list is the floor; Claude's reading (live) can only add. */
+export function driverMessageOk(text: string, read?: TextReading): boolean {
+  return !DRIVING_ADVICE.test(text) && !(read && (read.driving_advice || read.blames || read.claims_booked || read.claims_boarded))
 }
 
 /** Who may decide each approval level. */

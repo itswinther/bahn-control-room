@@ -3,7 +3,7 @@ import assert from "node:assert/strict"
 import { DRIVING_ADVICE, INSTRUCTION, route, tableFor } from "../lib/agents/rules"
 import { driverRest, ferryCapacity } from "../lib/mocks"
 import { bookingOutcome, siteReply } from "../lib/mocks/replies"
-import { mayDecide } from "../lib/shift-watch/checks"
+import { booksOrBuys, mayDecide } from "../lib/shift-watch/checks"
 import { readByRules } from "../lib/shift-watch/read"
 import { bookFerry } from "../lib/mocks"
 
@@ -49,5 +49,13 @@ assert.equal(readByRules("I can wait another 30 minutes").limit_minutes, 30)
 assert.equal(readByRules("I can stay 30 more minutes").limit_minutes, 30)
 assert.equal(readByRules("I will be 20 minutes late").limit_minutes, null)
 assert.equal(readByRules("Still in the queue").intent, "ORDER")
+for (const t of ["Flat tyre, I'm on the hard shoulder", "The car won't start", "Burning smell from the engine", "Brakes feel spongy",
+  "I feel unwell", "Varoitusvalo palaa", "Die Motorkontrollleuchte ist an"]) assert.equal(readByRules(t).intent, "SAFETY", t)
+assert.equal(readByRules("I accidentally sent the wrong photo").intent, "ORDER")
+assert.equal(readByRules("Still in the queue. Navigation now says 14:20 at check-in.").intent, "ORDER") // the demo line
+
+// One idea of "books", shared by the freshness check and the code that books on approval.
+for (const c of ["travel.rebook_crossing", "travel.book_ferry", "travel.change_crossing", "travel.move_to_later_crossing", "travel.switch_sailing"]) assert.ok(booksOrBuys(c), c)
+for (const c of ["travel.cancel_booking", "travel.refresh_crossing", "travel.verify_booking_outcome", "billing.check_reference"]) assert.ok(!booksOrBuys(c), c)
 
 console.log("agent rules: ok")
