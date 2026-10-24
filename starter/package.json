@@ -13,7 +13,8 @@
     "attachments:smoke": "tsx scripts/smoke-attachments.ts",
     "smoke": "tsx scripts/smoke.ts",
     "demo:driver": "tsx scripts/demo-driver.ts",
-    "check:agent": "tsx scripts/check-agent-rules.ts"
+    "check:agent": "tsx scripts/check-agent-rules.ts",
+    "eval:proposals": "tsx scripts/eval-proposals.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.3.0",

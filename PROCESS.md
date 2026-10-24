@@ -253,6 +253,24 @@ Format for every entry:
   `--direct` mode that stands in for Shift Watch's intake until it lands.
 - Evidence: `starter/scripts/demo-driver.ts`, `starter/app/api/clock/`.
 
+### 2026-10-24 · Mike + Claude · Shift Watch's proposal checks (Backend 2)
+
+- Asked: build Shift Watch's seven checks and replay Bahn's 14 recorded
+  proposals through them.
+- Checked: `npm run eval:proposals` compares every result with the expected
+  outcome written before the checks existed. First run: 13 of 14. The one
+  difference was an inconsistency in our own expected file: CD-420299's
+  "verify booking outcome" bundles a customer step with lookups like CD-420593
+  and CD-420399, which already expected both checks. We changed that entry
+  (marked `changed_after_first_run` in the file), not the checks. Now 14 of 14:
+  the 4 corrections Bahn's people made are caught before running, the failed
+  booking passes (it can't be caught in advance), and 3 pending proposals are
+  split.
+- Changed or threw away: one set of pure checks for both our proposals and
+  Bahn's recorded ones; Bahn's records cite ids only, so quote ages are looked
+  up in `travel_options`.
+- Evidence: `starter/lib/shift-watch/checks.ts`, `npm run eval:proposals`.
+
 _Teammate's earlier log (`AI-PROCESS.md` in the review bundle, 17 entries):
 merge its entries here._
 
