@@ -1,7 +1,8 @@
 // The decision queue: what needs a person now, worked out by rules on every request against the
 // demo clock, so it still works when the agents are down. Safety first, then earliest deadline.
 import { and, eq, inArray } from "drizzle-orm"
-import type { Desk, QueueItem, QueueResponse } from "@/lib/contract"
+import type { CardOutcome, Desk, QueueItem, QueueResponse } from "@/lib/contract"
+import { agentMode } from "@/lib/agents/order-agent"
 import { nowIso } from "@/lib/clock"
 import { db } from "@/lib/db"
 import { alerts, conversations, orders, relatedRecords } from "@/lib/schema"
@@ -45,7 +46,7 @@ export async function buildQueue(): Promise<QueueResponse> {
     db.select().from(alerts).where(inArray(alerts.status, ["OPEN", "ACKNOWLEDGED"])),
     db.select().from(conversations).where(eq(conversations.status, "OPEN")),
     db.select().from(relatedRecords).where(inArray(relatedRecords.collection, ["work_items", "incidents", "agent_proposals", "travel_reservations", "time_windows"])),
-    db.select().from(proposals).where(inArray(proposals.status, ["PENDING_REVIEW", "HELD"])),
+    db.select().from(proposals).where(inArray(proposals.status, ["PENDING_REVIEW", "HELD", "APPROVED", "REJECTED", "EXECUTED", "FAILED"])),
     db.select().from(orderStatus),
   ])
   const chat = await db.select().from(driverMessages).orderBy(driverMessages.createdAt)
@@ -151,9 +152,12 @@ export async function buildQueue(): Promise<QueueResponse> {
   const items: QueueItem[] = []
   const covered = new Set<string>()
 
-  // Agent proposals waiting for a person. An order's loose ends go on its proposal card.
-  const runSteps = ours.length ? await db.select().from(agentSteps).where(inArray(agentSteps.runId, ours.map((p) => p.runId))) : []
-  for (const p of ours) {
+  // Agent proposals waiting for a person, and ones a person decided in the last few minutes (failed ones
+  // stay until dealt with), so a decided card keeps its place and shows what happened. An order's loose
+  // ends go on its proposal card.
+  const shown = ours.filter((p) => ["PENDING_REVIEW", "HELD", "FAILED"].includes(p.status) || (p.review && nowMs - Date.parse(p.review.at) < DECIDED_SHOWN_MS))
+  const runSteps = shown.length ? await db.select().from(agentSteps).where(inArray(agentSteps.runId, shown.map((p) => p.runId))) : []
+  for (const p of shown) {
     covered.add(p.orderId)
     const hard = hardDeadline(p.orderId)
     const st = statusRows.find((r) => r.orderId === p.orderId)
@@ -162,13 +166,16 @@ export async function buildQueue(): Promise<QueueResponse> {
     for (const r of reasons.get(p.orderId) ?? []) checked.push(`Also open: ${r.text}`)
     // Decide-by times only: the proposal's own, the agent's status and the order's hard times. A loose
     // end's "was due" time isn't a decide-by time. No deadline at all means decide as soon as possible.
-    const deadline = [p.decisionDeadline, st?.decisionDeadline, hard?.at, promises.get(p.orderId)].filter((x): x is string => !!x).sort()[0] ?? p.createdAt
+    // A decided card keeps the deadline it had when the person decided, so it stays where they left it.
+    const promise = p.review ? [...chat].reverse().find((m) => m.orderId === p.orderId && m.direction === "OUT" && m.hearBackBy && m.createdAt <= p.review!.at)?.hearBackBy : promises.get(p.orderId)
+    const deadline = [p.decisionDeadline, p.review ? null : st?.decisionDeadline, hard?.at, promise].filter((x): x is string => !!x).sort()[0] ?? p.createdAt
+    const outcome = outcomeOf(p, now)
     items.push({
-      id: `q_${p.id}`, kind: "PROPOSAL", order_id: p.orderId, reference: ref.get(p.orderId) ?? p.orderId,
-      decision: p.status === "HELD" ? `Held for a person: ${p.summary}` : p.summary,
+      id: `q_${p.id}`, kind: outcome ? "DECIDED" : "PROPOSAL", order_id: p.orderId, reference: ref.get(p.orderId) ?? p.orderId,
+      decision: p.status === "HELD" ? `Held for a person: ${p.summary}` : p.summary, outcome,
       owner_desk: p.ownerDesk, deadline,
       deadline_reason: deadline === p.createdAt && !p.decisionDeadline ? "No deadline given; decide as soon as possible"
-        : deadline === promises.get(p.orderId) ? `Driver was promised an answer by ${when(deadline, now)}`
+        : deadline === promise ? `Driver was promised an answer by ${when(deadline, now)}`
         : deadline === hard?.at ? hard.why : st?.deadlineReason ?? "Decision deadline",
       safety: safety.has(p.orderId) || p.approval === "SHIFT_LEAD", checked, proposal_id: p.id, held_message_id: held.get(p.orderId) ?? null,
     })
@@ -185,7 +192,7 @@ export async function buildQueue(): Promise<QueueResponse> {
       id: `q_${orderId}`, kind: "LOOSE_END", order_id: orderId, reference: ref.get(orderId) ?? orderId,
       decision: top.text, owner_desk: top.owner, deadline,
       deadline_reason: deadline === top.deadline ? top.deadlineReason : hard?.why ?? null,
-      safety: safety.has(orderId), checked: sorted.slice(1).map((r) => r.text), proposal_id: null, held_message_id: held.get(orderId) ?? null,
+      safety: safety.has(orderId), checked: sorted.slice(1).map((r) => r.text), proposal_id: null, held_message_id: held.get(orderId) ?? null, outcome: null,
     })
   }
 
@@ -193,8 +200,33 @@ export async function buildQueue(): Promise<QueueResponse> {
   return { at: now, summary: summarise(items, nowMs), items, quiet_count: orderRows.length - new Set(items.map((i) => i.order_id)).size }
 }
 
+/** How long a decided card stays in the queue showing its outcome. */
+const DECIDED_SHOWN_MS = 5 * MINUTE
+
+const hms = (iso: string) => iso.slice(11, 19)
+
+/** What a decided card says: what will happen when the undo window closes, or what happened. */
+function outcomeOf(p: typeof proposals.$inferSelect, now: string): CardOutcome | null {
+  const r = p.review
+  if (!r) return null
+  const open = !r.settled_at && r.takes_effect_at > now
+  const approved = p.status !== "REJECTED"
+  const result = open
+    ? `${approved ? "Approved" : "Rejected"} by ${DESK_NAME[r.reviewer] ?? r.reviewer}. Takes effect at ${hms(r.takes_effect_at)} UTC; undo until then.`
+    : p.status === "EXECUTED" ? p.execution!.result_summary
+    : p.status === "FAILED" ? `Failed when it ran: ${p.execution?.error ?? "unknown error"}`
+    : p.status === "REJECTED" ? `Rejected by ${DESK_NAME[r.reviewer] ?? r.reviewer}${r.note ? `: ${r.note}` : ""}`
+    : "Taking effect now"
+  const nextSteps = open ? [] : p.execution?.next_steps ?? (p.status === "REJECTED"
+    ? [r.note && agentMode() === "live" ? "The agent is looking for another way, with your reason" : "The order stays with a person; nothing was booked or sent"]
+    : [])
+  return { decision: r.decision, reviewer: r.reviewer, at: r.at, undo_until: open ? r.takes_effect_at : null, result, next_steps: nextSteps, failed: p.status === "FAILED" }
+}
+
 /** Three lines from rules, so the summary works without the model. */
-function summarise(items: QueueItem[], nowMs: number): [string, string, string] {
+function summarise(all: QueueItem[], nowMs: number): [string, string, string] {
+  // A card a person just decided no longer needs anyone, unless it failed.
+  const items = all.filter((i) => !i.outcome || i.outcome.failed)
   const soon = items.filter((i) => i.deadline && Date.parse(i.deadline) < nowMs + 60 * MINUTE)
   const safety = items.filter((i) => i.safety).length
   const byDesk = new Map<string, number>()

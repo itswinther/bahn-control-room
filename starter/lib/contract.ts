@@ -180,9 +180,24 @@ export type TravelLeg = {
 
 // ---- Routes ---------------------------------------------------------------------
 
+/** On a card a person just decided: what happened, or what will when the undo window closes. */
+export type CardOutcome = {
+  decision: Review["decision"]
+  reviewer: string
+  at: string
+  /** Undo until this time with POST /api/proposals/:id/undo; null once the decision has taken effect. */
+  undo_until: string | null
+  /** One line: what happened, or what happens at undo_until. */
+  result: string
+  next_steps: string[]
+  /** It failed when it ran: the card stays until a person deals with it. */
+  failed: boolean
+}
+
 export type QueueItem = {
   id: string
-  kind: "PROPOSAL" | "LOOSE_END" | "DRIVER_WAITING"
+  /** DECIDED: a person decided in the last few minutes (or it failed); the card keeps its place and shows the outcome. */
+  kind: "PROPOSAL" | "LOOSE_END" | "DRIVER_WAITING" | "DECIDED"
   order_id: string
   reference: string
   decision: string
@@ -195,6 +210,7 @@ export type QueueItem = {
   /** An agent message to the driver that Shift Watch held: send, edit or discard it with
    *  POST /api/driver/messages/:id/review. */
   held_message_id: string | null
+  outcome: CardOutcome | null
 }
 
 /** POST /api/driver/messages/:id/review, for a held message. `text` sends an edited version instead. */
