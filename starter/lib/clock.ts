@@ -22,3 +22,6 @@ export function resetClock(): void {
   store.__demoClock = undefined
   state()
 }
+
+/** How long a person's decision or released message can be undone before it takes effect. */
+export const UNDO_MS = 10_000

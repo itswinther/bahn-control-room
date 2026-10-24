@@ -1,7 +1,8 @@
 // The decision queue: what needs a person now, worked out by rules on every request against the
 // demo clock, so it still works when the agents are down. Safety first, then earliest deadline.
 import { and, eq, inArray } from "drizzle-orm"
-import type { Desk, QueueItem, QueueResponse } from "@/lib/contract"
+import type { CardOutcome, Desk, QueueItem, QueueResponse } from "@/lib/contract"
+import { agentMode } from "@/lib/agents/order-agent"
 import { nowIso } from "@/lib/clock"
 import { db } from "@/lib/db"
 import { alerts, conversations, orders, relatedRecords } from "@/lib/schema"
@@ -25,7 +26,8 @@ const SHOWN_TOOLS = new Set(["check_ferry_capacity", "check_driver_rest", "check
 /** Bahn's lookup commands, and the agent tool that does the same lookup. */
 const DONE_BY: [RegExp, string][] = [[/^travel\.refresh_/, "check_ferry_capacity"], [/verify_booking_outcome$/, "check_booking_outcome"]]
 
-type Reason = { text: string; owner: Desk; deadline: string | null; deadlineReason: string | null }
+/** `ours`: a commitment Shift Watch made (a promise to a driver, a held message), which escalates if missed. */
+type Reason = { text: string; owner: Desk; deadline: string | null; deadlineReason: string | null; ours?: true }
 
 const DESK_NAME: Record<string, string> = {
   "ops-dispatch": "Driver marketplace", "ops-travel": "Driver travel", "ops-readiness": "Readiness desk", "ops-support": "Support desk",
@@ -45,7 +47,7 @@ export async function buildQueue(): Promise<QueueResponse> {
     db.select().from(alerts).where(inArray(alerts.status, ["OPEN", "ACKNOWLEDGED"])),
     db.select().from(conversations).where(eq(conversations.status, "OPEN")),
     db.select().from(relatedRecords).where(inArray(relatedRecords.collection, ["work_items", "incidents", "agent_proposals", "travel_reservations", "time_windows"])),
-    db.select().from(proposals).where(inArray(proposals.status, ["PENDING_REVIEW", "HELD"])),
+    db.select().from(proposals).where(inArray(proposals.status, ["PENDING_REVIEW", "HELD", "APPROVED", "REJECTED", "EXECUTED", "FAILED"])),
     db.select().from(orderStatus),
   ])
   const chat = await db.select().from(driverMessages).orderBy(driverMessages.createdAt)
@@ -120,7 +122,7 @@ export async function buildQueue(): Promise<QueueResponse> {
     add(orderId, {
       text: `Driver ${late ? "still " : ""}waiting: "${(asked?.translation ?? asked?.text ?? "").slice(0, 90)}"`,
       owner: statusRows.find((s) => s.orderId === orderId)?.ownerDesk ?? (asked?.intent === "SAFETY" ? "ops-shift" : "ops-support"),
-      deadline: promise.hearBackBy, deadlineReason: `Driver was promised an answer by ${when(promise.hearBackBy!, now)}`,
+      deadline: promise.hearBackBy, deadlineReason: `Driver was promised an answer by ${when(promise.hearBackBy!, now)}`, ours: true,
     })
   }
 
@@ -132,7 +134,7 @@ export async function buildQueue(): Promise<QueueResponse> {
     add(m.orderId, {
       text: `Message to the driver held for a person: "${m.text.slice(0, 90)}"`,
       owner: statusRows.find((s) => s.orderId === m.orderId)?.ownerDesk ?? "ops-support",
-      deadline: promises.get(m.orderId) ?? null, deadlineReason: promises.has(m.orderId) ? `Driver was promised an answer by ${when(promises.get(m.orderId)!, now)}` : null,
+      deadline: promises.get(m.orderId) ?? null, deadlineReason: promises.has(m.orderId) ? `Driver was promised an answer by ${when(promises.get(m.orderId)!, now)}` : null, ours: true,
     })
   }
 
@@ -151,9 +153,25 @@ export async function buildQueue(): Promise<QueueResponse> {
   const items: QueueItem[] = []
   const covered = new Set<string>()
 
-  // Agent proposals waiting for a person. An order's loose ends go on its proposal card.
-  const runSteps = ours.length ? await db.select().from(agentSteps).where(inArray(agentSteps.runId, ours.map((p) => p.runId))) : []
-  for (const p of ours) {
+  // Agent proposals waiting for a person, and ones a person decided in the last few minutes (failed ones
+  // stay until dealt with), so a decided card keeps its place and shows what happened. An order's loose
+  // ends go on its proposal card.
+  const shown = ours.filter((p) => ["PENDING_REVIEW", "HELD", "FAILED"].includes(p.status) || (p.review && nowMs - Date.parse(p.review.at) < DECIDED_SHOWN_MS))
+  const runSteps = shown.length ? await db.select().from(agentSteps).where(inArray(agentSteps.runId, shown.map((p) => p.runId))) : []
+  const runs = await db.select({ id: agentRuns.id, orderId: agentRuns.orderId, status: agentRuns.status, stopReason: agentRuns.stopReason, startedAt: agentRuns.startedAt }).from(agentRuns)
+  // A deadline that passed with nobody deciding moves our own cards to the shift lead. With no deadline
+  // at all, that happens after half an hour.
+  const escalation = (owner: Desk, deadline: string | null, created: string | null) => {
+    const at = deadline ?? (created ? new Date(Date.parse(created) + 30 * MINUTE).toISOString() : null)
+    return { at, from: at && Date.parse(at) < nowMs && owner !== "ops-shift" ? owner : null }
+  }
+  const ifNobody = (fallback: string, owner: Desk, at: string | null, from: Desk | null, hard: { at: string; why: string } | null) => [
+    from ? `Moved to the shift lead at ${when(at!, now)}: ${DESK_NAME[from] ?? from} didn't decide in time.` : null,
+    fallback,
+    hard ? `${hard.why} at ${when(hard.at, now)}.` : null,
+    !from && owner !== "ops-shift" && at ? `If nobody decides by ${when(at, now)}, it moves to the shift lead.` : null,
+  ].filter(Boolean).join(" ")
+  for (const p of shown) {
     covered.add(p.orderId)
     const hard = hardDeadline(p.orderId)
     const st = statusRows.find((r) => r.orderId === p.orderId)
@@ -162,13 +180,19 @@ export async function buildQueue(): Promise<QueueResponse> {
     for (const r of reasons.get(p.orderId) ?? []) checked.push(`Also open: ${r.text}`)
     // Decide-by times only: the proposal's own, the agent's status and the order's hard times. A loose
     // end's "was due" time isn't a decide-by time. No deadline at all means decide as soon as possible.
-    const deadline = [p.decisionDeadline, st?.decisionDeadline, hard?.at, promises.get(p.orderId)].filter((x): x is string => !!x).sort()[0] ?? p.createdAt
+    // A decided card keeps the deadline it had when the person decided, so it stays where they left it.
+    const promise = p.review ? [...chat].reverse().find((m) => m.orderId === p.orderId && m.direction === "OUT" && m.hearBackBy && m.createdAt <= p.review!.at)?.hearBackBy : promises.get(p.orderId)
+    const deadline = [p.decisionDeadline, p.review ? null : st?.decisionDeadline, hard?.at, promise].filter((x): x is string => !!x).sort()[0] ?? p.createdAt
+    const outcome = outcomeOf(p, now)
+    const esc = outcome ? { at: null, from: null } : escalation(p.ownerDesk, deadline === p.createdAt ? null : deadline, p.createdAt)
     items.push({
-      id: `q_${p.id}`, kind: "PROPOSAL", order_id: p.orderId, reference: ref.get(p.orderId) ?? p.orderId,
-      decision: p.status === "HELD" ? `Held for a person: ${p.summary}` : p.summary,
-      owner_desk: p.ownerDesk, deadline,
+      id: `q_${p.id}`, kind: outcome ? "DECIDED" : "PROPOSAL", order_id: p.orderId, reference: ref.get(p.orderId) ?? p.orderId,
+      decision: p.status === "HELD" ? `Held for a person: ${p.summary}` : p.summary, outcome,
+      stopped_because: outcome ? null : stoppedBecause(p, runs.find((r) => r.id === p.runId)),
+      if_no_decision: outcome ? null : ifNobody(p.approval === "SHIFT_LEAD" ? "Nothing changes until the shift lead decides: the car stays where it is and the driver waits." : "Nothing is booked or sent until a person decides.", p.ownerDesk, esc.at, esc.from, hard),
+      escalated_from: esc.from, owner_desk: esc.from ? "ops-shift" : p.ownerDesk, deadline,
       deadline_reason: deadline === p.createdAt && !p.decisionDeadline ? "No deadline given; decide as soon as possible"
-        : deadline === promises.get(p.orderId) ? `Driver was promised an answer by ${when(deadline, now)}`
+        : deadline === promise ? `Driver was promised an answer by ${when(deadline, now)}`
         : deadline === hard?.at ? hard.why : st?.deadlineReason ?? "Decision deadline",
       safety: safety.has(p.orderId) || p.approval === "SHIFT_LEAD", checked, proposal_id: p.id, held_message_id: held.get(p.orderId) ?? null,
     })
@@ -181,11 +205,16 @@ export async function buildQueue(): Promise<QueueResponse> {
     const sorted = [...list].sort((a, b) => (a.deadline ?? "9").localeCompare(b.deadline ?? "9"))
     const top = sorted[0]
     const deadline = [top.deadline, hard?.at].filter((x): x is string => !!x).sort()[0] ?? null
+    // Bahn's own loose ends keep their owner; only Shift Watch's commitments escalate.
+    const esc = top.ours ? escalation(top.owner, top.deadline, null) : { at: null, from: null }
+    const last = runs.filter((r) => r.orderId === orderId).sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0]
     items.push({
       id: `q_${orderId}`, kind: "LOOSE_END", order_id: orderId, reference: ref.get(orderId) ?? orderId,
-      decision: top.text, owner_desk: top.owner, deadline,
+      decision: top.text, owner_desk: esc.from ? "ops-shift" : top.owner, deadline, escalated_from: esc.from,
+      stopped_because: last && ["STOPPED", "FAILED"].includes(last.status) ? `The agent stopped: ${last.stopReason ?? last.status.toLowerCase()}.` : null,
+      if_no_decision: top.ours ? ifNobody("The driver hears nothing more until a person replies.", top.owner, esc.at, esc.from, hard) : null,
       deadline_reason: deadline === top.deadline ? top.deadlineReason : hard?.why ?? null,
-      safety: safety.has(orderId), checked: sorted.slice(1).map((r) => r.text), proposal_id: null, held_message_id: held.get(orderId) ?? null,
+      safety: safety.has(orderId), checked: sorted.slice(1).map((r) => r.text), proposal_id: null, held_message_id: held.get(orderId) ?? null, outcome: null,
     })
   }
 
@@ -193,8 +222,45 @@ export async function buildQueue(): Promise<QueueResponse> {
   return { at: now, summary: summarise(items, nowMs), items, quiet_count: orderRows.length - new Set(items.map((i) => i.order_id)).size }
 }
 
+/** Why the agent handed this to a person: the rule that needs a person, in the card's words. */
+function stoppedBecause(p: typeof proposals.$inferSelect, run?: { status: string; stopReason: string | null }): string {
+  const desk = DESK_NAME[p.ownerDesk] ?? p.ownerDesk
+  const why = p.status === "HELD" ? `Shift Watch held it for a person: ${p.check?.reasons.map((r) => r.message).join(" ") ?? ""}`
+    : p.approval === "SHIFT_LEAD" ? "It concerns safety, so only the shift lead decides."
+    : p.approval === "CUSTOMER_VIA_PERSON" ? "It contacts the customer, and only a person does that."
+    : p.approval === "NONE" ? "Only a lookup; any desk can run it."
+    : p.cost ? `It costs ${(p.cost.amount_minor / 100).toFixed(2)} ${p.cost.currency}${p.cost.who_pays ? "" : " and who pays is open"}, so ${desk} decides.`
+    : `It changes the order, so ${desk} decides.`
+  return run?.status === "STOPPED" && run.stopReason ? `${why} The agent stopped early: ${run.stopReason}.` : why
+}
+
+/** How long a decided card stays in the queue showing its outcome. */
+const DECIDED_SHOWN_MS = 5 * MINUTE
+
+const hms = (iso: string) => iso.slice(11, 19)
+
+/** What a decided card says: what will happen when the undo window closes, or what happened. */
+function outcomeOf(p: typeof proposals.$inferSelect, now: string): CardOutcome | null {
+  const r = p.review
+  if (!r) return null
+  const open = !r.settled_at && r.takes_effect_at > now
+  const approved = p.status !== "REJECTED"
+  const result = open
+    ? `${approved ? "Approved" : "Rejected"} by ${DESK_NAME[r.reviewer] ?? r.reviewer}. Takes effect at ${hms(r.takes_effect_at)} UTC; undo until then.`
+    : p.status === "EXECUTED" ? p.execution!.result_summary
+    : p.status === "FAILED" ? `Failed when it ran: ${p.execution?.error ?? "unknown error"}`
+    : p.status === "REJECTED" ? `Rejected by ${DESK_NAME[r.reviewer] ?? r.reviewer}${r.note ? `: ${r.note}` : ""}`
+    : "Taking effect now"
+  const nextSteps = open ? [] : p.execution?.next_steps ?? (p.status === "REJECTED"
+    ? [r.note && agentMode() === "live" ? "The agent is looking for another way, with your reason" : "The order stays with a person; nothing was booked or sent"]
+    : [])
+  return { decision: r.decision, reviewer: r.reviewer, at: r.at, undo_until: open ? r.takes_effect_at : null, result, next_steps: nextSteps, failed: p.status === "FAILED" }
+}
+
 /** Three lines from rules, so the summary works without the model. */
-function summarise(items: QueueItem[], nowMs: number): [string, string, string] {
+function summarise(all: QueueItem[], nowMs: number): [string, string, string] {
+  // A card a person just decided no longer needs anyone, unless it failed.
+  const items = all.filter((i) => !i.outcome || i.outcome.failed)
   const soon = items.filter((i) => i.deadline && Date.parse(i.deadline) < nowMs + 60 * MINUTE)
   const safety = items.filter((i) => i.safety).length
   const byDesk = new Map<string, number>()

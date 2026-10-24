@@ -12,7 +12,7 @@ const yes = (description: string) => ({ type: "boolean", description })
 
 export async function readProposalText(p: { command: string; summary: string; payload: Record<string, unknown> }): Promise<TextReading> {
   const response = await (client ??= new Anthropic()).messages.create({
-    model: process.env.AGENT_MODEL ?? "claude-sonnet-5-5", max_tokens: 1000,
+    model: process.env.SHIFT_WATCH_MODEL ?? "claude-sonnet-5-5", max_tokens: 1000,
     output_config: { effort: "low", format: { type: "json_schema", schema: {
       type: "object", additionalProperties: false,
       required: ["blames", "driving_advice", "contacts_customer", "claims_booked", "claims_boarded"],

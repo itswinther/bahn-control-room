@@ -50,7 +50,8 @@ Set these in `.env`:
 
 - `AGENT_MODE=live`
 - `ANTHROPIC_API_KEY=...`
-- `AGENT_MODEL` (default `claude-sonnet-5-5`)
+- `AGENT_MODEL`, the order agent (default `claude-sonnet-5-5`)
+- `SHIFT_WATCH_MODEL`, Shift Watch's reading and the chat (default `claude-sonnet-5-5`)
 
 In live mode:
 

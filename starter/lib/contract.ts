@@ -49,6 +49,11 @@ export type Review = {
   who_pays: WhoPays | null
   reviewer: string
   at: string
+  /** The decision takes effect here (a few seconds after `at`); until then the reviewer or the shift lead can
+   *  undo it with POST /api/proposals/:id/undo, and nothing has reached the driver or a carrier. */
+  takes_effect_at: string
+  /** When it took effect: the booking ran or the rejection went back to the agent. Null while it can be undone. */
+  settled_at: string | null
 }
 
 export type Execution = {
@@ -175,9 +180,24 @@ export type TravelLeg = {
 
 // ---- Routes ---------------------------------------------------------------------
 
+/** On a card a person just decided: what happened, or what will when the undo window closes. */
+export type CardOutcome = {
+  decision: Review["decision"]
+  reviewer: string
+  at: string
+  /** Undo until this time with POST /api/proposals/:id/undo; null once the decision has taken effect. */
+  undo_until: string | null
+  /** One line: what happened, or what happens at undo_until. */
+  result: string
+  next_steps: string[]
+  /** It failed when it ran: the card stays until a person deals with it. */
+  failed: boolean
+}
+
 export type QueueItem = {
   id: string
-  kind: "PROPOSAL" | "LOOSE_END" | "DRIVER_WAITING"
+  /** DECIDED: a person decided in the last few minutes (or it failed); the card keeps its place and shows the outcome. */
+  kind: "PROPOSAL" | "LOOSE_END" | "DRIVER_WAITING" | "DECIDED"
   order_id: string
   reference: string
   decision: string
@@ -190,6 +210,13 @@ export type QueueItem = {
   /** An agent message to the driver that Shift Watch held: send, edit or discard it with
    *  POST /api/driver/messages/:id/review. */
   held_message_id: string | null
+  outcome: CardOutcome | null
+  /** Why the agent stopped and handed this to a person (on agent cards). */
+  stopped_because: string | null
+  /** What happens if nobody decides: the default, and when it moves to the shift lead. */
+  if_no_decision: string | null
+  /** Set when the deadline passed with nobody deciding and the card moved to the shift lead. */
+  escalated_from: Desk | null
 }
 
 /** POST /api/driver/messages/:id/review, for a held message. `text` sends an edited version instead. */

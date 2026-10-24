@@ -101,7 +101,7 @@ export const proposals = [
 export const executedProposal = {
   ...proposals[1],
   status: "EXECUTED",
-  review: { decision: "APPROVED", final_payload: proposals[1].payload, note: null, who_pays: "BAHN", reviewer: "ops-travel", at: "2026-10-21T09:06:00Z" },
+  review: { decision: "APPROVED", final_payload: proposals[1].payload, note: null, who_pays: "BAHN", reviewer: "ops-travel", at: "2026-10-21T09:06:00Z", takes_effect_at: "2026-10-21T09:06:10Z", settled_at: "2026-10-21T09:06:10Z" },
   execution: {
     status: "SUCCEEDED", at: "2026-10-21T09:06:05Z",
     result_summary: "Booked the 22:00 crossing (mock), then released the 14:00 booking",

@@ -15,7 +15,7 @@ import { readByRules, type Reading } from "./read"
 const HEAR_BACK_MINUTES = 15
 let client: Anthropic | null = null
 const live = () => process.env.AGENT_MODE === "live" && !!process.env.ANTHROPIC_API_KEY
-const MODEL = () => process.env.AGENT_MODEL ?? "claude-sonnet-5-5"
+const MODEL = () => process.env.SHIFT_WATCH_MODEL ?? "claude-sonnet-5-5"
 
 async function readByClaude(text: string): Promise<Reading> {
   const response = await (client ??= new Anthropic()).messages.create({
@@ -23,7 +23,10 @@ async function readByClaude(text: string): Promise<Reading> {
       type: "object", additionalProperties: false, required: ["language", "intent", "limit_minutes", "english"],
       properties: {
         language: { type: "string", description: "ISO 639-1 code of the message" },
-        intent: { type: "string", enum: ["SAFETY", "BOOKING_QUESTION", "EXPENSE_QUESTION", "KEYS_QUESTION", "ORDER"], description: "SAFETY if the driver, the car or anyone may be unsafe" },
+        intent: {
+          type: "string", enum: ["SAFETY", "BOOKING_QUESTION", "EXPENSE_QUESTION", "KEYS_QUESTION", "ORDER"],
+          description: "SAFETY: the driver, the car or anyone may be unsafe (warning light, breakdown, accident). BOOKING_QUESTION: the driver asks what is booked or for a booking reference. EXPENSE_QUESTION: the driver asks about a claim or payment. KEYS_QUESTION: the driver asks what to do with the keys. ORDER: anything else, including updates on their progress, delays, a missed time or a problem on the job; these go to the order's agent. A report that mentions a ferry or check-in is ORDER unless it asks what is booked.",
+        },
         limit_minutes: { type: ["integer", "null"], description: "Minutes the driver says they can still wait, if stated" },
         english: { type: ["string", "null"], description: "English translation, or null if already English" },
       },
@@ -150,5 +153,7 @@ export async function intake(driverId: string, text: string, opts: { quickReplyV
 export async function thread(driverId: string): Promise<DriverMessage[]> {
   const rows = await db.select().from(driverMessages).where(eq(driverMessages.driverId, driverId)).orderBy(asc(driverMessages.createdAt))
   // The driver only sees what was actually sent to them.
-  return rows.filter((m) => m.direction === "IN" || m.status === "SENT").map(toDriverMessage)
+  // A message a person just released waits out its undo window before the driver sees it.
+  const now = nowIso()
+  return rows.filter((m) => m.direction === "IN" || (m.status === "SENT" && m.createdAt <= now)).map(toDriverMessage)
 }

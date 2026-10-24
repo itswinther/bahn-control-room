@@ -7,7 +7,8 @@ export const runtime = "nodejs"
 const DECISIONS = ["APPROVED", "EDITED", "REJECTED"]
 const PAYERS = ["BAHN", "CUSTOMER", "DRIVER"]
 
-/** Approve, edit or reject a proposal. Approving runs it and says what happens next. */
+/** Approve, edit or reject a proposal. It takes effect after a short undo window (review.takes_effect_at);
+ *  then an approval runs and its execution says what happens next. Read the result from the case view. */
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params
   const body = (await request.json().catch(() => null)) as Partial<DecisionRequest> | null

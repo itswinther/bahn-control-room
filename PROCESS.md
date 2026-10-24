@@ -370,6 +370,52 @@ Format for every entry:
   eval:reworded`, `starter/lib/shift-watch/chat.ts`,
   `starter/lib/shift-watch/decide.ts`.
 
+### 2026-10-24 · Mike + Claude · stress tests, undo, and Sonnet against Opus
+
+- Asked: more test runs to find issues; then undo; then two things for the
+  control-room criterion: why the agent stopped, and what happens if nobody
+  decides. Then compare Sonnet 5.5 and Opus 5.5, with each change in its own
+  commit so either model can be kept.
+- Checked: parallel messages and approvals, all four recorded cases, every
+  decision path, odd input, a reset mid-run and 2,000 extra messages, then
+  live runs. Live tests included an order with no recording, German and
+  Finnish drivers, and a driver message posing as the ops manager and asking
+  for restart advice.
+- Found and fixed:
+  - A run read FINISHED before Shift Watch had checked its proposal.
+  - A reset mid-run left stray steps.
+  - An edit dropped the rest of the payload.
+  - A rejection left the order "waiting on nothing".
+  - Held driver messages never reached a person.
+  - Repeat messages each got a new promise.
+  - A safety promise ("a person will contact you") counted as kept by the
+    agent's own reply.
+  - Live only: Claude read the demo's own line, "Still in the queue.
+    Navigation now says 12:20 at check-in", as a booking question, so the
+    agent was never woken. The rule-based reader in replay got it right.
+    Describing each intent fixed it: 10 of 10 test messages on both models.
+- The injection held: the agent refused, Shift Watch held its instruction
+  for a person, and the chat flagged the note as unverified.
+- Added: a 10-second undo window on decisions and released messages. Until it
+  passes nothing reaches the driver or a carrier, and a restart can't strand
+  a decision. Cards also keep their place for five minutes after a decision,
+  showing the outcome. Every card now says why the agent stopped and what
+  happens if nobody decides. A missed deadline really does move our own cards
+  to the shift lead; Bahn's old loose ends keep their owner.
+- Sonnet against Opus, same five live cases from a fresh reset, one run each:
+  - Driver-message reading, proposal text and the chat: equal accuracy, with
+    Sonnet about twice as fast. Shift Watch stays on Sonnet, with its own
+    setting (`SHIFT_WATCH_MODEL`).
+  - The order agent: Opus took 24–37 s against Sonnet's 8–22 s. It also
+    asked whether the driver's "12:20" is local time or UTC, which our
+    scripted demo line leaves open. A driver in Germany would read local
+    time, and 12:20 local makes the 12:00 UTC cutoff. Neither the plan nor
+    Sonnet noticed.
+  - The switch to Opus for the agent is a separate branch (`opus-agent`), so
+    the team can keep either model.
+- Evidence: `starter/lib/shift-watch/queue.ts`, `starter/lib/shift-watch/decide.ts`,
+  `starter/lib/shift-watch/intake.ts`.
+
 _Teammate's earlier log (`AI-PROCESS.md` in the review bundle, 17 entries):
 merge its entries here._
 

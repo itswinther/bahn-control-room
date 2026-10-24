@@ -1,9 +1,9 @@
 // Shift Watch's pass over one order after its agent runs: check pending proposals and release or
 // hold the agent's messages to the driver. It decides; the agent loop does the waking, so the two
 // modules don't import each other.
-import { and, eq, gt, inArray } from "drizzle-orm"
+import { and, eq, gt, inArray, or } from "drizzle-orm"
 import { INSTRUCTION, DRIVING_ADVICE } from "@/lib/agents/rules"
-import { nowIso } from "@/lib/clock"
+import { nowIso, UNDO_MS } from "@/lib/clock"
 import { db } from "@/lib/db"
 import { messages, relatedRecords } from "@/lib/schema"
 import { agentRuns, agentSteps, driverMessages, proposals } from "@/lib/schema-ours"
@@ -93,16 +93,31 @@ export async function reviewOrder(orderId: string): Promise<ReviewOutcome> {
   return { sendBack, released, held }
 }
 
+type HeldResult = { ok: true; message: DriverMessage } | { ok: false; status: number; error: string }
+
 /** A person sends a held message (as is, or their edited text) or discards it. Only a held message can be
- *  reviewed, once: the update is conditional on the status. */
-export async function reviewHeld(id: string, req: HeldMessageReview): Promise<{ ok: true; message: DriverMessage } | { ok: false; status: number; error: string }> {
+ *  reviewed, once: the update is conditional on the status. A sent one is delivered after the undo window:
+ *  the driver's thread shows a message only from its created_at. */
+export async function reviewHeld(id: string, req: HeldMessageReview): Promise<HeldResult> {
   const edited = req.action === "SEND" && req.text?.trim() ? req.text.trim() : null
+  const deliverAt = new Date(Date.parse(nowIso()) + UNDO_MS).toISOString()
   const [m] = await db.update(driverMessages)
-    .set(req.action === "DISCARD" ? { status: "DISCARDED" } : { status: "SENT", createdAt: nowIso(), ...(edited ? { text: edited, author: "operator" } : {}) })
+    .set(req.action === "DISCARD" ? { status: "DISCARDED" } : { status: "SENT", createdAt: deliverAt, ...(edited ? { text: edited, author: "operator" } : {}) })
     .where(and(eq(driverMessages.id, id), eq(driverMessages.status, "HELD"))).returning()
   if (m) return { ok: true, message: toDriverMessage(m) }
   const [exists] = await db.select({ status: driverMessages.status }).from(driverMessages).where(eq(driverMessages.id, id))
   return exists ? { ok: false, status: 409, error: `This message is ${exists.status.toLowerCase()}; only a held message can be sent or discarded.` } : { ok: false, status: 404, error: "No such message" }
+}
+
+/** Put a reviewed message back to held: a send before it reaches the driver, or a discard at any time. */
+export async function undoHeld(id: string): Promise<HeldResult> {
+  const now = nowIso()
+  const [m] = await db.update(driverMessages).set({ status: "HELD" })
+    .where(and(eq(driverMessages.id, id), or(eq(driverMessages.status, "DISCARDED"), and(eq(driverMessages.status, "SENT"), gt(driverMessages.createdAt, now)))))
+    .returning()
+  if (m) return { ok: true, message: toDriverMessage(m) }
+  const [exists] = await db.select({ id: driverMessages.id }).from(driverMessages).where(eq(driverMessages.id, id))
+  return exists ? { ok: false, status: 409, error: "Too late to undo: the driver already has this message." } : { ok: false, status: 404, error: "No such message" }
 }
 
 /** Proposals still waiting for Shift Watch, oldest first (for a catch-up pass after a restart). */
