@@ -15,7 +15,7 @@ import { readByRules, type Reading } from "./read"
 const HEAR_BACK_MINUTES = 15
 let client: Anthropic | null = null
 const live = () => process.env.AGENT_MODE === "live" && !!process.env.ANTHROPIC_API_KEY
-const MODEL = () => process.env.AGENT_MODEL ?? "claude-sonnet-5-5"
+const MODEL = () => process.env.SHIFT_WATCH_MODEL ?? "claude-sonnet-5-5"
 
 async function readByClaude(text: string): Promise<Reading> {
   const response = await (client ??= new Anthropic()).messages.create({

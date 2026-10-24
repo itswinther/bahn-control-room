@@ -123,7 +123,7 @@ export async function* chat(req: ChatRequest, signal?: AbortSignal): AsyncGenera
   let wrote = false
   for (let round = 0; round < MAX_ROUNDS; round++) {
     const stream = (client ??= new Anthropic()).messages.stream({
-      model: process.env.AGENT_MODEL ?? "claude-sonnet-5-5", max_tokens: 8000,
+      model: process.env.SHIFT_WATCH_MODEL ?? "claude-sonnet-5-5", max_tokens: 8000,
       system: [{ type: "text", text: SYSTEM, cache_control: { type: "ephemeral" } }],
       tools, messages, thinking: { type: "adaptive" }, output_config: { effort: "low" },
     }, { signal })
