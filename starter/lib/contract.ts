@@ -211,6 +211,12 @@ export type QueueItem = {
    *  POST /api/driver/messages/:id/review. */
   held_message_id: string | null
   outcome: CardOutcome | null
+  /** Why the agent stopped and handed this to a person (on agent cards). */
+  stopped_because: string | null
+  /** What happens if nobody decides: the default, and when it moves to the shift lead. */
+  if_no_decision: string | null
+  /** Set when the deadline passed with nobody deciding and the card moved to the shift lead. */
+  escalated_from: Desk | null
 }
 
 /** POST /api/driver/messages/:id/review, for a held message. `text` sends an edited version instead. */
