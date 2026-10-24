@@ -1,4 +1,5 @@
-// Sample data for the order agent's shapes, following the CD-420603 demo path in the team plan.
+// Sample data for the order agent's shapes on CD-420603. The SENT_BACK proposal is a UI-state example (the live
+// agent refreshed capacity on its own; the demo shows the "caught" moment on Bahn's CD-420194 instead).
 // Real records are cited by their dataset ids. Ferry capacity, the change fee and the rest check are
 // made-up fixtures (`mock: true`); the stale "cached" list is dated 07:10, when the operator wrote that
 // they were checking the next sailing (msg at 07:10 on conv-xdf71bc9a940be234).

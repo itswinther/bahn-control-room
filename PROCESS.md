@@ -202,6 +202,22 @@ Format for every entry:
   happen naturally: open for the team.
 - Evidence: `starter/recordings/` (live, Sonnet 5.5).
 
+### 2026-10-24 · Mike + Claude · team calls after the live runs
+
+- Asked: three calls the live runs raised.
+- Changed or threw away: the staged "careless agent" run for CD-420603. The
+  live agent refreshed capacity on its own, so the demo shows our agent doing
+  it right and Shift Watch catching Bahn's own recorded mistake on CD-420194.
+  An acknowledgement may now repeat an instruction a person already gave the
+  driver, citing that message; anything new still needs a proposal. Turned on
+  short progress notes so each agent step can show why.
+- Checked: a new assert caught that the driving-advice backstop missed
+  "restarting", because of a word boundary: Bahn's real recorded mistake
+  ("Try restarting the vehicle once") would have got through. Fixed. The
+  re-recorded runs cite dataset tables, and CD-420322's reminder cites the
+  support desk's 08:13 message. Progress notes are sparse (about one per run).
+- Evidence: `starter/lib/agents/rules.ts`, `starter/recordings/`.
+
 _Teammate's earlier log (`AI-PROCESS.md` in the review bundle, 17 entries):
 merge its entries here._
 

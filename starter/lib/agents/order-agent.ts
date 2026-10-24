@@ -103,7 +103,11 @@ export async function runOrderAgent(runId: string, req: RunRequest): Promise<voi
       if (response.stop_reason === "max_tokens") return void (await end("FAILED", "Response hit the token limit"))
       if (response.stop_reason === "recording_ended") return void (await end("STOPPED", "Recording ended before finish"))
 
-      for (const block of response.content) if (block.type === "text" && block.text.trim()) await step("TEXT", null, {}, block.text.trim())
+      // Text and progress notes both become TEXT steps: the case view shows them as the agent's "why".
+      for (const block of response.content) {
+        const said = block.type === "text" ? block.text : block.type === "thinking" ? block.thinking : ""
+        if (said.trim()) await step("TEXT", null, {}, said.trim())
+      }
 
       const calls = response.content.filter((b): b is BetaToolUseBlock => b.type === "tool_use")
       if (!calls.length) {

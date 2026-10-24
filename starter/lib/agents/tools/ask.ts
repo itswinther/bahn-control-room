@@ -6,13 +6,10 @@ import { bookingOutcome, siteReply } from "@/lib/mocks/replies"
 import { loadOrder } from "@/lib/present/load"
 import { buildRecordView } from "@/lib/present/record"
 import { driverMessages } from "@/lib/schema-ours"
+import { DRIVING_ADVICE, INSTRUCTION } from "@/lib/agents/rules"
 import type { ToolContext, ToolOutput } from "./index"
 
 const fail = (message: string): ToolOutput => ({ result: { error: message }, summary: message, error: true })
-
-// A backstop only: Shift Watch's checks are the real guard. Questions and acknowledgements may go
-// out without a person; anything that tells the driver what to do with the car needs a proposal.
-export const DRIVING_ADVICE =/\b(restart|re-start|drive on|keep driving|continue driving|carry on|safe to drive|you can drive|turn (it|the engine) (off and on|back on)|reset)\b/i
 
 export const askToolDefs: BetaTool[] = [
   {
@@ -23,6 +20,10 @@ export const askToolDefs: BetaTool[] = [
       properties: {
         kind: { type: "string", enum: ["QUESTION", "ACK"] },
         text: { type: "string" },
+        repeats_message_id: {
+          type: ["string", "null"],
+          description: "If the message repeats an instruction a person already gave the driver (for example 'keep the car stopped'), the id of that person's message. New instructions go in a proposal.",
+        },
         quick_replies: {
           type: "array",
           items: {
@@ -63,6 +64,9 @@ export async function askDriver(input: Input, ctx: ToolContext): Promise<ToolOut
   if (!kind || !text) return fail("kind (QUESTION or ACK) and text are required")
   if (kind === "QUESTION" && !text.includes("?")) return fail("A question needs a question mark. Instructions go in a proposal.")
   if (DRIVING_ADVICE.test(text)) return fail("That reads like an instruction about driving the car. Instructions need a person: put it in a proposal.")
+  const repeats = typeof input.repeats_message_id === "string" ? input.repeats_message_id : null
+  if (INSTRUCTION.test(text) && !repeats) return fail("That tells the driver what to do. Repeat only an instruction a person already gave, with repeats_message_id, or put it in a proposal.")
+  if (repeats && (!repeats.startsWith("msg-") || !ctx.seen.includes(repeats))) return fail(`${repeats} isn't a message you read this run.`)
   const loaded = await loadOrder(ctx.orderId)
   if (!loaded) return fail(`No order ${ctx.orderId}`)
   const active = buildRecordView(loaded.bundle).assignments.find((a) => a.status === "IN_PROGRESS" || a.status === "ASSIGNED")
@@ -72,7 +76,7 @@ export async function askDriver(input: Input, ctx: ToolContext): Promise<ToolOut
   const quickReplies = Array.isArray(input.quick_replies) ? (input.quick_replies as QuickReply[]) : []
   await db.insert(driverMessages).values({
     id, driverId, orderId: ctx.orderId, direction: "OUT", author: "shift-watch", text,
-    language: "en", translation: null, quickReplies, hearBackBy: null, simulated: false, status: "PENDING_CHECK", createdAt: nowIso(),
+    language: "en", translation: null, quickReplies, hearBackBy: null, simulated: false, repeatsMessageId: repeats, status: "PENDING_CHECK", createdAt: nowIso(),
   })
   return {
     result: { queued: true, id, driver_id: driverId, note: "Shift Watch checks the message, then sends it. The driver's reply will wake you as a new message." },

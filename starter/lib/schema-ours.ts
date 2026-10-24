@@ -97,6 +97,7 @@ export const driverMessages = pgTable("driver_messages", {
   quickReplies: jsonb("quick_replies").$type<QuickReply[]>().notNull(),
   hearBackBy: at("hear_back_by"),
   simulated: boolean("simulated").notNull().default(false),
+  repeatsMessageId: text("repeats_message_id"),
   status: text("status").$type<DriverMessage["status"]>().notNull().default("SENT"),
   createdAt: at("created_at").notNull(),
 }, (t) => [index("driver_messages_driver_idx").on(t.driverId)])

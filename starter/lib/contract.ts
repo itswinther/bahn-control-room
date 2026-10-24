@@ -148,6 +148,8 @@ export type DriverMessage = {
   hear_back_by: string | null
   /** True for the scripted demo driver and any line we invented. */
   simulated: boolean
+  /** An acknowledgement that repeats a person's earlier instruction cites that message; Shift Watch checks it. */
+  repeats_message_id: string | null
   /** Agent messages to a driver wait for Shift Watch's checks (no driving advice) before they go out. */
   status: "PENDING_CHECK" | "SENT" | "HELD"
   created_at: string

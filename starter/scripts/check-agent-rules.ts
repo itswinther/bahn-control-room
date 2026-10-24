@@ -1,6 +1,6 @@
 // Self-check for the order agent's code-enforced rules. Run: npx tsx scripts/check-agent-rules.ts
 import assert from "node:assert/strict"
-import { route, tableFor } from "../lib/agents/rules"
+import { DRIVING_ADVICE, INSTRUCTION, route, tableFor } from "../lib/agents/rules"
 import { driverRest, ferryCapacity } from "../lib/mocks"
 import { bookingOutcome, siteReply } from "../lib/mocks/replies"
 
@@ -27,5 +27,9 @@ assert.equal(siteReply("ord-00593", "site-999").answered, false)
 assert.equal(tableFor("res-x1082202e8d139d61", "bookings"), "travel_reservations")
 assert.equal(tableFor("opt_mock_603_2200", "ferry_capacity_check"), "travel_options")
 assert.equal(tableFor("something-else", "notes"), "notes")
+
+assert.ok(DRIVING_ADVICE.test("Try restarting the vehicle once"))
+assert.ok(INSTRUCTION.test("Please keep the car stopped."))
+assert.ok(!INSTRUCTION.test("Are you still at the site?"))
 
 console.log("agent rules: ok")

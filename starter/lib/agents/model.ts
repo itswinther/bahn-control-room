@@ -40,7 +40,8 @@ export function liveSource(opts: { model: string; system: string; tools: BetaToo
         tools: opts.tools,
         messages,
         output_config: { effort: "medium" },
-        betas: ["server-side-fallback-2026-07-01"],
+        thinking: { type: "adaptive", display: "updates" },
+        betas: ["server-side-fallback-2026-07-01", "thinking-display-updates-2026-08-18"],
         fallbacks: "default",
       })
       turns.push({ content: response.content, stop_reason: response.stop_reason, delay_ms: Date.now() - last })
