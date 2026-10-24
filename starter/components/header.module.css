@@ -1,0 +1,289 @@
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  height: var(--header-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 var(--gutter);
+  background: var(--overlay);
+  backdrop-filter: saturate(140%) blur(14px);
+  -webkit-backdrop-filter: saturate(140%) blur(14px);
+  border-bottom: 1px solid var(--divider-soft);
+}
+
+.left,
+.right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.home {
+  display: inline-flex;
+  border-radius: 8px;
+}
+
+.wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-display);
+  font-stretch: 112%;
+  font-weight: 800;
+  font-size: 25px;
+  letter-spacing: -0.6px;
+  line-height: 1;
+  color: var(--headline);
+}
+
+/* Bahn's segmented header nav. */
+.nav {
+  display: inline-flex;
+  gap: 2px;
+  margin-left: 8px;
+  padding: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-sunken);
+}
+
+.nav a {
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 16px;
+  border-radius: var(--radius-pill);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--body);
+  transition: background-color 0.15s var(--ease), color 0.15s var(--ease);
+}
+
+.nav a:hover {
+  color: var(--headline);
+}
+
+.nav a[aria-current="page"] {
+  background: var(--surface);
+  color: var(--headline);
+  box-shadow: 0 1px 2px rgba(18, 17, 14, 0.08);
+}
+
+.clock {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-subtle);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--body);
+  white-space: nowrap;
+}
+
+.liveDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--green-strong);
+  animation: pulse-soft 2.4s ease-in-out infinite;
+}
+
+.sample {
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
+  border-radius: var(--radius-pill);
+  border: 1px dashed var(--divider);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.iconButton,
+.panelButton {
+  height: 40px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: background-color 0.15s var(--ease), color 0.15s var(--ease);
+}
+
+.iconButton {
+  width: 40px;
+  background: transparent;
+  color: var(--body);
+}
+
+.iconButton:hover {
+  background: var(--surface-subtle);
+}
+
+.panelButton {
+  padding: 0 16px 0 14px;
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.panelButton:hover {
+  background: var(--accent-hover);
+}
+
+@media (max-width: 900px) {
+  .sample {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .header {
+    padding: 0 12px 0 16px;
+    gap: 8px;
+  }
+  .nav {
+    margin-left: 0;
+  }
+  .nav a {
+    padding: 0 12px;
+    font-size: 14px;
+  }
+  .clock {
+    padding: 0 10px;
+    font-size: 13px;
+  }
+  .panelButton span {
+    display: none;
+  }
+  .panelButton {
+    width: 40px;
+    padding: 0;
+  }
+}
+
+@media (max-width: 380px) {
+  .clock {
+    display: none;
+  }
+}
+
+/* Who is deciding. */
+.desk select {
+  height: 36px;
+  padding: 0 30px 0 14px;
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-pill);
+  background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23726958' stroke-width='2.4'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center;
+  appearance: none;
+  color: var(--headline);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* The demo controls. */
+.demo {
+  position: relative;
+}
+.demoButton {
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 12px 0 14px;
+  border: 1px dashed var(--divider);
+  border-radius: var(--radius-pill);
+  color: var(--muted-strong);
+  font-size: 14px;
+  font-weight: 600;
+  list-style: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.demoButton::-webkit-details-marker {
+  display: none;
+}
+.demo[open] .demoButton {
+  background: var(--surface-subtle);
+  color: var(--headline);
+}
+.demoMenu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  width: 320px;
+  display: grid;
+  gap: 4px;
+  padding: 8px;
+  border: 1px solid var(--divider-soft);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  box-shadow: 0 12px 32px rgba(18, 17, 14, 0.16);
+}
+.demoMenu button {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: var(--radius-inner);
+  background: transparent;
+  color: var(--body);
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+}
+.demoMenu button:hover:not(:disabled) {
+  background: var(--surface-subtle);
+}
+.demoMenu button:disabled {
+  opacity: 0.5;
+}
+.demoMenu button svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--muted-strong);
+}
+.demoMenu strong {
+  display: block;
+  color: var(--headline);
+  font-size: 15px;
+}
+.demoNote,
+.demoStatus {
+  margin: 0;
+  padding: 6px 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.demoStatus {
+  padding: 10px 12px;
+  border-radius: var(--radius-inner);
+  background: var(--green-bg);
+  color: var(--body);
+  font-weight: 500;
+}
+
+@media (max-width: 1100px) {
+  .desk {
+    display: none;
+  }
+}
+
+/* The demo controls are for the person running the pitch on a laptop. */
+@media (max-width: 760px) {
+  .demo {
+    display: none;
+  }
+}

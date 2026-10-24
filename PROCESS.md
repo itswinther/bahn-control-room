@@ -736,6 +736,30 @@ entries further down.
 - Evidence: `starter/lib/agents/order-agent.ts` (`wakeDue`),
   `starter/instrumentation.ts`, `starter/lib/agents/README.md`.
 
+### 2026-10-24 · team + Claude · the screens on the real backend
+
+- Asked: put the frontend (built on sample data) and the backend together, so
+  the screens run on the real queue, case view, decisions and chat.
+- Checked: ran Postgres locally and played all four recordings through the API
+  before touching a screen; the screens' sample shapes didn't match the
+  backend's (queue kinds, "who pays" values, check reasons, travel states), so
+  an adapter reads the backend's own builders instead of copying the data.
+  Then the CD-420603 demo end to end in the browser: driver writes in, Shift
+  Watch's 11:15 Hamburg-time promise, the agent's proposal, "pick who pays"
+  enforced, approve, 10-second undo, the mock booking and the driver told.
+  Signed in as the travel desk, the safety card says only the shift lead
+  decides. Typecheck, build, `check:agent` and `eval:proposals` (14 of 14)
+  all pass. Not tested: the live chat, which needs a key.
+- Changed or threw away: the sample fixtures and the scripted chat answers;
+  decisions kept in the browser (they now go to the decision route, with its
+  undo); the animated "On it" steps, which showed steps as done before they
+  ran (the card now shows the backend's own result and what happens next).
+  Bahn's lane board moved to `/orders` and its mailbox to `/mail`, each with
+  its own stylesheet, because both apps define the same colour names
+  differently. Added a Demo menu so the pitch runs without a terminal.
+- Evidence: `starter/lib/ui/adapt.ts`, `starter/lib/ui/data.ts`,
+  `starter/components/case/decision-card.tsx`, `starter/components/demo-menu.tsx`.
+
 ## Evidence in this repo
 
 Filled in as the build goes:

@@ -1,0 +1,25 @@
+.wrap {
+  max-width: 1080px;
+  margin: 0 auto;
+  display: grid;
+  gap: 16px;
+}
+
+.block {
+  border-radius: var(--radius-card);
+  background: var(--surface-subtle);
+  animation: pulse-soft 1.6s ease-in-out infinite;
+}
+
+.line {
+  height: 18px;
+  border-radius: 9px;
+  background: var(--surface-subtle);
+  animation: pulse-soft 1.6s ease-in-out infinite;
+}
+
+.label {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--muted);
+}

@@ -21,19 +21,23 @@ npm run attachments:seed
 npm run dev               # http://localhost:3000, replay mode
 ```
 
-Then play the demo case, CD-420603. Its driver is stuck in the ferry queue:
+Then play the demo case, CD-420603, from the screen. Its driver is stuck in the ferry queue:
 
-```sh
-curl -X POST http://localhost:3000/api/clock   # restart the demo at 21 Oct 09:00 UTC
-npm run demo:driver -- ord-00603              # the driver writes in
-```
+1. Open **Demo → Driver writes in**. Shift Watch answers the driver at once, and the order agent starts.
+2. The agent's recorded run proposes the 22:00 crossing. It appears in **Inbox** with why it reached a person and what happens if nobody decides.
+3. Pick who pays and press **Approve**. You can undo for 10 seconds; then the mock booking runs, the driver gets the new crossing in their local time, and the card shows what happens next.
 
-1. Shift Watch answers the driver at once.
-2. The agent's recorded run proposes the 22:00 crossing.
-3. The proposal shows up in `GET /api/queue`.
-4. Approve it with `POST /api/proposals/:id/decision`. Send `{ "decision": "APPROVED", "reviewer": "ops-travel", "who_pays": "BAHN" }`.
+**Demo → Wake three more agents** plays the other recordings (a timed-out booking, a warning light, a driver past her wait limit). **Demo → Restart the demo** clears our tables and goes back to 09:00. Each recording plays once per reset. The same steps work without the screen: `curl -X POST http://localhost:3000/api/clock`, then `npm run demo:driver -- ord-00603`.
 
-`POST /api/clock` clears our tables and starts the demo again. Each recording plays once per reset.
+## The screens
+
+- `/`: **Overview.** Calls waiting, due this hour, safety, drivers waiting, a shift timeline per desk, and what's next.
+- `/inbox` and `/cases/:orderId`: **Inbox.** The decision queue on the left; on the right, the agent's plan with approve, edit or reject, any message Shift Watch held back from a driver, and the order's timeline, travel (booked, quoted or requested), the agent's notes and steps.
+- **Shift Watch panel** on every screen: ask about any order. It needs `ANTHROPIC_API_KEY`; without one it answers from the records and says so.
+- **Deciding as** (top right) is the desk your decisions go out as. The backend checks it: only the shift lead decides safety calls.
+- Bahn's starter screens are still here: the lane board at `/orders`, the support mailbox at `/mail`, and the full record at `/orders/:id` (linked from each case as "Full record").
+
+The screens live in `app/(control-room)/`, `components/` and `lib/ui/`. They read Shift Watch's queue and case builders directly (`lib/ui/data.ts`, `lib/ui/adapt.ts`) and write through the API routes (`lib/ui/api.ts`). Bahn's starter screens keep their own layout in `app/(starter)/`.
 
 ## Check it
 
