@@ -1,10 +1,9 @@
 import type { QueueItem } from "@/lib/ui/contract";
 import { clock, relative, urgency } from "@/lib/ui/present";
-import type { LocalDecision } from "../providers";
 
-/** "6m", "2h 47m", "Late 2m", "Sat" */
-export function timeLeft(item: QueueItem, now: number, ready: boolean, decision?: LocalDecision) {
-  if (decision) return decision.decision === "REJECTED" ? "Sent back" : "Done";
+/** "6m", "2h 47m", "Late 2m", "Sat"; "Done" once a person has decided. */
+export function timeLeft(item: QueueItem, now: number, ready: boolean) {
+  if (item.outcome) return item.outcome.failed ? "Failed" : item.outcome.decision === "REJECTED" ? "Rejected" : "Done";
   if (!item.deadline) return "—";
   const t = Date.parse(item.deadline);
   if (!ready) return clock(t).replace(" UTC", "");
@@ -14,12 +13,14 @@ export function timeLeft(item: QueueItem, now: number, ready: boolean, decision?
     .replace(/ ago$/, "")
     .replace(" min", "m")
     .replace(" h ", "h ")
-    .replace(/ h$/, "h");
-  return t < now ? `Late ${r}` : r;
+    .replace(/ h$/, "h")
+    .replace(/ days?$/, "d");
+  // Late by more than an hour: the hours are enough, and the chip stays short.
+  return t < now ? `Late ${now - t > 3_600_000 ? r.replace(/ \d+m$/, "") : r}` : r;
 }
 
-export function tone(item: QueueItem, now: number, decision?: LocalDecision) {
-  if (decision) return "done";
+export function tone(item: QueueItem, now: number) {
+  if (item.outcome) return item.outcome.failed ? "red" : "done";
   if (item.kind === "WAITING") return "grey";
   if (item.kind === "SAFETY") return "red";
   const u = urgency(item.deadline ? Date.parse(item.deadline) : null, now);

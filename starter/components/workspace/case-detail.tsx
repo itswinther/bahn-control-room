@@ -1,13 +1,15 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
-import { Link2, MessageCircleQuestion } from "lucide-react";
-import type { CaseView, QueueItem, TravelLeg } from "@/lib/ui/contract";
+import { FileText, Loader2, MessageCircleQuestion } from "lucide-react";
+import type { CaseView, QueueItem } from "@/lib/ui/contract";
 import { clock, relative, urgency } from "@/lib/ui/present";
-import { useClock, useDecisions, usePanel } from "../providers";
+import { useClock, usePanel } from "../providers";
 import { KindTag } from "../ui/tags";
 import { RouteStrip } from "../ui/route-strip";
 import { DecisionCard } from "../case/decision-card";
+import { HeldMessage } from "../case/held-message";
 import { Timeline } from "../case/timeline";
 import { Travel } from "../case/travel";
 import { AgentNotes } from "../case/agent-notes";
@@ -17,31 +19,29 @@ import styles from "./workspace.module.css";
 
 type Tab = "timeline" | "travel" | "notes" | "steps";
 
+/** How long a decided plan stays on top of the case, showing what happened. */
+const SHOWN_AFTER_DECISION = 10 * 60_000;
+
 export function CaseDetail({ data, item }: { data: CaseView; item?: QueueItem }) {
   const { now, ready } = useClock();
-  const { decisions } = useDecisions();
   const { ask } = usePanel();
   const [tab, setTab] = useState<Tab>("timeline");
   const { order, status } = data;
 
-  const active = data.proposals.find((p) => p.status === "PENDING_REVIEW" || p.status === "HELD") ?? null;
-  const decision = active ? decisions[active.id] : undefined;
+  // The plan waiting for a person, or one a person just decided (failed ones stay until dealt with).
+  const active =
+    data.proposals.find((p) => p.status === "PENDING_REVIEW" || p.status === "HELD") ??
+    data.proposals.find((p) => p.review && (p.status === "FAILED" || !ready || now - Date.parse(p.review.at) < SHOWN_AFTER_DECISION)) ??
+    null;
   const earlier = data.proposals.filter((p) => p !== active);
-  const deadline = status.decision_deadline ? Date.parse(status.decision_deadline) : null;
+  const deadlineIso = item?.deadline ?? status?.decision_deadline ?? null;
+  const deadline = deadlineIso ? Date.parse(deadlineIso) : null;
+  const decided = !!active?.review || !!item?.outcome;
   const u = urgency(deadline, now);
-
-  // Once a booking is approved and runs, travel shows it as booked.
-  const travel: TravelLeg[] = data.travel.map((leg) => {
-    if (!decision || decision.decision === "REJECTED" || !decision.reference) return leg;
-    if (leg.state === "QUOTED") return { ...leg, state: "BOOKED", reference: decision.reference, detail: "Booked just now. Boarding not confirmed." };
-    if (leg.state === "BOOKED" && active?.command === "travel.rebook_ferry")
-      return { ...leg, state: "NOT_NEEDED", detail: "Released after the new booking." };
-    return leg;
-  });
 
   const tabs: { id: Tab; label: string; count: number }[] = [
     { id: "timeline", label: "Timeline", count: data.timeline.length },
-    { id: "travel", label: "Travel", count: travel.length },
+    { id: "travel", label: "Travel", count: data.travel.length },
     { id: "notes", label: "Notes", count: data.notes.length },
     { id: "steps", label: "Steps", count: data.steps.length },
   ];
@@ -50,11 +50,11 @@ export function CaseDetail({ data, item }: { data: CaseView; item?: QueueItem })
     <div className={styles.detail}>
       <header className={styles.detailHead}>
         <div className={styles.detailMeta}>
-          <KindTag kind={data.kind} />
+          <KindTag kind={item?.kind ?? data.kind} />
           <span className={styles.ref}>{order.reference}</span>
           <span className={styles.muted}>{order.vehicle}</span>
-          {deadline != null && !decision && (
-            <span className={styles.callBy} data-urgency={u} suppressHydrationWarning>
+          {deadline != null && !decided && (
+            <span className={styles.callBy} data-urgency={u} suppressHydrationWarning title={item?.deadline_reason ?? status?.deadline_reason ?? undefined}>
               Call by {clock(deadline)}
               {ready && ` · ${u === "overdue" ? `late ${relative(deadline, now).replace(" ago", "")}` : relative(deadline, now).replace("in ", "")}`}
             </span>
@@ -71,27 +71,38 @@ export function CaseDetail({ data, item }: { data: CaseView; item?: QueueItem })
         </div>
       </header>
 
-      {order.linked_orders?.map((l) => (
-        <p key={l.id} className={styles.linked}>
-          <Link2 size={15} strokeWidth={1.8} aria-hidden="true" />
-          <strong>{l.reference}</strong> {l.why}
+      {data.running && (
+        <p className={styles.working} role="status">
+          <Loader2 size={16} strokeWidth={2.2} className={styles.spin} aria-hidden="true" />
+          The order agent is looking into this now.
         </p>
+      )}
+
+      {data.held_messages.map((m) => (
+        <HeldMessage key={m.id} message={m} />
       ))}
 
       {active ? (
-        <DecisionCard key={active.id} proposal={active} title={item?.title ?? data.headline} />
+        <DecisionCard key={`${active.id}-${active.status}`} proposal={active} title={item && !item.outcome ? item.title : active.summary} item={item} />
       ) : (
         <section className={styles.nothing}>
-          <h2 className={styles.nothingTitle}>Nothing to decide yet</h2>
-          <p>{data.stop_reason ?? status.summary}</p>
+          <h2 className={styles.nothingTitle}>{item ? item.title : "Nothing to decide"}</h2>
+          <p>{item?.deadline_reason ? `${item.deadline_reason}. ` : ""}{status?.summary ?? data.headline}</p>
+          {item && item.checked.length > 0 && (
+            <ul className={styles.alsoOpen}>
+              {item.checked.map((c) => (
+                <li key={c}>{c}</li>
+              ))}
+            </ul>
+          )}
           <div className={styles.nothingRow}>
-            {status.next_check_at && (
+            {status?.next_check_at && (
               <span className={styles.muted}>
-                Next check {clock(status.next_check_at)}
+                Agent checks again {clock(status.next_check_at)}
                 {ready ? ` · ${relative(Date.parse(status.next_check_at), now)}` : ""}
               </span>
             )}
-            <button type="button" className={styles.softBtn} onClick={() => ask("What are we waiting for?")}>
+            <button type="button" className={styles.softBtn} onClick={() => ask(`What's going on with ${order.reference}?`)}>
               <MessageCircleQuestion size={17} strokeWidth={1.7} aria-hidden="true" />
               Ask Shift Watch
             </button>
@@ -115,13 +126,27 @@ export function CaseDetail({ data, item }: { data: CaseView; item?: QueueItem })
             <span className={styles.tabCount}>{t.count}</span>
           </button>
         ))}
+        <Link href={`/orders/${order.id}`} className={styles.fullRecord}>
+          <FileText size={15} strokeWidth={1.8} aria-hidden="true" />
+          Full record
+        </Link>
       </div>
       <div id="detail-panel" role="tabpanel" aria-labelledby={`tab-${tab}`} className={caseStyles.tabBody}>
         {tab === "timeline" && <Timeline entries={data.timeline} />}
         {tab === "travel" &&
-          (travel.length > 0 ? <Travel legs={travel} /> : <p className={styles.muted}>No travel on this order.</p>)}
-        {tab === "notes" && <AgentNotes notes={data.notes} updatedAt={data.notes_updated_at} />}
-        {tab === "steps" && <AgentSteps steps={data.steps} stopReason={data.stop_reason} earlier={earlier} />}
+          (data.travel.length > 0 ? <Travel legs={data.travel} /> : <p className={styles.muted}>No travel on this order.</p>)}
+        {tab === "notes" &&
+          (data.notes.length > 0 ? (
+            <AgentNotes notes={data.notes} updatedAt={data.notes_updated_at} />
+          ) : (
+            <p className={styles.muted}>The agent hasn&apos;t worked on this order yet.</p>
+          ))}
+        {tab === "steps" &&
+          (data.steps.length > 0 ? (
+            <AgentSteps steps={data.steps} stopReason={data.stop_reason} earlier={earlier} />
+          ) : (
+            <p className={styles.muted}>No agent runs on this order yet.</p>
+          ))}
       </div>
     </div>
   );

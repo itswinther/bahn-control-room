@@ -45,8 +45,8 @@
   font-family: var(--font-display);
   font-stretch: 118%;
   font-weight: 800;
-  font-size: 30px;
-  line-height: 1.08;
+  font-size: 26px;
+  line-height: 1.12;
   letter-spacing: 0;
   color: var(--headline);
   max-width: 40ch;
@@ -670,4 +670,99 @@
     grid-column: 1 / -1;
     justify-self: start;
   }
+}
+
+/* Why this reached a person, and what happens if nobody decides. */
+.context {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  max-width: 68ch;
+}
+.context div {
+  display: grid;
+  grid-template-columns: 9.5em 1fr;
+  gap: 12px;
+}
+.context dt {
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+  padding-top: 1px;
+}
+.context dd {
+  margin: 0;
+  color: var(--body);
+}
+@media (max-width: 560px) {
+  .context div {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+}
+
+.summaryText {
+  color: var(--headline);
+  font-weight: 600;
+  max-width: 68ch;
+}
+
+.costNote {
+  margin: -2px 0 10px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.mock {
+  margin-left: 6px;
+  padding: 0 7px;
+  border-radius: var(--radius-pill);
+  background: var(--orange-bg);
+  color: var(--orange);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.notYours {
+  margin: 0;
+  padding: 12px 16px;
+  border-radius: var(--radius-inner);
+  background: var(--surface-sunken);
+  color: var(--body);
+  font-weight: 500;
+  max-width: 68ch;
+}
+
+.error {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: var(--radius-inner);
+  background: var(--red-bg);
+  color: var(--red-strong);
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.quote {
+  margin: 0;
+  padding: 12px 16px;
+  border-left: 3px solid var(--orange);
+  border-radius: 0 var(--radius-inner) var(--radius-inner) 0;
+  background: var(--surface);
+  color: var(--body);
+  max-width: 68ch;
+  white-space: pre-wrap;
+}
+
+/* Agents write long one-liners; keep them readable at a glance. */
+.summaryBig[data-long] {
+  font-size: 21px;
+  max-width: 52ch;
+}
+
+.nextTitle {
+  margin: 4px 0 -4px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 700;
 }

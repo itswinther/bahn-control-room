@@ -1,34 +1,18 @@
 /**
- * The demo clock. Starts at the dataset snapshot and runs in real time,
- * so "in 2 h" always means from the snapshot, never the computer's clock.
+ * The demo clock. The server owns it (lib/clock.ts): it starts at the dataset snapshot and runs in
+ * real time, so "in 2 h" always means from the snapshot, never the computer's clock.
  */
-export const SNAPSHOT = Date.parse(
-  process.env.NEXT_PUBLIC_DEMO_CLOCK_START ?? "2026-10-21T09:00:00Z",
-);
+export const SNAPSHOT = Date.parse(process.env.NEXT_PUBLIC_DEMO_CLOCK_START ?? "2026-10-21T09:00:00Z");
 
-const KEY = "bahn-demo-clock-start";
-
-/** Real-world ms when this browser session started the demo clock. */
-export function demoStartedAt(): number {
+/** Demo time minus this computer's time, from GET /api/clock; null if the server can't be reached. */
+export async function syncDemoClock(): Promise<number | null> {
   try {
-    const saved = sessionStorage.getItem(KEY);
-    if (saved) return Number(saved);
-    const now = Date.now();
-    sessionStorage.setItem(KEY, String(now));
-    return now;
+    const sent = Date.now();
+    const res = await fetch("/api/clock", { cache: "no-store" });
+    const { now } = (await res.json()) as { now: string };
+    // Assume the answer was made halfway through the round trip.
+    return Date.parse(now) - (sent + (Date.now() - sent) / 2);
   } catch {
-    return Date.now();
+    return null;
   }
-}
-
-export function resetDemoClock() {
-  try {
-    sessionStorage.setItem(KEY, String(Date.now()));
-  } catch {
-    /* storage blocked: the clock simply restarts on reload */
-  }
-}
-
-export function demoNow(startedAt: number): number {
-  return SNAPSHOT + (Date.now() - startedAt);
 }

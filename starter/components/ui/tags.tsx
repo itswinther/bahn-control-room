@@ -34,10 +34,8 @@ export function KindTag({ kind }: { kind: QueueKind }) {
 const LEG_TONE: Record<LegState, string> = {
   BOOKED: "green",
   QUOTED: "teal",
-  UNCONFIRMED: "orange",
-  NOT_BOOKED: "orange",
-  FAILED: "red",
-  NOT_NEEDED: "grey",
+  REQUESTED: "orange",
+  NOT_BOOKED: "grey",
 };
 
 /** Booked / quoted / unconfirmed, colour-coded so a quote never reads as a booking. */

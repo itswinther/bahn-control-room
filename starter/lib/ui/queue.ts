@@ -6,17 +6,15 @@ const HOUR = 3_600_000;
 
 export function groupOf(item: QueueItem, now: number): Group {
   if (item.kind === "WAITING") return "parked";
-  if (item.kind === "SAFETY") return "now";
+  if (item.kind === "SAFETY" || item.outcome) return "now";
   if (item.deadline && Date.parse(item.deadline) - now < HOUR) return "now";
   return "today";
 }
 
-/** Safety first, then earliest deadline; no deadline last. */
+/** Shift Watch's order (safety first, then earliest deadline), with parked rows last. */
 export function sortQueue(items: QueueItem[]): QueueItem[] {
-  const t = (i: QueueItem) => (i.deadline ? Date.parse(i.deadline) : Infinity);
-  return [...items].sort((a, b) => {
-    if (a.kind === "WAITING" !== (b.kind === "WAITING")) return a.kind === "WAITING" ? 1 : -1;
-    if (a.kind === "SAFETY" !== (b.kind === "SAFETY")) return a.kind === "SAFETY" ? -1 : 1;
-    return t(a) - t(b);
-  });
+  return [...items].sort((a, b) => Number(a.kind === "WAITING") - Number(b.kind === "WAITING"));
 }
+
+/** Still needs a person: not just decided (a failed one still does). */
+export const needsCall = (i: QueueItem) => !i.outcome || i.outcome.failed;

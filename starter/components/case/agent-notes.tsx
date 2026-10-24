@@ -19,7 +19,6 @@ export function AgentNotes({ notes, updatedAt }: { notes: AgentNote[]; updatedAt
         {notes.map((n) => (
           <li key={n.text} className={styles.note}>
             <p>
-              {n.guess && <span className={styles.guess}>Estimate</span>}
               {n.text}
             </p>
             <p className={styles.source}>

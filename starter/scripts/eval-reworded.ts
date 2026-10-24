@@ -5,7 +5,7 @@
 import "dotenv/config"
 import { readFileSync } from "node:fs"
 import path from "node:path"
-import { checkProposal, type CheckInput } from "../lib/shift-watch/checks"
+import { checkProposal, driverMessageOk, type CheckInput } from "../lib/shift-watch/checks"
 import { canRead, readProposalText } from "../lib/shift-watch/judge"
 
 type Case = { id: string; expect: string; command: string; summary: string; payload: Record<string, unknown>; evidence?: { table: string; id: string; minutes_old: number }[] }
@@ -31,6 +31,21 @@ async function main() {
     console.log(`${c.id.padEnd(10)} want ${c.expect.padEnd(18)} rules: ${show(rules)}${both ? ` rules+Claude: ${show(both)} ${[...new Set(both.reasons.map((x) => x.check))].join(", ")}` : ""}`)
   }
   console.log(`\nRules alone: ${score.rules} of ${cases.length}.${withClaude ? ` Rules plus Claude: ${score.claude} of ${cases.length}.` : " Add --claude to include Claude's reading."}`)
+
+  // The agent's messages to drivers (fixtures/driver-messages.json), read the way review.ts reads them.
+  const { cases: msgs } = JSON.parse(readFileSync(path.join(process.cwd(), "fixtures", "driver-messages.json"), "utf8")) as { cases: { id: string; expect: "HOLD" | "SEND"; text: string }[] }
+  const said = { rules: 0, claude: 0 }
+  const verdict = (ok: boolean) => (ok ? "SEND" : "HOLD")
+  console.log("\nMessages to drivers:")
+  for (const m of msgs) {
+    const rules = verdict(driverMessageOk(m.text))
+    const both = withClaude ? verdict(driverMessageOk(m.text, await readProposalText({ command: "driver.message", summary: m.text, payload: {} }))) : null
+    said.rules += Number(rules === m.expect)
+    if (both) said.claude += Number(both === m.expect)
+    const show = (v: string) => `${v === m.expect ? "ok  " : "MISS"} ${v}`
+    console.log(`${m.id.padEnd(10)} want ${m.expect}  rules: ${show(rules)}${both ? `  rules+Claude: ${show(both)}` : ""}  "${m.text.slice(0, 60)}"`)
+  }
+  console.log(`\nRules alone: ${said.rules} of ${msgs.length}.${withClaude ? ` Rules plus Claude: ${said.claude} of ${msgs.length}.` : ""}`)
 }
 
 main().catch((e) => { console.error(e instanceof Error ? e.message : e); process.exit(1) })

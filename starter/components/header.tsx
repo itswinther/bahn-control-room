@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Moon, PanelRightClose, PanelRightOpen, Sun, SunMoon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useClock, usePanel } from "./providers";
+import { DemoMenu, DeskPicker } from "./demo-menu";
 import { dayClock } from "@/lib/ui/present";
 import styles from "./header.module.css";
 
@@ -80,9 +81,8 @@ export function Header() {
           <span className="visually-hidden">Demo time </span>
           <span suppressHydrationWarning>{ready ? dayClock(now) : "Wed 21 Oct, 09:00 UTC"}</span>
         </span>
-        <span className={styles.sample} title="Demo data until the agents are connected">
-          Demo data
-        </span>
+        <DeskPicker />
+        <DemoMenu />
         <button
           type="button"
           className={styles.iconButton}

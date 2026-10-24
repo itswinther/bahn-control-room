@@ -5,8 +5,9 @@ import type { CardOutcome, Desk, QueueItem, QueueResponse } from "@/lib/contract
 import { agentMode } from "@/lib/agents/order-agent"
 import { nowIso } from "@/lib/clock"
 import { db } from "@/lib/db"
-import { alerts, conversations, orders, relatedRecords } from "@/lib/schema"
+import { alerts, conversations, messages, orders, relatedRecords } from "@/lib/schema"
 import { agentRuns, agentSteps, driverMessages, orderStatus, proposals } from "@/lib/schema-ours"
+import { readByRules } from "./read"
 
 type Row = Record<string, unknown>
 const s = (v: unknown) => (typeof v === "string" ? v : null)
@@ -51,6 +52,7 @@ export async function buildQueue(): Promise<QueueResponse> {
     db.select().from(orderStatus),
   ])
   const chat = await db.select().from(driverMessages).orderBy(driverMessages.createdAt)
+  const threadMessages = threadRows.length ? await db.select().from(messages).where(inArray(messages.conversationId, threadRows.map((c) => c.id))).orderBy(messages.authoredAt) : []
   const lookups = await db.select({ orderId: agentRuns.orderId, tool: agentSteps.tool, at: agentSteps.at }).from(agentSteps)
     .innerJoin(agentRuns, eq(agentRuns.id, agentSteps.runId))
     .where(and(eq(agentSteps.kind, "TOOL_CALL"), inArray(agentSteps.tool, DONE_BY.map(([, tool]) => tool))))
@@ -80,8 +82,10 @@ export async function buildQueue(): Promise<QueueResponse> {
   }
   for (const a of alertRows) {
     const owner = s((a.details as Row).owner)
+    // Owned is not handled: a high or critical alert stays in front of its owner until it's resolved.
+    if (owner && ["high", "critical"].includes(a.severity)) add(a.orderId, { text: `${a.status === "OPEN" ? "Open" : "Acknowledged, not resolved"}: ${a.summary}`, owner: owner as Desk, deadline: null, deadlineReason: null })
     if (owner) continue
-    add(a.orderId, { text: `Alert with no owner: ${label(a.signal)}. Routed to ${DESK_NAME[deskFor(a.signal)]}.`, owner: deskFor(a.signal), deadline: null, deadlineReason: null })
+    add(a.orderId,{ text: `Alert with no owner: ${label(a.signal)}. Routed to ${DESK_NAME[deskFor(a.signal)]}.`, owner: deskFor(a.signal), deadline: null, deadlineReason: null })
   }
   // An approved lookup Bahn never ran is done once our agent has run the same check since.
   const ranSince = (orderId: string, command: string, since: string) => {
@@ -100,6 +104,17 @@ export async function buildQueue(): Promise<QueueResponse> {
     if (!next || !s(d.waiting_on)) continue
     const late = Date.parse(next) < nowMs
     add(c.orderId, { text: `${late ? "Next check overdue" : "Next check"} (${when(next, now)}): waiting on ${label(s(d.waiting_on)!)}`, owner: (s(d.owner) as Desk) ?? "ops-support", deadline: next, deadlineReason: "Next check" })
+  }
+  // A driver who said how long they can wait, in a thread nobody has answered them in since.
+  for (const c of threadRows) {
+    const thread = threadMessages.filter((m) => m.conversationId === c.id)
+    const last = thread.findLast((m) => m.authorType === "driver")
+    const limit = last && readByRules(last.body).limit_minutes
+    if (!last || !limit) continue
+    const said = last.authoredAt.toISOString()
+    if (thread.some((m) => m.authoredAt > last.authoredAt && s((m.details as Row).recipient_id) === s((last.details as Row).author_id))) continue
+    const until = new Date(Date.parse(said) + limit * MINUTE).toISOString()
+    add(c.orderId, { text: `Driver's wait ${Date.parse(until) < nowMs ? "ran out" : "ends"} at ${when(until, now)}: "${last.body.slice(0, 90)}"`, owner: (s((c.details as Row).owner) as Desk) ?? "ops-support", deadline: until, deadlineReason: `Driver said at ${when(said, now)} they could wait ${limit} more minutes` })
   }
   for (const st of statusRows) {
     if (st.nextCheckAt && Date.parse(st.nextCheckAt) < nowMs) add(st.orderId, { text: `Agent's next check (${when(st.nextCheckAt, now)}) is overdue: ${st.summary}`, owner: st.ownerDesk ?? "ops-shift", deadline: st.nextCheckAt, deadlineReason: "Agent's next check" })

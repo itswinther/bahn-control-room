@@ -1,4 +1,4 @@
-import { BedDouble, Car, CarTaxiFront, Plane, Ship, TrainFront } from "lucide-react";
+import { BedDouble, Bus, Car, CarTaxiFront, Plane, Ship, TrainFront } from "lucide-react";
 import type { TravelLeg } from "@/lib/ui/contract";
 import { LegTag } from "../ui/tags";
 import { Age } from "../time";
@@ -11,6 +11,7 @@ const MODE_ICON = {
   HOTEL: BedDouble,
   DRIVE: Car,
   TAXI: CarTaxiFront,
+  BUS: Bus,
 } as const;
 
 export function Travel({ legs }: { legs: TravelLeg[] }) {
@@ -37,9 +38,10 @@ export function Travel({ legs }: { legs: TravelLeg[] }) {
                 </div>
                 <p className={styles.legWhen}>{leg.when}</p>
                 <p className={styles.legDetail}>{leg.detail}</p>
-                {(leg.reference || leg.checked_at) && (
+                {(leg.reference || leg.checked_at || leg.mock) && (
                   <p className={styles.legFoot}>
                     {leg.reference && <span className={styles.legRef}>Ref {leg.reference}</span>}
+                    {leg.mock && <span className={styles.legMock}>Made up for the demo</span>}
                     {leg.checked_at && <Age at={leg.checked_at} prefix="checked " />}
                   </p>
                 )}

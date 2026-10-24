@@ -1,17 +1,21 @@
 /**
- * Codes to words, and times people can read.
- * Mirrors the starter's lib/present/labels.ts and time.ts; swap to those once the
- * starter is merged in.
+ * Codes to words, and times people can read, in the screens' own short voice.
+ * Desk names match Shift Watch's (lib/shift-watch/queue.ts).
  */
 import type { Approval, Desk, LegState, QueueKind, Source, WhoPays } from "./contract";
 
 export const DESK_LABEL: Record<Desk, string> = {
-  "ops-travel": "Travel desk",
+  "ops-travel": "Driver travel",
   "ops-dispatch": "Driver marketplace",
   "ops-shift": "Shift lead",
   "ops-readiness": "Readiness desk",
   "ops-support": "Support desk",
-  "ops-expenses": "Expenses",
+  "ops-evidence": "Handover evidence",
+  "ops-expenses": "Driver expenses",
+  "ops-intake": "Order intake",
+  "ops-planning": "Transport planning",
+  "ops-import": "Import operations",
+  "ops-finance": "Payments",
 };
 
 export const APPROVAL_LABEL: Record<Approval, string> = {
@@ -33,10 +37,8 @@ export const KIND_LABEL: Record<QueueKind, string> = {
 export const LEG_LABEL: Record<LegState, string> = {
   BOOKED: "Booked",
   QUOTED: "Quoted, not booked",
-  UNCONFIRMED: "Unconfirmed",
-  NOT_BOOKED: "Not booked yet",
-  FAILED: "Failed",
-  NOT_NEEDED: "Nothing to book",
+  REQUESTED: "Asked, not confirmed",
+  NOT_BOOKED: "Not booked",
 };
 
 export const SOURCE_LABEL: Record<Source, string> = {
@@ -53,8 +55,7 @@ export const SOURCE_LABEL: Record<Source, string> = {
 export const WHO_PAYS_LABEL: Record<WhoPays, string> = {
   BAHN: "Bahn",
   CUSTOMER: "Customer",
-  DRIVER_EXPENSE: "Driver expense",
-  UNDECIDED: "Decide later",
+  DRIVER: "Driver",
 };
 
 const MIN = 60_000;

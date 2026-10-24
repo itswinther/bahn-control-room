@@ -3,6 +3,9 @@ import type { Metadata } from "next";
 import { getCase, getQueue } from "@/lib/ui/data";
 import { Workspace } from "@/components/workspace/workspace";
 
+// Live data on the demo clock: render on every request.
+export const dynamic = "force-dynamic";
+
 export async function generateMetadata(props: PageProps<"/cases/[orderId]">): Promise<Metadata> {
   const { orderId } = await props.params;
   const data = await getCase(orderId);

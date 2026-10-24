@@ -3,6 +3,9 @@ import { getCase, getQueue } from "@/lib/ui/data";
 import { sortQueue } from "@/lib/ui/queue";
 import { Workspace } from "@/components/workspace/workspace";
 
+// Live data on the demo clock: render on every request.
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = { title: "Inbox · Control room" };
 
 export default async function InboxPage() {

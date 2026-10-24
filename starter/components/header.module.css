@@ -177,3 +177,113 @@
     display: none;
   }
 }
+
+/* Who is deciding. */
+.desk select {
+  height: 36px;
+  padding: 0 30px 0 14px;
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-pill);
+  background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23726958' stroke-width='2.4'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center;
+  appearance: none;
+  color: var(--headline);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* The demo controls. */
+.demo {
+  position: relative;
+}
+.demoButton {
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 12px 0 14px;
+  border: 1px dashed var(--divider);
+  border-radius: var(--radius-pill);
+  color: var(--muted-strong);
+  font-size: 14px;
+  font-weight: 600;
+  list-style: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.demoButton::-webkit-details-marker {
+  display: none;
+}
+.demo[open] .demoButton {
+  background: var(--surface-subtle);
+  color: var(--headline);
+}
+.demoMenu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  width: 320px;
+  display: grid;
+  gap: 4px;
+  padding: 8px;
+  border: 1px solid var(--divider-soft);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  box-shadow: 0 12px 32px rgba(18, 17, 14, 0.16);
+}
+.demoMenu button {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: var(--radius-inner);
+  background: transparent;
+  color: var(--body);
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+}
+.demoMenu button:hover:not(:disabled) {
+  background: var(--surface-subtle);
+}
+.demoMenu button:disabled {
+  opacity: 0.5;
+}
+.demoMenu button svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--muted-strong);
+}
+.demoMenu strong {
+  display: block;
+  color: var(--headline);
+  font-size: 15px;
+}
+.demoNote,
+.demoStatus {
+  margin: 0;
+  padding: 6px 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.demoStatus {
+  padding: 10px 12px;
+  border-radius: var(--radius-inner);
+  background: var(--green-bg);
+  color: var(--body);
+  font-weight: 500;
+}
+
+@media (max-width: 1100px) {
+  .desk {
+    display: none;
+  }
+}
+
+/* The demo controls are for the person running the pitch on a laptop. */
+@media (max-width: 760px) {
+  .demo {
+    display: none;
+  }
+}

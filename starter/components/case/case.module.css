@@ -797,3 +797,12 @@ details.panel:not([open]) .stepsSummary::after {
 .tabBody .stepsSummary {
   display: none;
 }
+
+.legMock {
+  padding: 0 8px;
+  border-radius: var(--radius-pill);
+  background: var(--orange-bg);
+  color: var(--orange);
+  font-size: 12px;
+  font-weight: 700;
+}

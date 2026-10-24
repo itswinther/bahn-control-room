@@ -4,26 +4,28 @@ import Link from "next/link";
 import { AlertTriangle, ArrowRight, Clock, ShieldAlert, UserRound } from "lucide-react";
 import type { Desk, QueueItem, QueueResponse } from "@/lib/ui/contract";
 import { DESK_LABEL } from "@/lib/ui/present";
-import { groupOf, sortQueue } from "@/lib/ui/queue";
-import { useClock, useDecisions } from "../providers";
+import { groupOf, needsCall, sortQueue } from "@/lib/ui/queue";
+import { useClock, useLiveRefresh } from "../providers";
 import { timeLeft, tone } from "../workspace/time-left";
 import { ShiftTimeline } from "./shift-timeline";
 import styles from "./overview.module.css";
 
-const DESKS: Desk[] = ["ops-dispatch", "ops-shift", "ops-travel", "ops-readiness"];
 
 export function Overview({ queue }: { queue: QueueResponse }) {
   const { now, ready } = useClock();
-  const { decisions } = useDecisions();
+  useLiveRefresh();
 
-  const open = sortQueue(queue.items).filter((i) => !(i.proposal_id && decisions[i.proposal_id]));
+  const open = sortQueue(queue.items).filter(needsCall);
   const active = open.filter((i) => i.kind !== "WAITING");
   const dueNow = active.filter((i) => groupOf(i, now) === "now");
   const safety = active.filter((i) => i.kind === "SAFETY");
   const waiting = active.filter((i) => i.kind === "DRIVER_WAITING");
   const held = active.filter((i) => i.kind === "HELD");
 
-  const load = DESKS.map((d) => ({ desk: d, n: dueNow.filter((i) => i.owner_desk === d).length }));
+  // Every desk with something due this hour, busiest first.
+  const desks = [...new Set(dueNow.map((i) => i.owner_desk))] as Desk[];
+  const load = desks.map((d) => ({ desk: d, n: dueNow.filter((i) => i.owner_desk === d).length }));
+  load.sort((a, b) => b.n - a.n);
   const max = Math.max(1, ...load.map((l) => l.n));
 
   const first = (list: QueueItem[]) => (list[0] ? `/cases/${list[0].order_id}` : "/inbox");

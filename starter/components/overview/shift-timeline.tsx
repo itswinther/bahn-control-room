@@ -5,11 +5,12 @@ import { useMemo, useState } from "react";
 import { Car, Check, Clock3, Hand, MessageSquare, ShieldAlert } from "lucide-react";
 import type { Desk, QueueItem, TimelineEvent } from "@/lib/ui/contract";
 import { DESK_LABEL, clock } from "@/lib/ui/present";
-import { useClock, useDecisions } from "../providers";
+import { useClock } from "../providers";
 import styles from "./shift-timeline.module.css";
 
 const HOUR = 3_600_000;
-const DESKS: Desk[] = ["ops-shift", "ops-dispatch", "ops-travel", "ops-readiness"];
+/** Lanes in this order first; any other desk with work follows. */
+const DESK_ORDER: Desk[] = ["ops-shift", "ops-dispatch", "ops-travel", "ops-readiness", "ops-support"];
 const MAX_ROWS = 3;
 
 const TYPE: Record<TimelineEvent["type"], { label: string; Icon: typeof Hand }> = {
@@ -45,7 +46,6 @@ function pack(list: Omit<Placed, "row">[], minGap: number): { placed: Placed[]; 
 
 export function ShiftTimeline({ items }: { items: QueueItem[] }) {
   const { now, ready } = useClock();
-  const { decisions } = useDecisions();
   const [hours, setHours] = useState<(typeof RANGES)[number]>(6);
   const [tip, setTip] = useState<{ p: Placed; x: number; y: number } | null>(null);
 
@@ -63,7 +63,9 @@ export function ShiftTimeline({ items }: { items: QueueItem[] }) {
     return out;
   }, [start, end, hours]);
 
-  const lanes = DESKS.map((desk) => {
+  const present = new Set(items.map((i) => i.owner_desk));
+  const desks = [...DESK_ORDER.filter((d) => present.has(d)), ...[...present].filter((d) => !DESK_ORDER.includes(d))];
+  const lanes = desks.map((desk) => {
     const evs = items
       .filter((i) => i.owner_desk === desk)
       .flatMap((item) =>
@@ -135,7 +137,7 @@ export function ShiftTimeline({ items }: { items: QueueItem[] }) {
               ))}
               <span className={styles.past} style={{ width: `${Math.max(0, pct(now))}%` }} aria-hidden="true" />
               {placed.map((p) => {
-                const decided = p.item.proposal_id ? decisions[p.item.proposal_id] : undefined;
+                const decided = !!p.item.outcome && !p.item.outcome.failed;
                 const late = !decided && p.ev.type === "DECISION" && p.end < now;
                 const left = Math.max(0, pct(p.start));
                 const width = Math.min(100, pct(p.end)) - left;

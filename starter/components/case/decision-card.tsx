@@ -1,130 +1,195 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { AlertTriangle, ArrowRight, Check, CircleCheck, Loader2, Pencil, RotateCcw, ShieldCheck, Undo2, X } from "lucide-react";
-import type { Proposal, WhoPays } from "@/lib/ui/contract";
+import { AlertTriangle, ArrowRight, Check, CircleCheck, CircleX, Loader2, Pencil, ShieldCheck, Undo2, X } from "lucide-react";
+import type { Proposal, QueueItem, WhoPays } from "@/lib/ui/contract";
+import { decideProposal, undoDecision } from "@/lib/ui/api";
 import { APPROVAL_LABEL, DESK_LABEL, WHO_PAYS_LABEL, clock, money } from "@/lib/ui/present";
-import { useClock, useDecisions } from "../providers";
+import { useClock, useDesk } from "../providers";
 import styles from "./decision.module.css";
 
 type Mode = "idle" | "edit" | "reject" | "override";
 
-const WHO_PAYS: WhoPays[] = ["BAHN", "CUSTOMER", "DRIVER_EXPENSE", "UNDECIDED"];
+const WHO_PAYS: WhoPays[] = ["BAHN", "CUSTOMER", "DRIVER"];
 
-/** Sample booking references, so the demo shows what a real booking looks like. */
-function referenceFor(command: string): string | undefined {
-  if (command.includes("ferry")) return "FF-90417";
-  if (command.includes("return")) return "DB-55120";
-  return undefined;
+const TABLE_LABEL: Record<string, string> = {
+  travel_reservations: "Booking",
+  travel_options: "Ferry quote",
+  driver_messages: "Driver chat",
+  messages: "Message",
+  alerts: "Alert",
+  work_items: "Work item",
+  incidents: "Incident",
+  proofs: "Proof",
+  documents: "Document",
+  agent_proposals: "Earlier plan",
+};
+
+/** Mirrors the backend's rule (lib/shift-watch/checks.ts mayDecide), so the card can say who decides before anyone clicks. */
+function mayDecide(p: Proposal, desk: string) {
+  if (p.approval === "SHIFT_LEAD") return desk === "ops-shift";
+  if (p.approval === "DESK") return desk === p.owner_desk || desk === "ops-shift";
+  return true;
 }
 
-export function DecisionCard({ proposal, title }: { proposal: Proposal; title: string }) {
-  const { now } = useClock();
-  const { decisions, decide, clear } = useDecisions();
-  const decision = decisions[proposal.id];
+export function DecisionCard({ proposal, title, item }: { proposal: Proposal; title: string; item?: QueueItem }) {
+  if (proposal.review) return <Outcome proposal={proposal} />;
+  return <Pending proposal={proposal} title={title} item={item} />;
+}
 
+/* ---------- After a decision: the undo window, then what actually happened ---------- */
+
+function Outcome({ proposal: p }: { proposal: Proposal }) {
+  const router = useRouter();
+  const { now, ready } = useClock();
+  const { desk } = useDesk();
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const r = p.review!;
+  const effect = Date.parse(r.takes_effect_at);
+  const open = !r.settled_at && (!ready || now < effect);
+  const rejected = r.decision === "REJECTED";
+
+  // Once the undo window closes, read the result back from the backend.
+  useEffect(() => {
+    if (r.settled_at) return;
+    const wait = Math.max(0, effect - now) + 1200;
+    const id = setTimeout(() => router.refresh(), wait);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [r.settled_at, effect, router]);
+
+  const undo = async () => {
+    setBusy(true);
+    const res = await undoDecision(p.id, desk);
+    setBusy(false);
+    if (!res.ok) return setError(res.error);
+    router.refresh();
+  };
+
+  const failed = p.status === "FAILED";
+  const state = failed ? "rejected" : rejected ? "rejected" : "approved";
+  const heading = open ? (rejected ? "Rejected" : "Approved") : failed ? "Didn't go through" : rejected ? "Back with a person" : p.execution ? "Done" : "On it";
+  const who = DESK_LABEL[r.reviewer as keyof typeof DESK_LABEL] ?? r.reviewer;
+  const refs = p.execution?.references.filter((x) => x.kind === "ferry_booking") ?? [];
+
+  return (
+    <section className={styles.card} data-state={state} aria-live="polite">
+      <div className={styles.outcome}>
+        <span className={styles.outcomeIcon}>
+          {failed ? <CircleX size={22} strokeWidth={1.8} /> : rejected ? <Undo2 size={22} strokeWidth={1.8} /> : <CircleCheck size={22} strokeWidth={1.8} />}
+        </span>
+        <div>
+          <h2 className={styles.outcomeTitle}>{heading}</h2>
+          <p className={styles.outcomeMeta}>
+            {who} · {clock(r.at)}
+            {r.who_pays ? ` · ${WHO_PAYS_LABEL[r.who_pays]} pays` : ""}
+            {r.decision === "EDITED" ? " · with changes" : ""}
+          </p>
+        </div>
+        {open && (
+          <button type="button" className={styles.undo} onClick={undo} disabled={busy}>
+            <Undo2 size={16} strokeWidth={1.8} aria-hidden="true" />
+            Undo{ready ? ` · ${Math.max(0, Math.ceil((effect - now) / 1000))}s` : ""}
+          </button>
+        )}
+      </div>
+
+      <p className={styles.summaryText}>{p.summary}</p>
+
+      {open ? (
+        <p className={styles.nextText}>
+          {rejected
+            ? "Nothing was booked or sent. You can take it back until the timer runs out."
+            : "Nothing is booked or sent until the timer runs out. Undo if you change your mind."}
+        </p>
+      ) : p.execution ? (
+        <>
+          <p className={styles.nextText}>{p.execution.result_summary}</p>
+          {refs.map((x) => (
+            <p key={x.value} className={styles.reference}>
+              Booked · {x.value}
+            </p>
+          ))}
+          {p.execution.next_steps.length > 0 && (
+            <>
+              <h3 className={styles.nextTitle}>What happens next</h3>
+              <ol className={styles.steps}>
+                {p.execution.next_steps.map((s, i) => (
+                  <li key={s} className={styles.step} data-state="next">
+                    <span className={styles.stepIcon} aria-hidden="true">
+                      {i + 1}
+                    </span>
+                    <span>{s}</span>
+                  </li>
+                ))}
+              </ol>
+            </>
+          )}
+        </>
+      ) : rejected ? (
+        <p className={styles.nextText}>
+          {r.note ? `Your reason: ${r.note}. ` : ""}Nothing was booked or sent. The order stays with a person.
+        </p>
+      ) : (
+        <p className={styles.nextText}>
+          <Loader2 size={15} strokeWidth={2.4} className={styles.spin} aria-hidden="true" /> Carrying it out…
+        </p>
+      )}
+      {error && (
+        <p className={styles.error} role="alert">
+          {error}
+        </p>
+      )}
+    </section>
+  );
+}
+
+/* ---------- Waiting for a decision ---------- */
+
+function Pending({ proposal, title, item }: { proposal: Proposal; title: string; item?: QueueItem }) {
+  const router = useRouter();
+  const { desk } = useDesk();
   const [mode, setMode] = useState<Mode>("idle");
   const [whoPays, setWhoPays] = useState<WhoPays | null>(proposal.cost?.who_pays ?? null);
   const [note, setNote] = useState("");
   const [edits, setEdits] = useState<Record<string, string>>({});
   const [hint, setHint] = useState<string | null>(null);
-  const [sentBack, setSentBack] = useState(false);
-  const steps = proposal.next_steps ?? [];
-  const [done, setDone] = useState(decision ? steps.length : 0);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const paysRef = useRef<HTMLFieldSetElement>(null);
 
   const held = proposal.status === "HELD";
   const hasCost = !!proposal.cost && proposal.cost.amount_minor > 0;
+  const allowed = mayDecide(proposal, desk);
+  const reasons = proposal.check?.reasons ?? [];
 
-  // Walk through "what happens next" after an approval, one step at a time.
-  useEffect(() => {
-    if (!decision || decision.decision === "REJECTED" || done >= steps.length) return;
-    const id = setTimeout(() => setDone((d) => d + 1), 900);
-    return () => clearTimeout(id);
-  }, [decision, done, steps.length]);
-
-  const approve = (kind: "APPROVED" | "EDITED" = "APPROVED", extraNote?: string) => {
-    if (hasCost && !whoPays) {
+  const send = async (decision: "APPROVED" | "EDITED" | "REJECTED", extraNote?: string) => {
+    if (decision !== "REJECTED" && hasCost && !whoPays) {
       setHint("Pick who pays first.");
       paysRef.current?.querySelector("input")?.focus();
       return;
     }
-    setDone(0);
-    decide(proposal.id, {
-      decision: kind,
-      at: now,
-      whoPays,
-      note: extraNote ?? (note || undefined),
-      edits: kind === "EDITED" ? edits : undefined,
-      reference: referenceFor(proposal.command),
+    if (decision === "REJECTED" && !note.trim() && !extraNote) {
+      setHint("Say why, so the next person knows.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    const changed = proposal.before_after.map((row) => ({ ...row, after: edits[row.label] ?? row.after }));
+    const res = await decideProposal(proposal.id, {
+      decision,
+      reviewer: desk,
+      note: [extraNote, note.trim()].filter(Boolean).join(". ") || undefined,
+      ...(decision !== "REJECTED" && whoPays ? { who_pays: whoPays } : {}),
+      ...(decision === "EDITED" ? { final_payload: { before_after: changed } } : {}),
     });
+    setBusy(false);
+    if (!res.ok) return setError(res.error);
     setMode("idle");
+    router.refresh();
   };
-
-  const reject = () => {
-    decide(proposal.id, { decision: "REJECTED", at: now, note: note || undefined });
-    setMode("idle");
-  };
-
-  /* ---------- After a decision ---------- */
-
-  if (decision) {
-    const rejected = decision.decision === "REJECTED";
-    const finished = !rejected && done >= steps.length;
-    return (
-      <section className={styles.card} data-state={rejected ? "rejected" : "approved"} aria-live="polite">
-        <div className={styles.outcome}>
-          <span className={styles.outcomeIcon}>
-            {rejected ? <Undo2 size={22} strokeWidth={1.8} /> : <CircleCheck size={22} strokeWidth={1.8} />}
-          </span>
-          <div>
-            <h2 className={styles.outcomeTitle}>{rejected ? "Back with the agent" : finished ? "Done" : "On it"}</h2>
-            <p className={styles.outcomeMeta}>
-              {clock(decision.at)}
-              {decision.whoPays ? ` · ${WHO_PAYS_LABEL[decision.whoPays]} pays` : ""}
-              {decision.decision === "EDITED" ? " · edited" : ""}
-            </p>
-          </div>
-          <button type="button" className={styles.undo} onClick={clear} title="Clears the decisions made in this demo">
-            <RotateCcw size={16} strokeWidth={1.8} aria-hidden="true" />
-            Reset demo
-          </button>
-        </div>
-
-        {rejected ? (
-          <p className={styles.nextText}>The agent gets your note. Nothing changes until someone approves a new plan.</p>
-        ) : (
-          <ol className={styles.steps}>
-            {steps.map((s, i) => {
-              const state = i < done ? "done" : i === done ? "running" : "waiting";
-              return (
-                <li key={s} className={styles.step} data-state={state}>
-                  <span className={styles.stepIcon} aria-hidden="true">
-                    {state === "done" ? (
-                      <Check size={14} strokeWidth={2.4} />
-                    ) : state === "running" ? (
-                      <Loader2 size={14} strokeWidth={2.4} className={styles.spin} />
-                    ) : (
-                      i + 1
-                    )}
-                  </span>
-                  <span>
-                    {s}
-                    {i === 0 && state === "done" && decision.reference && (
-                      <span className={styles.reference}>Booked · {decision.reference}</span>
-                    )}
-                  </span>
-                  <span className="visually-hidden">{state}</span>
-                </li>
-              );
-            })}
-          </ol>
-        )}
-      </section>
-    );
-  }
-
-  /* ---------- Waiting for a decision ---------- */
 
   return (
     <section className={styles.card} data-state={held ? "held" : "pending"} aria-labelledby="decision-title">
@@ -135,39 +200,55 @@ export function DecisionCard({ proposal, title }: { proposal: Proposal; title: s
         </span>
       </div>
 
-      <h2 id="decision-title" className={styles.summaryBig}>
+      <h2 id="decision-title" className={styles.summaryBig} data-long={title.length > 90 || undefined}>
         {title}
       </h2>
 
-      {proposal.check && (
-        <details className={styles.check} data-outcome={proposal.check.outcome}>
-          <summary className={styles.checkHead}>
-            {proposal.check.outcome === "PASS" ? (
-              <ShieldCheck size={16} strokeWidth={2} aria-hidden="true" />
-            ) : (
-              <AlertTriangle size={16} strokeWidth={2} aria-hidden="true" />
-            )}
-            {proposal.check.outcome === "PASS" ? `Checked · ${proposal.check.reasons.length}` : proposal.check.reasons[0]}
-          </summary>
-          <div className={styles.why}>
-            <p>{proposal.summary}</p>
+      {(item?.stopped_because || item?.if_no_decision) && (
+        <dl className={styles.context}>
+          {item.stopped_because && (
+            <div>
+              <dt>Why you</dt>
+              <dd>{item.stopped_because}</dd>
+            </div>
+          )}
+          {item.if_no_decision && (
+            <div>
+              <dt>If nobody decides</dt>
+              <dd>{item.if_no_decision}</dd>
+            </div>
+          )}
+        </dl>
+      )}
+
+      <details className={styles.check} data-outcome={proposal.check?.outcome ?? "PASS"}>
+        <summary className={styles.checkHead}>
+          {held ? <AlertTriangle size={16} strokeWidth={2} aria-hidden="true" /> : <ShieldCheck size={16} strokeWidth={2} aria-hidden="true" />}
+          {held ? reasons[0]?.message ?? "Shift Watch held this for a person." : "Passed Shift Watch's checks"}
+        </summary>
+        <div className={styles.why}>
+          <p>{proposal.rationale}</p>
+          {reasons.length > 0 && (
             <ul>
-              {proposal.check.reasons.map((r) => (
-                <li key={r}>{r}</li>
+              {reasons.map((r) => (
+                <li key={r.check + r.message}>{r.message}</li>
               ))}
             </ul>
-            {proposal.evidence_refs.length > 0 && (
-              <p className={styles.evidence}>
-                {proposal.evidence_refs.map((e) => (
-                  <span key={e.id} className={styles.evidenceChip} title={`${e.table} · ${e.id}`}>
-                    {e.label ?? e.table} · {clock(e.observed_at)}
-                  </span>
-                ))}
-              </p>
-            )}
-          </div>
-        </details>
-      )}
+          )}
+          {proposal.evidence_refs.length > 0 && (
+            <p className={styles.evidence}>
+              <span className={styles.evidenceLabel}>Based on</span>
+              {proposal.evidence_refs.map((e) => (
+                <span key={e.id} className={styles.evidenceChip} title={`${e.table} · ${e.id}`}>
+                  {TABLE_LABEL[e.table] ?? e.table}
+                  {e.observed_at ? ` · ${clock(e.observed_at)}` : ""}
+                  {e.mock && <span className={styles.mock}>made up</span>}
+                </span>
+              ))}
+            </p>
+          )}
+        </div>
+      </details>
 
       {proposal.before_after.length > 0 && (
         <dl className={styles.change}>
@@ -199,7 +280,7 @@ export function DecisionCard({ proposal, title }: { proposal: Proposal; title: s
         </dl>
       )}
 
-      {hasCost && !held && (
+      {hasCost && mode !== "reject" && (
         <fieldset className={styles.pays} ref={paysRef}>
           <legend className={styles.paysLegend}>
             Who pays {money(proposal.cost!.amount_minor, proposal.cost!.currency)}?
@@ -209,6 +290,7 @@ export function DecisionCard({ proposal, title }: { proposal: Proposal; title: s
               </span>
             )}
           </legend>
+          {proposal.cost!.note && <p className={styles.costNote}>{proposal.cost!.note}</p>}
           <div className={styles.paysOptions}>
             {WHO_PAYS.map((w) => (
               <label key={w} className={styles.paysOption}>
@@ -231,7 +313,14 @@ export function DecisionCard({ proposal, title }: { proposal: Proposal; title: s
 
       {(mode === "reject" || mode === "edit") && (
         <label className={styles.noteField}>
-          <span>{mode === "reject" ? "Why not?" : "Note (optional)"}</span>
+          <span>
+            {mode === "reject" ? "Why not?" : "Note (optional)"}
+            {mode === "reject" && hint && (
+              <span className={styles.paysHint} role="alert">
+                {hint}
+              </span>
+            )}
+          </span>
           <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} autoFocus />
         </label>
       )}
@@ -243,87 +332,93 @@ export function DecisionCard({ proposal, title }: { proposal: Proposal; title: s
         </p>
       )}
 
-      <div className={styles.actions}>
-        {held ? (
-          mode === "override" ? (
+      {!allowed ? (
+        <p className={styles.notYours}>
+          {proposal.approval === "SHIFT_LEAD" ? "Only the shift lead decides this." : `${DESK_LABEL[proposal.owner_desk]} or the shift lead decides this.`}{" "}
+          You&apos;re signed in as {DESK_LABEL[desk]}.
+        </p>
+      ) : (
+        <div className={styles.actions}>
+          {held ? (
+            mode === "override" ? (
+              <>
+                <button type="button" className={styles.danger} disabled={busy} onClick={() => send("APPROVED", "Approved despite Shift Watch's hold")}>
+                  Yes, approve
+                </button>
+                <button type="button" className={styles.secondary} onClick={() => setMode("idle")}>
+                  Cancel
+                </button>
+              </>
+            ) : mode === "reject" ? (
+              <>
+                <button type="button" className={styles.primary} disabled={busy} onClick={() => send("REJECTED")}>
+                  Reject
+                </button>
+                <button type="button" className={styles.secondary} onClick={() => setMode("idle")}>
+                  Cancel
+                </button>
+              </>
+            ) : (
+              <>
+                <button type="button" className={styles.primary} onClick={() => setMode("reject")}>
+                  <X size={18} strokeWidth={1.8} aria-hidden="true" />
+                  Reject
+                </button>
+                <button type="button" className={styles.ghost} onClick={() => setMode("override")}>
+                  Approve anyway
+                </button>
+              </>
+            )
+          ) : mode === "reject" ? (
             <>
-              <button type="button" className={styles.danger} onClick={() => approve("APPROVED", "Approved despite hold")}>
-                Yes, approve
+              <button type="button" className={styles.primary} disabled={busy} onClick={() => send("REJECTED")}>
+                Reject
               </button>
               <button type="button" className={styles.secondary} onClick={() => setMode("idle")}>
                 Cancel
               </button>
             </>
-          ) : sentBack ? (
-            <p className={styles.sentBack}>
-              <Check size={18} strokeWidth={2} aria-hidden="true" />
-              Sent back. Nothing gets booked meanwhile.
-            </p>
-          ) : (
+          ) : mode === "edit" ? (
             <>
-              <button type="button" className={styles.primary} onClick={() => setSentBack(true)}>
-                Check first
+              <button type="button" className={styles.primary} disabled={busy} onClick={() => send("EDITED")}>
+                Approve changes
               </button>
-              <button type="button" className={styles.ghost} onClick={() => setMode("override")}>
-                Approve anyway
+              <button
+                type="button"
+                className={styles.secondary}
+                onClick={() => {
+                  setEdits({});
+                  setMode("idle");
+                }}
+              >
+                Cancel
               </button>
             </>
-          )
-        ) : mode === "reject" ? (
-          <>
-            <button type="button" className={styles.primary} onClick={reject}>
-              Send back
-            </button>
-            <button type="button" className={styles.secondary} onClick={() => setMode("idle")}>
-              Cancel
-            </button>
-          </>
-        ) : mode === "edit" ? (
-          <>
-            <button type="button" className={styles.primary} onClick={() => approve("EDITED")}>
-              Approve changes
-            </button>
-            <button
-              type="button"
-              className={styles.secondary}
-              onClick={() => {
-                setEdits({});
-                setMode("idle");
-              }}
-            >
-              Cancel
-            </button>
-          </>
-        ) : (
-          <>
-            <button type="button" className={styles.primary} onClick={() => approve()}>
-              <Check size={20} strokeWidth={2} aria-hidden="true" />
-              Approve
-            </button>
-            <button type="button" className={styles.secondary} onClick={() => setMode("edit")}>
-              <Pencil size={18} strokeWidth={1.8} aria-hidden="true" />
-              Edit
-            </button>
-            <button type="button" className={styles.ghost} onClick={() => setMode("reject")}>
-              <X size={18} strokeWidth={1.8} aria-hidden="true" />
-              Reject
-            </button>
-          </>
-        )}
-      </div>
+          ) : (
+            <>
+              <button type="button" className={styles.primary} disabled={busy} onClick={() => send("APPROVED")}>
+                {busy ? <Loader2 size={20} strokeWidth={2} className={styles.spin} aria-hidden="true" /> : <Check size={20} strokeWidth={2} aria-hidden="true" />}
+                Approve
+              </button>
+              {proposal.before_after.length > 0 && (
+                <button type="button" className={styles.secondary} onClick={() => setMode("edit")}>
+                  <Pencil size={18} strokeWidth={1.8} aria-hidden="true" />
+                  Edit
+                </button>
+              )}
+              <button type="button" className={styles.ghost} onClick={() => setMode("reject")}>
+                <X size={18} strokeWidth={1.8} aria-hidden="true" />
+                Reject
+              </button>
+            </>
+          )}
+        </div>
+      )}
 
-      {!held && steps.length > 0 && (
-        <details className={styles.preview}>
-          <summary className={styles.previewTitle}>On yes · {steps.length} steps</summary>
-          <ol>
-            {steps.map((s, i) => (
-              <li key={s}>
-                <span className={styles.previewNum}>{i + 1}</span>
-                {s}
-              </li>
-            ))}
-          </ol>
-        </details>
+      {error && (
+        <p className={styles.error} role="alert">
+          {error}
+        </p>
       )}
     </section>
   );

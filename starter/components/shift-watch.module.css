@@ -431,3 +431,22 @@
     padding: 0 12px;
   }
 }
+
+.offline {
+  margin: 0 0 6px;
+  color: var(--band-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.thinking {
+  margin: 0;
+  color: var(--band-muted);
+  font-size: 14px;
+  animation: pulse-soft 1.6s var(--ease) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .thinking {
+    animation: none;
+  }
+}

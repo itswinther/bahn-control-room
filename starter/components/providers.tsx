@@ -1,106 +1,91 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { demoNow, demoStartedAt, resetDemoClock, SNAPSHOT } from "@/lib/ui/clock";
-import type { WhoPays } from "@/lib/ui/contract";
+import { SNAPSHOT, syncDemoClock } from "@/lib/ui/clock";
+import type { Desk } from "@/lib/ui/contract";
 
 /* ---------- Demo clock ---------- */
 
-const ClockContext = createContext<{ now: number; ready: boolean; reset: () => void }>({
+const ClockContext = createContext<{ now: number; ready: boolean; reset: () => Promise<void> }>({
   now: SNAPSHOT,
   ready: false,
-  reset: () => {},
+  reset: async () => {},
 });
 
+// The server owns the demo clock (GET /api/clock); the browser keeps the offset and ticks locally.
 function ClockProvider({ children }: { children: React.ReactNode }) {
-  const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [offset, setOffset] = useState<number | null>(null);
   const [now, setNow] = useState(SNAPSHOT);
 
   useEffect(() => {
-    const start = demoStartedAt();
-    setStartedAt(start);
-    setNow(demoNow(start));
-    const id = setInterval(() => setNow(demoNow(start)), 1000);
+    let alive = true;
+    const sync = () => syncDemoClock().then((o) => alive && o != null && setOffset(o));
+    sync();
+    const resync = setInterval(sync, 60_000);
+    return () => {
+      alive = false;
+      clearInterval(resync);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (offset == null) return;
+    setNow(Date.now() + offset);
+    const id = setInterval(() => setNow(Date.now() + offset), 1000);
     return () => clearInterval(id);
+  }, [offset]);
+
+  const reset = useCallback(async () => {
+    await fetch("/api/clock", { method: "POST" });
+    window.location.assign("/");
   }, []);
 
-  const reset = useCallback(() => {
-    resetDemoClock();
-    window.location.reload();
-  }, []);
-
-  return (
-    <ClockContext.Provider value={{ now, ready: startedAt != null, reset }}>
-      {children}
-    </ClockContext.Provider>
-  );
+  return <ClockContext.Provider value={{ now, ready: offset != null, reset }}>{children}</ClockContext.Provider>;
 }
 
 export const useClock = () => useContext(ClockContext);
 
-/* ---------- Decisions made in this session ---------- */
+/* ---------- Who is deciding ---------- */
 
-export interface LocalDecision {
-  decision: "APPROVED" | "EDITED" | "REJECTED";
-  at: number;
-  whoPays?: WhoPays | null;
-  note?: string;
-  edits?: Record<string, string>;
-  reference?: string;
-}
+// A stand-in for sign-in: decisions go to the backend with this desk as the reviewer, and the backend
+// checks it may decide (the shift lead may decide anything).
+const DeskContext = createContext<{ desk: Desk; setDesk: (d: Desk) => void }>({ desk: "ops-shift", setDesk: () => {} });
 
-interface DecisionStore {
-  decisions: Record<string, LocalDecision>;
-  decide: (proposalId: string, d: LocalDecision) => void;
-  clear: () => void;
-}
-
-const DecisionContext = createContext<DecisionStore>({
-  decisions: {},
-  decide: () => {},
-  clear: () => {},
-});
-
-const STORE_KEY = "bahn-decisions";
-
-function DecisionProvider({ children }: { children: React.ReactNode }) {
-  const [decisions, setDecisions] = useState<Record<string, LocalDecision>>({});
-
+function DeskProvider({ children }: { children: React.ReactNode }) {
+  const [desk, setDeskState] = useState<Desk>("ops-shift");
   useEffect(() => {
     try {
-      const saved = sessionStorage.getItem(STORE_KEY);
-      if (saved) setDecisions(JSON.parse(saved));
-    } catch {
-      /* fine: decisions just won't survive a reload */
-    }
-  }, []);
-
-  const persist = (next: Record<string, LocalDecision>) => {
-    try {
-      sessionStorage.setItem(STORE_KEY, JSON.stringify(next));
+      const saved = localStorage.getItem("bahn-desk");
+      if (saved?.startsWith("ops-")) setDeskState(saved as Desk);
     } catch {
       /* ignore */
     }
-  };
-
-  const decide = useCallback((proposalId: string, d: LocalDecision) => {
-    setDecisions((prev) => {
-      const next = { ...prev, [proposalId]: d };
-      persist(next);
-      return next;
-    });
   }, []);
-
-  const clear = useCallback(() => {
-    setDecisions({});
-    persist({});
+  const setDesk = useCallback((d: Desk) => {
+    setDeskState(d);
+    try {
+      localStorage.setItem("bahn-desk", d);
+    } catch {
+      /* ignore */
+    }
   }, []);
-
-  const value = useMemo(() => ({ decisions, decide, clear }), [decisions, decide, clear]);
-  return <DecisionContext.Provider value={value}>{children}</DecisionContext.Provider>;
+  const value = useMemo(() => ({ desk, setDesk }), [desk, setDesk]);
+  return <DeskContext.Provider value={value}>{children}</DeskContext.Provider>;
 }
 
-export const useDecisions = () => useContext(DecisionContext);
+export const useDesk = () => useContext(DeskContext);
+
+/** Re-read the page's data every few seconds while it's visible, so agents' work shows up by itself. */
+export function useLiveRefresh(ms = 6000) {
+  const router = useRouter();
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (document.visibilityState === "visible") router.refresh();
+    }, ms);
+    return () => clearInterval(id);
+  }, [router, ms]);
+}
 
 /* ---------- Shift Watch panel open/closed ---------- */
 
@@ -173,9 +158,9 @@ export const usePanel = () => useContext(PanelContext);
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <ClockProvider>
-      <DecisionProvider>
+      <DeskProvider>
         <PanelProvider>{children}</PanelProvider>
-      </DecisionProvider>
+      </DeskProvider>
     </ClockProvider>
   );
 }

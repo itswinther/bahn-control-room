@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Check, Inbox, MessageCircle, Search, X } from "lucide-react";
-import type { CaseView, QueueItem, QueueResponse } from "@/lib/ui/contract";
-import { groupOf, sortQueue, type Group } from "@/lib/ui/queue";
-import { useClock, useDecisions, usePanel } from "../providers";
+import type { CaseView, QueueResponse } from "@/lib/ui/contract";
+import { groupOf, needsCall, sortQueue, type Group } from "@/lib/ui/queue";
+import { useClock, useLiveRefresh, usePanel } from "../providers";
 import { timeLeft, tone } from "./time-left";
 import { CaseDetail } from "./case-detail";
 import styles from "./workspace.module.css";
@@ -24,15 +24,14 @@ export function Workspace({
   isCaseRoute: boolean;
 }) {
   const { now, ready } = useClock();
-  const { decisions } = useDecisions();
   const { open: panelOpen, setOpen } = usePanel();
+  useLiveRefresh();
 
   const items = useMemo(() => sortQueue(queue.items), [queue.items]);
   const selected = items.find((i) => i.order_id === selectedId);
-  const decisionOf = (i: QueueItem) => (i.proposal_id ? decisions[i.proposal_id] : undefined);
 
   const counts = { now: 0, today: 0, parked: 0 } as Record<Group, number>;
-  for (const i of items) if (!decisionOf(i)) counts[groupOf(i, now)]++;
+  for (const i of items) if (needsCall(i)) counts[groupOf(i, now)]++;
 
   const [group, setGroup] = useState<Group>(() => (selected ? groupOf(selected, now) : "now"));
   const [query, setQuery] = useState("");
@@ -112,7 +111,7 @@ export function Workspace({
             </li>
           )}
           {listed.map((i) => {
-            const d = decisionOf(i);
+            const d = !!i.outcome && !i.outcome.failed;
             return (
               <li key={i.id}>
                 <Link
@@ -121,9 +120,9 @@ export function Workspace({
                   className={styles.row}
                   aria-current={i.order_id === selectedId ? "true" : undefined}
                 >
-                  <span className={styles.chip} data-tone={tone(i, now, d)} suppressHydrationWarning>
+                  <span className={styles.chip} data-tone={tone(i, now)} suppressHydrationWarning>
                     {d && <Check size={13} strokeWidth={2.6} aria-hidden="true" />}
-                    {timeLeft(i, now, ready, d)}
+                    {timeLeft(i, now, ready)}
                   </span>
                   <span className={styles.rowText}>
                     <span className={styles.ref}>
