@@ -152,8 +152,9 @@ export type DriverMessage = {
   intent: "SAFETY" | "BOOKING_QUESTION" | "EXPENSE_QUESTION" | "KEYS_QUESTION" | "ORDER" | "WHICH_CAR" | null
   /** An acknowledgement that repeats a person's earlier instruction cites that message; Shift Watch checks it. */
   repeats_message_id: string | null
-  /** Agent messages to a driver wait for Shift Watch's checks (no driving advice) before they go out. */
-  status: "PENDING_CHECK" | "SENT" | "HELD"
+  /** Agent messages to a driver wait for Shift Watch's checks (no driving advice) before they go out. A held
+   *  one waits for a person, who sends it (as is or edited) or discards it. */
+  status: "PENDING_CHECK" | "SENT" | "HELD" | "DISCARDED"
   created_at: string
 }
 
@@ -186,7 +187,13 @@ export type QueueItem = {
   safety: boolean
   checked: string[]
   proposal_id: string | null
+  /** An agent message to the driver that Shift Watch held: send, edit or discard it with
+   *  POST /api/driver/messages/:id/review. */
+  held_message_id: string | null
 }
+
+/** POST /api/driver/messages/:id/review, for a held message. `text` sends an edited version instead. */
+export type HeldMessageReview = { action: "SEND" | "DISCARD"; reviewer: string; text?: string }
 
 /** GET /api/queue */
 export type QueueResponse = { at: string; summary: [string, string, string]; items: QueueItem[]; quiet_count: number }

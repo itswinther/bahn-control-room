@@ -76,6 +76,15 @@ async function routineAnswer(orderId: string, driverId: string, intent: Reading[
   return null
 }
 
+/** The hear-back time we gave this driver on this job that is still ahead and not yet answered. */
+async function openPromise(driverId: string, orderId: string, now: string): Promise<string | null> {
+  const out = await db.select({ hearBackBy: driverMessages.hearBackBy, status: driverMessages.status, createdAt: driverMessages.createdAt }).from(driverMessages)
+    .where(and(eq(driverMessages.driverId, driverId), eq(driverMessages.orderId, orderId), eq(driverMessages.direction, "OUT"))).orderBy(desc(driverMessages.createdAt))
+  const last = out.find((m) => m.hearBackBy)
+  if (!last || last.hearBackBy! <= now) return null
+  return out.some((m) => m.status === "SENT" && !m.hearBackBy && m.createdAt > last.createdAt) ? null : last.hearBackBy
+}
+
 async function store(row: Omit<typeof driverMessages.$inferInsert, "id" | "createdAt">) {
   const [saved] = await db.insert(driverMessages).values({ id: `dm_${crypto.randomUUID().slice(0, 8)}`, createdAt: nowIso(), ...row }).returning()
   return toDriverMessage(saved)
@@ -116,11 +125,14 @@ export async function intake(driverId: string, text: string, opts: { quickReplyV
   }
 
   const now = Date.parse(nowIso())
-  const promised = new Date(now + Math.min(HEAR_BACK_MINUTES, reading.limit_minutes ?? HEAR_BACK_MINUTES) * 60_000).toISOString()
+  const fresh = new Date(now + Math.min(HEAR_BACK_MINUTES, reading.limit_minutes ?? HEAR_BACK_MINUTES) * 60_000).toISOString()
+  // A driver who writes again before we've answered keeps the earlier promise, unless they now need it sooner.
+  const earlier = await openPromise(driverId, job.id, nowIso())
+  const promised = earlier && earlier <= fresh ? earlier : fresh
   const routine = await routineAnswer(job.id, driverId, reading.intent)
   const english = reading.intent === "SAFETY"
     ? `Thanks for telling us. Please stay somewhere safe. A person is taking over now and will contact you by ${hhmm(promised)} UTC.`
-    : routine ?? `Got it, we're on it. You'll hear from us by ${hhmm(promised)} UTC.`
+    : routine ?? (promised === earlier ? `Got it, added to your earlier message. You'll still hear from us by ${hhmm(promised)} UTC.` : `Got it, we're on it. You'll hear from us by ${hhmm(promised)} UTC.`)
   // A routine answer from the records closes the question; anything else is a promise with a time.
   const reply = await store({
     driverId, orderId: job.id, direction: "OUT", author: "shift-watch", text: await inLanguage(english, reading.language), language: reading.language,

@@ -7,6 +7,8 @@ import { nowIso } from "@/lib/clock"
 import { db } from "@/lib/db"
 import { messages, relatedRecords } from "@/lib/schema"
 import { agentRuns, agentSteps, driverMessages, proposals } from "@/lib/schema-ours"
+import type { DriverMessage, HeldMessageReview } from "@/lib/contract"
+import { toDriverMessage } from "./case"
 import { checkProposal } from "./checks"
 import { liveReading, readProposalText } from "./judge"
 
@@ -89,6 +91,18 @@ export async function reviewOrder(orderId: string): Promise<ReviewOutcome> {
   const sendBack = await reviewProposals(orderId)
   const { released, held } = await reviewDriverMessages(orderId)
   return { sendBack, released, held }
+}
+
+/** A person sends a held message (as is, or their edited text) or discards it. Only a held message can be
+ *  reviewed, once: the update is conditional on the status. */
+export async function reviewHeld(id: string, req: HeldMessageReview): Promise<{ ok: true; message: DriverMessage } | { ok: false; status: number; error: string }> {
+  const edited = req.action === "SEND" && req.text?.trim() ? req.text.trim() : null
+  const [m] = await db.update(driverMessages)
+    .set(req.action === "DISCARD" ? { status: "DISCARDED" } : { status: "SENT", createdAt: nowIso(), ...(edited ? { text: edited, author: "operator" } : {}) })
+    .where(and(eq(driverMessages.id, id), eq(driverMessages.status, "HELD"))).returning()
+  if (m) return { ok: true, message: toDriverMessage(m) }
+  const [exists] = await db.select({ status: driverMessages.status }).from(driverMessages).where(eq(driverMessages.id, id))
+  return exists ? { ok: false, status: 409, error: `This message is ${exists.status.toLowerCase()}; only a held message can be sent or discarded.` } : { ok: false, status: 404, error: "No such message" }
 }
 
 /** Proposals still waiting for Shift Watch, oldest first (for a catch-up pass after a restart). */
