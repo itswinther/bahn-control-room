@@ -223,5 +223,22 @@ export type RunResponseDetail = { run: AgentRun; steps: AgentStep[] }
 export type DriverMessageRequest = { driver_id: string; text: string; quick_reply_value?: string; simulated?: boolean }
 export type DriverMessageResponse = { message: DriverMessage; reply: DriverMessage | null; run_id: string | null }
 
-/** POST /api/shift-watch/chat */
-export type ChatRequest = { message: string; open_order_id: string | null }
+/** POST /api/shift-watch/chat. The panel keeps the conversation and sends it back each time. */
+export type ChatRequest = {
+  message: string
+  open_order_id: string | null
+  history?: { role: "operator" | "shift-watch"; text: string }[]
+}
+
+/** A button the panel shows. Nothing happens until the operator presses it: the panel then calls the route. */
+export type ChatAction =
+  | { kind: "DECISION"; label: string; order_id: string; proposal_id: string; request: Omit<DecisionRequest, "reviewer"> } // POST /api/proposals/:id/decision, adding the operator as reviewer
+  | { kind: "RUN_AGENT"; label: string; request: RunRequest } // POST /api/agents/run
+
+/** The chat answer streams as newline-delimited JSON, one event per line. */
+export type ChatEvent =
+  | { type: "text"; text: string } // a piece of the answer, in order
+  | { type: "looked_up"; tool: string; summary: string; order_ids: string[] } // records used: link them into the case view
+  | { type: "action"; action: ChatAction }
+  | { type: "error"; message: string }
+  | { type: "done" }
