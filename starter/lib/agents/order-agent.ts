@@ -4,8 +4,9 @@ import type { AgentRun, AgentStep, RunRequest } from "@/lib/contract"
 import { nowIso } from "@/lib/clock"
 import { db } from "@/lib/db"
 import { orders } from "@/lib/schema"
-import { agentRuns, agentSteps } from "@/lib/schema-ours"
+import { agentRuns, agentSteps, proposals } from "@/lib/schema-ours"
 import { liveSource, replaySource, type ModelSource } from "./model"
+import { reviewOrder } from "@/lib/shift-watch/review"
 import { runTool, toolDefs, type ToolContext } from "./tools"
 
 const MODEL = process.env.AGENT_MODEL ?? "claude-sonnet-5-5"
@@ -75,10 +76,25 @@ export async function runOrderAgent(runId: string, req: RunRequest): Promise<voi
   const ctx: ToolContext = { runId, orderId: req.order_id, seen: "", observed: {}, proposed: false, finished: false }
   let seq = 0
   let toolCalls = 0
-  const step = (kind: AgentStep["kind"], tool: string | null, input: Record<string, unknown>, summary: string) =>
-    addStep({ run_id: runId, seq: ++seq, agent: "order-agent", kind, tool, input, result_summary: summary, at: nowIso() })
-  const end = (status: "FINISHED" | "STOPPED" | "FAILED", stopReason: string | null) =>
-    db.update(agentRuns).set({ status, stopReason, toolCalls, endedAt: nowIso() }).where(eq(agentRuns.id, runId))
+  const step = (kind: AgentStep["kind"], tool: string | null, input: Record<string, unknown>, summary: string, agent: AgentStep["agent"] = "order-agent") =>
+    addStep({ run_id: runId, seq: ++seq, agent, kind, tool, input, result_summary: summary, at: nowIso() })
+  const end = async (status: "FINISHED" | "STOPPED" | "FAILED", stopReason: string | null) => {
+    await db.update(agentRuns).set({ status, stopReason, toolCalls, endedAt: nowIso() }).where(eq(agentRuns.id, runId))
+    if (status !== "FAILED") await handOver()
+  }
+  // Shift Watch checks what the run produced; its decisions are steps in this run, so the case view
+  // shows the handover in one timeline. A send-back wakes the agent again.
+  const handOver = async () => {
+    const outcome = await reviewOrder(req.order_id)
+    const [checked] = await db.select().from(proposals).where(eq(proposals.runId, runId))
+    if (checked?.check) await step("TEXT", null, { proposal_id: checked.id }, `Checked ${checked.id}: ${checked.check.outcome}${checked.check.reasons.length ? " - " + checked.check.reasons.map((r) => r.message).join(" ") : ""}`, "shift-watch")
+    if (outcome.released || outcome.held) await step("TEXT", null, {}, `Driver messages: ${outcome.released} sent, ${outcome.held} held for a person`, "shift-watch")
+    if (outcome.sendBack) {
+      const next: RunRequest = { order_id: req.order_id, reason: "SENT_BACK", reason_detail: `Shift Watch sent ${outcome.sendBack.proposalId} back: ${outcome.sendBack.reason}` }
+      const nextId = await createRun(next)
+      if (nextId) void runOrderAgent(nextId, next)
+    }
+  }
 
   await step("WAKE", null, {}, `${req.reason}: ${req.reason_detail}`)
 

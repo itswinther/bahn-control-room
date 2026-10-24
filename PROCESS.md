@@ -271,6 +271,21 @@ Format for every entry:
   up in `travel_options`.
 - Evidence: `starter/lib/shift-watch/checks.ts`, `npm run eval:proposals`.
 
+### 2026-10-24 · Mike + Claude · Shift Watch reviews each run
+
+- Asked: wire the checks to the agent's output.
+- Checked: replayed the four live runs through the server. All four proposals
+  passed to review with the right approver (the shift lead for CD-420322's
+  recovery decision). CD-420322's repeated "keep it stopped" reached the driver
+  because it cites the support desk's own 08:13 message to him. A planted
+  proposal built on the 07:10 list was sent back ("the newest check is 110
+  minutes old") and woke the agent again.
+- Changed or threw away: Shift Watch only decides; the agent loop wakes the
+  agent, so neither module imports the other. Added a limit the plan didn't
+  have: after two send-backs on one order, the next failing proposal is held for
+  a person, so agent and Shift Watch can't bounce forever.
+- Evidence: `starter/lib/shift-watch/review.ts`.
+
 _Teammate's earlier log (`AI-PROCESS.md` in the review bundle, 17 entries):
 merge its entries here._
 
