@@ -341,6 +341,35 @@ Format for every entry:
 - Evidence: `starter/lib/shift-watch/intake.ts`, `starter/lib/shift-watch/read.ts`,
   `starter/app/api/driver/`.
 
+### 2026-10-24 · teammate + Mike + Claude · acting on a code review
+
+- Asked: a teammate reviewed Backend 1 and 2 at `3feb634` against the plan and
+  found six gaps. Claude checked every claim in the code before fixing
+  anything.
+- Checked: five gaps held as written. The sixth held in part: we did book
+  before releasing the old crossing, but ignored the agent's own "check the
+  08:43 carrier request first". The double booking in the scripted demo was
+  real: the driver's second line woke the agent after approval, and the replay
+  proposed the same crossing again. Our own held-out set of reworded
+  mistakes, written before the first run, gave the rules alone 0 of 10.
+- Changed: one demo reset (our tables, mock bookings, clock); each recording
+  plays once per reset; bookings keyed by order and sailing; the carrier's open
+  change request checked, then withdrawn with the old booking. A fresh check
+  closes Bahn's approved-but-not-run refresh. In live mode Claude reads each
+  proposal's text: 10 of 10 reworded mistakes caught, 5 of 5 clean proposals
+  passed, and Bahn's 14 still match, from one run. Added the operator chat
+  (read tools plus two draft-only buttons, tested live, including "approve it
+  yourself", which it refused), `npm run record` and fresh-clone steps, tested
+  from a new clone with no key.
+- Threw away: the demo driver's second line; the safety reply's "keep the car
+  stopped", an instruction our own rules send to a person. One assumption was
+  wrong: chat text arriving in one burst looked like Next buffering it, but
+  timing the SDK alone showed the API sends the text after a tool round in
+  one piece.
+- Evidence: `starter/fixtures/reworded-mistakes.json`, `npm run
+  eval:reworded`, `starter/lib/shift-watch/chat.ts`,
+  `starter/lib/shift-watch/decide.ts`.
+
 _Teammate's earlier log (`AI-PROCESS.md` in the review bundle, 17 entries):
 merge its entries here._
 
