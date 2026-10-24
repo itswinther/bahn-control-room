@@ -2,6 +2,7 @@
 // status and driver chat, and every travel leg marked booked or not.
 import { asc, desc, eq, inArray } from "drizzle-orm"
 import type { AgentRun, AgentStep, CaseResponse, DriverMessage, OrderStatus, Proposal, TravelLeg } from "@/lib/contract"
+import { nowIso } from "@/lib/clock"
 import { db } from "@/lib/db"
 import { loadOrder } from "@/lib/present/load"
 import { buildRecordView } from "@/lib/present/record"
@@ -15,19 +16,26 @@ const kindOf = (k: string): TravelLeg["kind"] => (KINDS.has(k as TravelLeg["kind
 /** Booked is not boarded: boarding stays unconfirmed until a gate record says otherwise. */
 export function legsFrom(view: RecordView, ours: Proposal[], rawReservations: Record<string, unknown>[] = []): TravelLeg[] {
   const legs: TravelLeg[] = []
-  const released = new Set(ours.flatMap((p) => p.execution?.references.filter((x) => x.kind === "released_booking").map((x) => x.value) ?? []))
+  // A booking kept as a fallback counts as released once its release time (its own check-in cutoff) passes.
+  const now = nowIso()
+  const refs = ours.flatMap((p) => (p.execution?.status === "SUCCEEDED" ? p.execution.references : []))
+  const releaseAt = refs.find((x) => x.kind === "release_at")?.value ?? null
+  const fallback = new Set(releaseAt && releaseAt > now ? refs.filter((x) => x.kind === "fallback_booking").map((x) => x.value) : [])
+  const released = new Set(refs.filter((x) => x.kind === "released_booking" || (x.kind === "fallback_booking" && !fallback.has(x.value))).map((x) => x.value))
+  // Change requests we withdrew when a person approved a new crossing ("<booking ref> <requested at>").
+  const withdrawn = new Set(refs.filter((x) => x.kind === "withdrawn_request").map((x) => x.value.split(" ")[0]))
   for (const r of view.reservations) {
     const ferry = r.kind === "FERRY"
     if (released.has(r.id)) {
       legs.push({
-        label: `${r.kindLabel}${r.route ? `: ${r.route}` : ""} (released after the new booking was confirmed)`, kind: kindOf(r.kind), state: "NOT_BOOKED",
+        label: `${r.kindLabel}${r.route ? `: ${r.route}` : ""} (released: the new booking replaced it)`, kind: kindOf(r.kind), state: "NOT_BOOKED",
         reference: r.reference, departs_at: r.departureAt, check_in_cutoff_at: r.checkInCutoffAt, boarding: null,
         source: { table: "travel_reservations", id: r.id, observed_at: r.bookedAt },
       })
       continue
     }
     legs.push({
-      label: `${r.kindLabel}${r.route ? `: ${r.route}` : ""}${r.status === "BOOKED" ? "" : ` (${r.statusLabel.toLowerCase()})`}`,
+      label: `${r.kindLabel}${r.route ? `: ${r.route}` : ""}${fallback.has(r.id) ? ` (kept as a fallback until its check-in closes at ${releaseAt!.slice(11, 16)} UTC)` : r.status === "BOOKED" ? "" : ` (${r.statusLabel.toLowerCase()})`}`,
       kind: kindOf(r.kind), state: r.status === "BOOKED" ? "BOOKED" : "NOT_BOOKED", reference: r.reference,
       departs_at: r.departureAt, check_in_cutoff_at: r.checkInCutoffAt,
       boarding: ferry ? (r.checks.some((c) => /boarding confirmed/i.test(c)) ? "CONFIRMED" : "UNCONFIRMED") : null,
@@ -35,7 +43,7 @@ export function legsFrom(view: RecordView, ours: Proposal[], rawReservations: Re
     })
     // The starter's view reads carrier_amendments; some records carry an amendment_request instead.
     const request = rawReservations.find((x) => x.id === r.id)?.amendment_request as { status?: string; requested_at?: string; requested_change?: string } | undefined
-    if (request && request.status !== "CONFIRMED") legs.push({
+    if (request && request.status !== "CONFIRMED" && !withdrawn.has(r.reference ?? r.id)) legs.push({
       label: `Change requested at ${request.requested_at?.slice(11, 16) ?? "?"} UTC (${(request.requested_change ?? "change").toLowerCase().replace(/_/g, " ")}), not confirmed`,
       kind: kindOf(r.kind), state: "REQUESTED", reference: null, departs_at: null, check_in_cutoff_at: null, boarding: null,
       source: { table: "travel_reservations", id: r.id, observed_at: request.requested_at ?? null },
