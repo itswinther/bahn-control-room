@@ -97,11 +97,13 @@ export async function buildCase(orderId: string): Promise<CaseResponse | null> {
     steps: stepRows.map((x) => ({
       run_id: x.runId, seq: x.seq, agent: x.agent, kind: x.kind, tool: x.tool, input: x.input, result_summary: x.resultSummary, at: x.at,
     }) satisfies AgentStep),
-    driver_messages: dmRows.map((m) => ({
-      id: m.id, driver_id: m.driverId, order_id: m.orderId, direction: m.direction, author: m.author, text: m.text,
-      language: m.language, translation: m.translation, quick_replies: m.quickReplies, hear_back_by: m.hearBackBy,
-      simulated: m.simulated, repeats_message_id: m.repeatsMessageId, status: m.status, created_at: m.createdAt,
-    }) satisfies DriverMessage),
+    driver_messages: dmRows.map(toDriverMessage),
     legs: legsFrom(view, ours, (loaded.related.travel_reservations ?? []).map((r) => r.details)),
   }
 }
+
+export const toDriverMessage = (m: typeof driverMessages.$inferSelect): DriverMessage => ({
+  id: m.id, driver_id: m.driverId, order_id: m.orderId, direction: m.direction, author: m.author, text: m.text,
+  language: m.language, translation: m.translation, quick_replies: m.quickReplies, hear_back_by: m.hearBackBy,
+  simulated: m.simulated, intent: m.intent, repeats_message_id: m.repeatsMessageId, status: m.status, created_at: m.createdAt,
+})

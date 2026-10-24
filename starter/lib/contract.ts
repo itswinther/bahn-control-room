@@ -148,6 +148,8 @@ export type DriverMessage = {
   hear_back_by: string | null
   /** True for the scripted demo driver and any line we invented. */
   simulated: boolean
+  /** What Shift Watch read in an incoming message; null on outgoing ones. */
+  intent: "SAFETY" | "BOOKING_QUESTION" | "EXPENSE_QUESTION" | "KEYS_QUESTION" | "ORDER" | "WHICH_CAR" | null
   /** An acknowledgement that repeats a person's earlier instruction cites that message; Shift Watch checks it. */
   repeats_message_id: string | null
   /** Agent messages to a driver wait for Shift Watch's checks (no driving advice) before they go out. */
@@ -218,7 +220,8 @@ export type RunResponse = { run_id: string }
 export type RunResponseDetail = { run: AgentRun; steps: AgentStep[] }
 
 /** POST /api/driver/messages */
-export type DriverMessageRequest = { driver_id: string; text: string; quick_reply_value?: string }
+export type DriverMessageRequest = { driver_id: string; text: string; quick_reply_value?: string; simulated?: boolean }
+export type DriverMessageResponse = { message: DriverMessage; reply: DriverMessage | null; run_id: string | null }
 
 /** POST /api/shift-watch/chat */
 export type ChatRequest = { message: string; open_order_id: string | null }

@@ -4,6 +4,7 @@ import { DRIVING_ADVICE, INSTRUCTION, route, tableFor } from "../lib/agents/rule
 import { driverRest, ferryCapacity } from "../lib/mocks"
 import { bookingOutcome, siteReply } from "../lib/mocks/replies"
 import { mayDecide } from "../lib/shift-watch/checks"
+import { readByRules } from "../lib/shift-watch/read"
 import { bookFerry } from "../lib/mocks"
 
 assert.deepEqual(route("travel.rebook_ferry"), { approval: "DESK", owner_desk: "ops-travel" })
@@ -40,5 +41,9 @@ assert.equal(mayDecide({ approval: "DESK", owner_desk: "ops-travel" }, "ops-shif
 const b1 = bookFerry("ord-00603", "opt_mock_603_2200", "prop_test1", now), b2 = bookFerry("ord-00603", "opt_mock_603_2200", "prop_test1", now)
 assert.ok(b1.ok && b2.ok && b1.reference === b2.reference && b2.repeated) // same key, same booking
 assert.equal(bookFerry("ord-00299", "travel-xc1d8163d5443a606", "prop_test2", now).ok, false) // sold out
+assert.equal(readByRules("A red warning light came on").intent, "SAFETY")
+assert.equal(readByRules("Is the ferry booked? I have no reference").intent, "BOOKING_QUESTION")
+assert.equal(readByRules("I can wait another 30 minutes").limit_minutes, 30)
+assert.equal(readByRules("Still in the queue").intent, "ORDER")
 
 console.log("agent rules: ok")
