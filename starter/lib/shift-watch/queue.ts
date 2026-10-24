@@ -109,9 +109,11 @@ export async function buildQueue(): Promise<QueueResponse> {
     const mine = chat.filter((m) => m.orderId === orderId)
     const promise = [...mine].reverse().find((m) => m.direction === "OUT" && m.hearBackBy)
     if (!promise) continue
-    const answered = mine.some((m) => m.direction === "OUT" && m.status === "SENT" && !m.hearBackBy && m.createdAt > promise.createdAt)
-    if (answered) continue
     const asked = [...mine].reverse().find((m) => m.direction === "IN" && m.createdAt <= promise.createdAt)
+    // A safety promise says a person will make contact, so only a person's message keeps it.
+    const answered = mine.some((m) => m.direction === "OUT" && m.status === "SENT" && !m.hearBackBy && m.createdAt > promise.createdAt
+      && (asked?.intent !== "SAFETY" || m.author === "operator"))
+    if (answered) continue
     if (asked?.intent === "SAFETY") safety.add(orderId)
     promises.set(orderId, promise.hearBackBy!)
     const late = Date.parse(promise.hearBackBy!) < nowMs
@@ -119,6 +121,18 @@ export async function buildQueue(): Promise<QueueResponse> {
       text: `Driver ${late ? "still " : ""}waiting: "${(asked?.translation ?? asked?.text ?? "").slice(0, 90)}"`,
       owner: statusRows.find((s) => s.orderId === orderId)?.ownerDesk ?? (asked?.intent === "SAFETY" ? "ops-shift" : "ops-support"),
       deadline: promise.hearBackBy, deadlineReason: `Driver was promised an answer by ${when(promise.hearBackBy!, now)}`,
+    })
+  }
+
+  // Agent messages Shift Watch held: until a person sends, edits or discards one, the driver hears nothing.
+  const held = new Map<string, string>()
+  for (const m of chat) {
+    if (m.direction !== "OUT" || m.status !== "HELD" || !m.orderId) continue
+    held.set(m.orderId, m.id) // the latest one wins: chat is in time order
+    add(m.orderId, {
+      text: `Message to the driver held for a person: "${m.text.slice(0, 90)}"`,
+      owner: statusRows.find((s) => s.orderId === m.orderId)?.ownerDesk ?? "ops-support",
+      deadline: promises.get(m.orderId) ?? null, deadlineReason: promises.has(m.orderId) ? `Driver was promised an answer by ${when(promises.get(m.orderId)!, now)}` : null,
     })
   }
 
@@ -156,7 +170,7 @@ export async function buildQueue(): Promise<QueueResponse> {
       deadline_reason: deadline === p.createdAt && !p.decisionDeadline ? "No deadline given; decide as soon as possible"
         : deadline === promises.get(p.orderId) ? `Driver was promised an answer by ${when(deadline, now)}`
         : deadline === hard?.at ? hard.why : st?.deadlineReason ?? "Decision deadline",
-      safety: safety.has(p.orderId) || p.approval === "SHIFT_LEAD", checked, proposal_id: p.id,
+      safety: safety.has(p.orderId) || p.approval === "SHIFT_LEAD", checked, proposal_id: p.id, held_message_id: held.get(p.orderId) ?? null,
     })
   }
 
@@ -171,7 +185,7 @@ export async function buildQueue(): Promise<QueueResponse> {
       id: `q_${orderId}`, kind: "LOOSE_END", order_id: orderId, reference: ref.get(orderId) ?? orderId,
       decision: top.text, owner_desk: top.owner, deadline,
       deadline_reason: deadline === top.deadline ? top.deadlineReason : hard?.why ?? null,
-      safety: safety.has(orderId), checked: sorted.slice(1).map((r) => r.text), proposal_id: null,
+      safety: safety.has(orderId), checked: sorted.slice(1).map((r) => r.text), proposal_id: null, held_message_id: held.get(orderId) ?? null,
     })
   }
 
