@@ -5,7 +5,7 @@ import type { Desk, QueueItem, QueueResponse } from "@/lib/contract"
 import { nowIso } from "@/lib/clock"
 import { db } from "@/lib/db"
 import { alerts, conversations, orders, relatedRecords } from "@/lib/schema"
-import { agentSteps, orderStatus, proposals } from "@/lib/schema-ours"
+import { agentSteps, driverMessages, orderStatus, proposals } from "@/lib/schema-ours"
 
 type Row = Record<string, unknown>
 const s = (v: unknown) => (typeof v === "string" ? v : null)
@@ -45,6 +45,7 @@ export async function buildQueue(): Promise<QueueResponse> {
     db.select().from(proposals).where(inArray(proposals.status, ["PENDING_REVIEW", "HELD"])),
     db.select().from(orderStatus),
   ])
+  const chat = await db.select().from(driverMessages).orderBy(driverMessages.createdAt)
   const ref = new Map(orderRows.map((o) => [o.id, o.reference]))
   const byOrder = (collection: string) => {
     const map = new Map<string, Row[]>()
@@ -90,6 +91,25 @@ export async function buildQueue(): Promise<QueueResponse> {
     if (st.nextCheckAt && Date.parse(st.nextCheckAt) < nowMs) add(st.orderId, { text: `Agent's next check (${when(st.nextCheckAt, now)}) is overdue: ${st.summary}`, owner: st.ownerDesk ?? "ops-shift", deadline: st.nextCheckAt, deadlineReason: "Agent's next check" })
   }
 
+  // Drivers promised an answer: the latest "you'll hear back by" with no real answer after it.
+  const promises = new Map<string, string>()
+  for (const orderId of new Set(chat.map((m) => m.orderId).filter((x): x is string => !!x))) {
+    const mine = chat.filter((m) => m.orderId === orderId)
+    const promise = [...mine].reverse().find((m) => m.direction === "OUT" && m.hearBackBy)
+    if (!promise) continue
+    const answered = mine.some((m) => m.direction === "OUT" && m.status === "SENT" && !m.hearBackBy && m.createdAt > promise.createdAt)
+    if (answered) continue
+    const asked = [...mine].reverse().find((m) => m.direction === "IN" && m.createdAt <= promise.createdAt)
+    if (asked?.intent === "SAFETY") safety.add(orderId)
+    promises.set(orderId, promise.hearBackBy!)
+    const late = Date.parse(promise.hearBackBy!) < nowMs
+    add(orderId, {
+      text: `Driver ${late ? "still " : ""}waiting: "${(asked?.translation ?? asked?.text ?? "").slice(0, 90)}"`,
+      owner: statusRows.find((s) => s.orderId === orderId)?.ownerDesk ?? (asked?.intent === "SAFETY" ? "ops-shift" : "ops-support"),
+      deadline: promise.hearBackBy, deadlineReason: `Driver was promised an answer by ${when(promise.hearBackBy!, now)}`,
+    })
+  }
+
   // A hard time in the order itself caps every deadline: a ferry check-in or a pickup slot still ahead.
   const hardDeadline = (orderId: string): { at: string; why: string } | null => {
     const picked = orderRows.find((o) => o.id === orderId)?.status !== "NEW" && orderRows.find((o) => o.id === orderId)?.status !== "WAITING_FOR_PICKUP"
@@ -116,12 +136,13 @@ export async function buildQueue(): Promise<QueueResponse> {
     for (const r of reasons.get(p.orderId) ?? []) checked.push(`Also open: ${r.text}`)
     // Decide-by times only: the proposal's own, the agent's status and the order's hard times. A loose
     // end's "was due" time isn't a decide-by time. No deadline at all means decide as soon as possible.
-    const deadline = [p.decisionDeadline, st?.decisionDeadline, hard?.at].filter((x): x is string => !!x).sort()[0] ?? p.createdAt
+    const deadline = [p.decisionDeadline, st?.decisionDeadline, hard?.at, promises.get(p.orderId)].filter((x): x is string => !!x).sort()[0] ?? p.createdAt
     items.push({
       id: `q_${p.id}`, kind: "PROPOSAL", order_id: p.orderId, reference: ref.get(p.orderId) ?? p.orderId,
       decision: p.status === "HELD" ? `Held for a person: ${p.summary}` : p.summary,
       owner_desk: p.ownerDesk, deadline,
       deadline_reason: deadline === p.createdAt && !p.decisionDeadline ? "No deadline given; decide as soon as possible"
+        : deadline === promises.get(p.orderId) ? `Driver was promised an answer by ${when(deadline, now)}`
         : deadline === hard?.at ? hard.why : st?.deadlineReason ?? "Decision deadline",
       safety: safety.has(p.orderId) || p.approval === "SHIFT_LEAD", checked, proposal_id: p.id,
     })

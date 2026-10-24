@@ -320,6 +320,27 @@ Format for every entry:
   cited evidence when the payload doesn't name it clearly.
 - Evidence: `starter/lib/shift-watch/decide.ts`.
 
+### 2026-10-24 · Mike + Claude · driver messages in (demo beat 1)
+
+- Asked: the front door for drivers. Match a message to the driver's job,
+  answer at once with a "you'll hear back by" time, answer routine questions
+  from the records, send safety straight to the shift lead, and wake the agent.
+- Checked: end to end on six messages. The CD-420603 queue message gets a
+  15-minute promise, and the 603 card's deadline becomes that promise. A booking
+  question is answered from the trip's legs; an expense question lists the
+  driver's claims ("approved" is shown as not paid yet). The CD-420322 warning
+  light is a safety message: told to keep the car stopped, and flagged safety in
+  the queue. An unknown driver gets "a person will get back to you". After the
+  603 approval, the booking message counts as the answer to the driver.
+- Found in the data: 7 drivers have two or more open jobs, so "which car?"
+  comes up more often than the plan assumed. The driver's pick files their
+  earlier message under that job; the first version lost that message.
+- Changed or threw away: listing superseded expense claims next to their
+  replacements (the same EUR 33.19 showed twice). The rule-based reader is the
+  default; Claude reads and translates only in live mode.
+- Evidence: `starter/lib/shift-watch/intake.ts`, `starter/lib/shift-watch/read.ts`,
+  `starter/app/api/driver/`.
+
 _Teammate's earlier log (`AI-PROCESS.md` in the review bundle, 17 entries):
 merge its entries here._
 
