@@ -1,0 +1,150 @@
+{
+  "order_id": "ord-00603",
+  "reason": "DRIVER_MESSAGE",
+  "source": "hand-written",
+  "model": "simulation (no model call)",
+  "recorded_at": "2026-10-24T20:00:00Z",
+  "turns": [
+    {
+      "delay_ms": 1500,
+      "stop_reason": "tool_use",
+      "content": [
+        {
+          "type": "text",
+          "text": "Reading my notes, the order and its messages first.",
+          "citations": null
+        },
+        {
+          "type": "tool_use",
+          "id": "toolu_sim_01",
+          "name": "read_notes",
+          "input": {}
+        },
+        {
+          "type": "tool_use",
+          "id": "toolu_sim_02",
+          "name": "get_order",
+          "input": {}
+        },
+        {
+          "type": "tool_use",
+          "id": "toolu_sim_03",
+          "name": "read_messages",
+          "input": {}
+        }
+      ]
+    },
+    {
+      "delay_ms": 1800,
+      "stop_reason": "tool_use",
+      "content": [
+        {
+          "type": "text",
+          "text": "The driver now expects 12:20 at check-in, after the 12:00 cutoff. Checking the ferry options I already have.",
+          "citations": null
+        },
+        {
+          "type": "tool_use",
+          "id": "toolu_sim_04",
+          "name": "check_ferry_capacity",
+          "input": {
+            "refresh": false
+          }
+        }
+      ]
+    },
+    {
+      "delay_ms": 2200,
+      "stop_reason": "tool_use",
+      "content": [
+        {
+          "type": "text",
+          "text": "The 22:00 crossing had vehicle space and keeps the 23 Oct promise. Changing a booking needs the travel desk, so I'm proposing it.",
+          "citations": null
+        },
+        {
+          "type": "tool_use",
+          "id": "toolu_sim_05",
+          "name": "propose",
+          "input": {
+            "command": "travel.rebook_ferry",
+            "summary": "Book the 22:00 crossing; delivery promise unchanged",
+            "rationale": "The driver said at 09:00 that check-in would be 12:20, after the 12:00 cutoff. The 22:00 crossing had vehicle space and still meets the 23 Oct promise.",
+            "payload": {
+              "travel_option_id": "opt_mock_603_2200",
+              "release_reservation_id": "res-x1082202e8d139d61",
+              "release_after_new_booking": true
+            },
+            "before_after": [
+              {
+                "label": "Ferry",
+                "before": "14:00 crossing, booked (WBV-FERRY-00603)",
+                "after": "22:00 crossing, quoted"
+              },
+              {
+                "label": "Check-in closes",
+                "before": "12:00 UTC; driver says 12:20",
+                "after": "20:00 UTC"
+              },
+              {
+                "label": "Delivery promise",
+                "before": "23 Oct 10:00-12:00 UTC",
+                "after": "Unchanged; ferry arrives 23 Oct 04:00, Lahti about 05:30 UTC (estimate)"
+              },
+              {
+                "label": "Old booking",
+                "before": "Active",
+                "after": "Released only once the new booking is confirmed"
+              }
+            ],
+            "evidence_refs": [
+              {
+                "table": "travel_reservations",
+                "id": "res-x1082202e8d139d61",
+                "observed_at": "2026-10-15T05:01:00Z"
+              },
+              {
+                "table": "travel_options",
+                "id": "opt_mock_603_2200",
+                "observed_at": null,
+                "mock": true
+              }
+            ],
+            "cost": {
+              "amount_minor": 4500,
+              "currency": "EUR",
+              "note": "Change fee (mock)"
+            },
+            "decision_deadline": "2026-10-21T12:00:00Z"
+          }
+        }
+      ]
+    },
+    {
+      "delay_ms": 1200,
+      "stop_reason": "tool_use",
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "toolu_sim_06",
+          "name": "write_notes",
+          "input": {
+            "markdown": "## CD-420603\n- Booked WBV-FERRY-00603, departs 14:00, check-in closes 12:00 (travel_reservations). Boarding unconfirmed.\n- Driver says 12:20 at check-in (message relayed by Shift Watch when it woke me, simulated).\n- Carrier request for a later crossing at 08:43, not confirmed (ops-travel note).\n- Bahn's capacity refresh approved 07:59, never ran.\n- Proposed the 22:00 crossing from the cached list (mock).\n- Open: who pays the change fee; Lahti receiver unconfirmed."
+          }
+        },
+        {
+          "type": "tool_use",
+          "id": "toolu_sim_07",
+          "name": "finish",
+          "input": {
+            "summary": "22:00 crossing proposed; waiting on Shift Watch and the travel desk",
+            "waiting_on": "OPERATOR",
+            "next_check_at": "2026-10-21T09:30:00Z",
+            "decision_deadline": "2026-10-21T12:00:00Z",
+            "deadline_reason": "Current crossing's check-in closes; the driver needs a plan"
+          }
+        }
+      ]
+    }
+  ]
+}

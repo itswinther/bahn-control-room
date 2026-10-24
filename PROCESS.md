@@ -161,6 +161,26 @@ Format for every entry:
   so it can't invent a source. Not yet live-tested: needs an API key.
 - Evidence: `starter/lib/agents/`, `starter/scripts/check-agent-rules.ts`.
 
+### 2026-10-24 · Mike + Claude · replay mode and a subagent test
+
+- Asked: run a simulated version without an API key, have a separate agent
+  test it end to end, and continue checkpoint B.
+- Checked: a subagent set up the database, ran the CD-420603 path twice in
+  replay (first proposal from the 07:10 list, then a send-back and a fresh
+  proposal) and tried edge cases. Everything on the happy path passed. It found
+  four real bugs: two parallel requests could both start a run (check-then-
+  insert race), a numeric order id passed and reached a file path, timestamps
+  weren't ISO as the contract says, and a second run could open a second
+  proposal for the same order. All four fixed and re-tested: 4 parallel
+  requests now give one 202 and three 409s.
+- Changed or threw away: replay records the model's answers, not its steps, so
+  replays go through the same tools and database writes as live runs. The
+  CD-420603 recordings are hand-written simulations, labelled as such; real
+  ones come from `RECORD=1` live runs. Evidence times now come from the tool
+  that returned the record, not from the agent. Known limit: a replay can't
+  adapt, so it is only valid from the state it was recorded in.
+- Evidence: `starter/recordings/`, `starter/lib/agents/model.ts`.
+
 _Teammate's earlier log (`AI-PROCESS.md` in the review bundle, 17 entries):
 merge its entries here._
 

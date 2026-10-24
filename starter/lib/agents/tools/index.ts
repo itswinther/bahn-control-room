@@ -8,12 +8,15 @@ import { driverRest, ferryCapacity } from "@/lib/mocks"
 import { loadOrder } from "@/lib/present/load"
 import { buildRecordView } from "@/lib/present/record"
 import { agentNotes, driverMessages, orderStatus, proposals } from "@/lib/schema-ours"
+import { askDriver, askSite, askToolDefs, checkBookingOutcome } from "./ask"
 
 export type ToolContext = {
   runId: string
   orderId: string
   /** Everything the tools returned this run; a proposal may only cite ids that appear in it. */
   seen: string
+  /** When a tool returned each record this run, and whether it was mock data; a proposal's evidence takes these, not the agent's. */
+  observed: Record<string, { at: string; mock: boolean }>
   proposed: boolean
   finished: boolean
 }
@@ -112,6 +115,7 @@ export const toolDefs: BetaTool[] = [
       additionalProperties: false,
     },
   },
+  ...askToolDefs,
 ]
 
 type Input = Record<string, unknown>
@@ -147,15 +151,21 @@ async function readMessages(ctx: ToolContext): Promise<ToolOutput> {
   const driver = await db.select().from(driverMessages)
     .where(and(eq(driverMessages.orderId, ctx.orderId), lte(driverMessages.createdAt, nowIso())))
     .orderBy(driverMessages.createdAt)
-  const count = view.threads.reduce((n, t) => n + t.messages.length, 0) + driver.length
-  return { result: { threads: view.threads, driver_chat: driver }, summary: `${count} message(s) in ${view.threads.length} thread(s) plus the driver chat` }
+  const count = view.threads.reduce((n, t) => n + t.messages.length, 0)
+  const chat = driver.length ? `, and ${driver.length} in the driver chat` : ""
+  return { result: { threads: view.threads, driver_chat: driver }, summary: `${count} message(s) in ${view.threads.length} thread(s)${chat}` }
 }
 
 async function propose(input: Input, ctx: ToolContext): Promise<ToolOutput> {
   if (ctx.proposed) return fail("One proposal per run. Finish now.")
+  // One open proposal per order: a second one would leave a person two versions of the same decision.
+  const [open] = await db.select({ id: proposals.id, status: proposals.status }).from(proposals)
+    .where(and(eq(proposals.orderId, ctx.orderId), inArray(proposals.status, OPEN as never[]))).limit(1)
+  if (open) return fail(`Proposal ${open.id} is still open (${open.status}). Wait for its outcome; don't propose again.`)
   const command = str(input.command)
   if (!command || !/^[a-z_]+\.[a-z_]+$/.test(command)) return fail("command must look like domain.action")
-  const refs = Array.isArray(input.evidence_refs) ? (input.evidence_refs as EvidenceRef[]) : []
+  const refs = (Array.isArray(input.evidence_refs) ? (input.evidence_refs as EvidenceRef[]) : [])
+    .map((r) => (r?.id && ctx.observed[r.id] ? { ...r, observed_at: ctx.observed[r.id].at, mock: ctx.observed[r.id].mock } : r))
   if (!refs.length) return fail("A proposal needs at least one evidence record.")
   const unseen = refs.filter((r) => !r?.id || !ctx.seen.includes(r.id))
   if (unseen.length) return fail(`Not in anything you read this run: ${unseen.map((r) => r?.id).join(", ")}. Cite only records you read.`)
@@ -204,6 +214,7 @@ export async function runTool(name: string, input: Input, ctx: ToolContext): Pro
     case "read_messages": return readMessages(ctx)
     case "check_ferry_capacity": {
       const r = ferryCapacity(ctx.orderId, input.refresh === true, nowIso())
+      for (const o of r.options) ctx.observed[o.id] = { at: r.checked_at, mock: r.mock }
       const open = r.options.filter((o) => o.vehicle_space).length
       return { result: r, summary: `${input.refresh ? "Fresh" : "Cached"} list, checked ${hhmm(r.checked_at)}: ${open} of ${r.options.length} option(s) with vehicle space` }
     }
@@ -219,6 +230,9 @@ export async function runTool(name: string, input: Input, ctx: ToolContext): Pro
       await db.insert(agentNotes).values(row).onConflictDoUpdate({ target: agentNotes.orderId, set: row })
       return { result: { ok: true }, summary: "Notes updated" }
     }
+    case "ask_driver": return askDriver(input, ctx)
+    case "ask_site": return askSite(input, ctx)
+    case "check_booking_outcome": return checkBookingOutcome(input, ctx)
     case "propose": return propose(input, ctx)
     case "finish": return finish(input, ctx)
     default: return fail(`Unknown tool ${name}`)

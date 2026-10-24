@@ -1,14 +1,17 @@
-import Anthropic from "@anthropic-ai/sdk"
 import type { BetaMessageParam, BetaToolResultBlockParam, BetaToolUseBlock } from "@anthropic-ai/sdk/resources/beta/messages/messages"
-import { and, eq } from "drizzle-orm"
-import type { AgentStep, RunRequest } from "@/lib/contract"
+import { eq } from "drizzle-orm"
+import type { AgentRun, AgentStep, RunRequest } from "@/lib/contract"
 import { nowIso } from "@/lib/clock"
 import { db } from "@/lib/db"
+import { orders } from "@/lib/schema"
 import { agentRuns, agentSteps } from "@/lib/schema-ours"
+import { liveSource, replaySource, type ModelSource } from "./model"
 import { runTool, toolDefs, type ToolContext } from "./tools"
 
 const MODEL = process.env.AGENT_MODEL ?? "claude-sonnet-5-5"
 const MAX_TOOL_CALLS = 12
+
+export const agentMode = (): AgentRun["mode"] => (process.env.AGENT_MODE === "live" ? "live" : "replay")
 
 // Shift Watch enforces data freshness, not this prompt: reading the cached list first is the
 // agent's honest cheap move, and the check sends it back (team decision, see PROCESS.md).
@@ -16,7 +19,7 @@ const SYSTEM = `You are the order agent for one car delivery at Bahn. Bahn's fre
 
 How you work:
 - Do the cheap work first: read your notes, the order and its messages, then look things up.
-- On your own you may read records, look up ferry capacity and driver rest, and write notes.
+- On your own you may read records, look up ferry capacity and driver rest, ask the driver a question, ask a pickup site or terminal about hours, access, keys or a booking, and write notes.
 - Anything that books, buys, cancels, changes a date, promise or cost, instructs a driver, or contacts a customer needs a person. Put it in one proposal, then finish.
 - Stop and propose when a customer must be contacted, money changes, safety is involved, sources disagree, or a deadline is less than an hour away.
 - Always write your notes, then call finish. The run ends there.
@@ -38,9 +41,6 @@ Reading the records:
 
 Write for operations people: plain words, the decision first, no jargon.`
 
-let client: Anthropic | null = null
-const anthropic = () => (client ??= new Anthropic())
-
 async function addStep(step: AgentStep) {
   await db.insert(agentSteps).values({
     runId: step.run_id, seq: step.seq, agent: step.agent, kind: step.kind, tool: step.tool,
@@ -48,21 +48,31 @@ async function addStep(step: AgentStep) {
   })
 }
 
+/** True if the order exists in the dataset. */
+export async function orderExists(orderId: string): Promise<boolean> {
+  const [row] = await db.select({ id: orders.id }).from(orders).where(eq(orders.id, orderId)).limit(1)
+  return !!row
+}
+
 /** Create the run row and return its id, or null if this order already has a run going (one at a time per order). */
 export async function createRun(req: RunRequest): Promise<string | null> {
-  const [busy] = await db.select({ id: agentRuns.id }).from(agentRuns)
-    .where(and(eq(agentRuns.orderId, req.order_id), eq(agentRuns.status, "RUNNING"))).limit(1)
-  if (busy) return null
   const id = `run_${crypto.randomUUID().slice(0, 8)}`
-  await db.insert(agentRuns).values({
-    id, orderId: req.order_id, reason: req.reason, reasonDetail: req.reason_detail,
-    mode: "live", status: "RUNNING", toolCalls: 0, startedAt: nowIso(),
-  })
+  try {
+    await db.insert(agentRuns).values({
+      id, orderId: req.order_id, reason: req.reason, reasonDetail: req.reason_detail,
+      mode: agentMode(), status: "RUNNING", toolCalls: 0, startedAt: nowIso(),
+    })
+  } catch (error) {
+    // The partial unique index refuses a second RUNNING run for the same order.
+    const code = (error as { code?: string; cause?: { code?: string } }).cause?.code ?? (error as { code?: string }).code
+    if (code === "23505") return null
+    throw error
+  }
   return id
 }
 
 export async function runOrderAgent(runId: string, req: RunRequest): Promise<void> {
-  const ctx: ToolContext = { runId, orderId: req.order_id, seen: "", proposed: false, finished: false }
+  const ctx: ToolContext = { runId, orderId: req.order_id, seen: "", observed: {}, proposed: false, finished: false }
   let seq = 0
   let toolCalls = 0
   const step = (kind: AgentStep["kind"], tool: string | null, input: Record<string, unknown>, summary: string) =>
@@ -71,6 +81,12 @@ export async function runOrderAgent(runId: string, req: RunRequest): Promise<voi
     db.update(agentRuns).set({ status, stopReason, toolCalls, endedAt: nowIso() }).where(eq(agentRuns.id, runId))
 
   await step("WAKE", null, {}, `${req.reason}: ${req.reason_detail}`)
+
+  const source: ModelSource | null = agentMode() === "live"
+    ? liveSource({ model: MODEL, system: SYSTEM, tools: toolDefs, orderId: req.order_id, reason: req.reason, record: process.env.RECORD === "1" })
+    : await replaySource(req.order_id, req.reason)
+  if (!source) return void (await end("FAILED", `No recording for ${req.order_id} woken by ${req.reason}; run it live with RECORD=1 first`))
+
   const messages: BetaMessageParam[] = [{
     role: "user",
     content: `Now (demo clock): ${nowIso()}\nOrder: ${req.order_id}\nYou were woken because: ${req.reason} - ${req.reason_detail}`,
@@ -80,20 +96,12 @@ export async function runOrderAgent(runId: string, req: RunRequest): Promise<voi
 
   try {
     while (true) {
-      const response = await anthropic().beta.messages.create({
-        model: MODEL,
-        max_tokens: 16000,
-        system: [{ type: "text", text: SYSTEM, cache_control: { type: "ephemeral" } }],
-        tools: toolDefs,
-        messages,
-        output_config: { effort: "medium" },
-        betas: ["server-side-fallback-2026-07-01"],
-        fallbacks: "default",
-      })
+      const response = await source.next(messages)
       messages.push({ role: "assistant", content: response.content })
 
       if (response.stop_reason === "refusal") return void (await end("STOPPED", "The model declined this request"))
       if (response.stop_reason === "max_tokens") return void (await end("FAILED", "Response hit the token limit"))
+      if (response.stop_reason === "recording_ended") return void (await end("STOPPED", "Recording ended before finish"))
 
       for (const block of response.content) if (block.type === "text" && block.text.trim()) await step("TEXT", null, {}, block.text.trim())
 
@@ -124,7 +132,10 @@ export async function runOrderAgent(runId: string, req: RunRequest): Promise<voi
       }
       messages.push({ role: "user", content: results })
 
-      if (ctx.finished) return void (await end("FINISHED", ctx.proposed ? "Handed a proposal to Shift Watch" : null))
+      if (ctx.finished) {
+        await source.save()
+        return void (await end("FINISHED", ctx.proposed ? "Handed a proposal to Shift Watch" : null))
+      }
       // One warned round past the cap, then stop, so a model that keeps calling tools can't loop forever.
       if (refused && capWarned) return void (await end("STOPPED", "Tool-call limit reached"))
       capWarned ||= refused

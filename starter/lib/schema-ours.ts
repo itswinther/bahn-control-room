@@ -1,4 +1,5 @@
-import { boolean, index, integer, jsonb, pgTable, primaryKey, text, timestamp } from "drizzle-orm/pg-core"
+import { sql } from "drizzle-orm"
+import { boolean, customType, index, integer, jsonb, pgTable, primaryKey, text, uniqueIndex } from "drizzle-orm/pg-core"
 import type {
   AgentRun, AgentStep, Approval, BeforeAfter, Check, Cost, Desk, DriverMessage, EvidenceRef, Execution,
   ProposalStatus, QuickReply, Review, WaitingOn,
@@ -7,7 +8,12 @@ import type {
 // Our tables, kept apart from the starter's: no foreign keys into them, because the
 // starter's reseed refuses to run when other tables point into its data.
 
-const at = (name: string) => timestamp(name, { withTimezone: true, mode: "string" })
+// timestamptz that reads back as ISO 8601 UTC, as the contract promises (Postgres's own
+// text form is "2026-10-21 09:00:00+00", which neither sorts nor displays like ISO).
+const at = customType<{ data: string; driverData: string }>({
+  dataType: () => "timestamp with time zone",
+  fromDriver: (value) => new Date(value).toISOString(),
+})
 
 export const agentRuns = pgTable("agent_runs", {
   id: text("id").primaryKey(),
@@ -20,7 +26,11 @@ export const agentRuns = pgTable("agent_runs", {
   toolCalls: integer("tool_calls").notNull().default(0),
   startedAt: at("started_at").notNull(),
   endedAt: at("ended_at"),
-}, (t) => [index("agent_runs_order_idx").on(t.orderId)])
+}, (t) => [
+  index("agent_runs_order_idx").on(t.orderId),
+  // One run at a time per order, enforced by the database so two parallel requests can't both start.
+  uniqueIndex("agent_runs_one_running_idx").on(t.orderId).where(sql`status = 'RUNNING'`),
+])
 
 export const agentSteps = pgTable("agent_steps", {
   runId: text("run_id").notNull(),

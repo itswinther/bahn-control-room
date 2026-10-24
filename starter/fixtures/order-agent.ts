@@ -61,7 +61,7 @@ const evidence = [
 const beforeAfter = [
   { label: "Ferry", before: "14:00 crossing, booked (WBV-FERRY-00603)", after: "22:00 crossing, quoted, vehicle space checked 09:01" },
   { label: "Check-in closes", before: "12:00 UTC; driver says 12:20", after: "20:00 UTC" },
-  { label: "Delivery promise", before: "23 Oct 10:00–12:00 UTC", after: "Unchanged; arrival about 05:30 UTC (estimate)" },
+  { label: "Delivery promise", before: "23 Oct 10:00–12:00 UTC", after: "Unchanged; ferry arrives 23 Oct 04:00, Lahti about 05:30 UTC (estimate)" },
   { label: "Old booking", before: "Active", after: "Released only once the new booking is confirmed" },
 ]
 
