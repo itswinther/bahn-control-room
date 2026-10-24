@@ -14,8 +14,9 @@ bottom. Every entry points to the commit, file or output that backs it up.
 1. **We measured before designing, and it changed the pitch.**
    We asked Claude to dig into the dataset for an "overseer" idea. It measured
    how long Bahn's people took to review agent proposals (mostly 2–14 minutes)
-   and how long drivers waited for a reply (median about 11 minutes, 24 replies
-   counted). People respond fast, so speed was not the problem. We dropped
+   and how long drivers waited for a reply (median 12 minutes, longest 152,
+   counting the 20 replies addressed to the driver; a first count of 24 wrongly
+   included internal notes). People respond fast, so speed was not the problem. We dropped
    "faster" from the pitch and focused on the quality of what reaches a person.
    Evidence: `dataset/data/agent_proposals.jsonl`, `dataset/data/messages.jsonl`.
 
@@ -112,6 +113,38 @@ Format for every entry:
 - Changed or threw away: chat-first layout (decision 4); cut to three screens
   and three demo beats.
 - Evidence: decision 4.
+
+### 2026-10-24 · Mike + Claude · checking the plan against the data
+
+- Asked: check the team plan's data claims before anyone builds on them.
+- Checked: all 14 recorded proposals against the plan's seven checks; the
+  CD-420603 travel records; CD-420593's message times; driver reply times by
+  two methods. The other laptop's Claude re-checked each point and agreed.
+- Changed or threw away: the target "catch the 5" (CD-420299's booking failed
+  at the ferry company and can't be caught in advance); the plain 30-minute
+  freshness rule (it would flag two refresh proposals whose job is refreshing);
+  "will wait 30 more minutes" for CD-420593 (its limit passed at 08:27); the
+  24-reply count. Added: a booking with no capacity evidence counts as stale.
+  New pitch line: catches all 4 that people corrected, holds the retry after
+  the 1 failure, and finds 3 more that bundle a customer step with a lookup.
+- Evidence: `starter/fixtures/proposal-replay-expected.json`.
+
+### 2026-10-24 · Mike + Claude · Backend 1 contract
+
+- Asked: draft the shared contract, our tables and sample data (checkpoint 0).
+- Checked: `npm run typecheck`; `drizzle-kit export` creates our 6 tables next
+  to the starter's 13. CD-420603 has no ferry quotes in the data, so its ferry
+  lists are marked mock, and the stale list is dated 07:10 to match a real
+  operator message.
+- Changed or threw away: added review, execution ("what happens next") and
+  travel-leg shapes the plan lacked. Dropped Claude's first idea of time-
+  filtering the starter's loader: the demo clock starts at the snapshot, so
+  only our own mock rows can leak the future. Sample data is TypeScript with
+  `satisfies`, because JSON imports would let wrong values through the type
+  check. The agent is not told the 30-minute rule; Shift Watch enforces it, so
+  reading the cache first is the agent's honest cheap move, not a staged one.
+- Evidence: `starter/lib/contract.ts`, `starter/lib/schema-ours.ts`,
+  `starter/fixtures/order-agent.ts`.
 
 _Teammate's earlier log (`AI-PROCESS.md` in the review bundle, 17 entries):
 merge its entries here._
