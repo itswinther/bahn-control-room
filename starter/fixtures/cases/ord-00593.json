@@ -1,0 +1,224 @@
+{
+  "_note": "Sample data shaped like GET /api/cases/ord-00593. The driver's German message is a sample to show translation; vehicle, route and train price are sample values.",
+  "order": {
+    "id": "ord-00593",
+    "reference": "CD-420593",
+    "vehicle": "Volvo XC60",
+    "pickup": {
+      "place": "Bremen",
+      "country": "DE",
+      "tz": "Europe/Berlin"
+    },
+    "delivery": {
+      "place": "Odense",
+      "country": "DK",
+      "tz": "Europe/Copenhagen"
+    },
+    "customer": "Fyns Bilcenter ApS",
+    "driver": {
+      "id": "drv-118",
+      "name": "Jonas Weber"
+    }
+  },
+  "headline": "Driver is at the pickup and the car isn't there. Plan their way home before 09:25.",
+  "kind": "DRIVER_WAITING",
+  "status": {
+    "order_id": "ord-00593",
+    "summary": "Empty pickup; driver waiting until 09:25",
+    "waiting_on": "OPERATOR",
+    "next_check_at": "2026-10-21T09:10:00Z",
+    "decision_deadline": "2026-10-21T09:25:00Z",
+    "deadline_reason": "Driver's own limit: 30 more minutes",
+    "owner_desk": "ops-dispatch"
+  },
+  "proposals": [
+    {
+      "id": "prop_593_1",
+      "order_id": "ord-00593",
+      "proposed_by": "order-agent",
+      "command": "travel.book_return",
+      "summary": "If the site hasn't produced the car by 09:25, release the driver and book their train home.",
+      "rationale": "The driver said they can wait 30 more minutes. The site hasn't answered two calls. A train home is quoted, so nothing is booked yet.",
+      "payload": {
+        "travel_option_id": "opt_train_593"
+      },
+      "before_after": [
+        {
+          "label": "Driver",
+          "before": "Waiting at the site",
+          "after": "Released at 09:25, heads home"
+        },
+        {
+          "label": "Train home",
+          "before": "Not booked",
+          "after": "Bremen → Hamburg 09:52, quoted €64, checked 08:58"
+        },
+        {
+          "label": "Order",
+          "before": "Pickup today",
+          "after": "Back to readiness until the car is located"
+        }
+      ],
+      "evidence_refs": [
+        {
+          "table": "driver_messages",
+          "id": "dm_593_1",
+          "observed_at": "2026-10-21T08:55:00Z",
+          "label": "Driver's limit"
+        }
+      ],
+      "approval": "DESK",
+      "owner_desk": "ops-dispatch",
+      "cost": {
+        "amount_minor": 6400,
+        "currency": "EUR",
+        "who_pays": null
+      },
+      "decision_deadline": "2026-10-21T09:25:00Z",
+      "status": "PENDING_REVIEW",
+      "check": {
+        "outcome": "PASS",
+        "reasons": [
+          "Train quote checked 2 minutes before the proposal",
+          "Instructs the driver, so the desk decides",
+          "Who pays is asked"
+        ]
+      },
+      "review": null,
+      "execution": null,
+      "created_at": "2026-10-21T08:59:00Z",
+      "next_steps": [
+        "At 09:25, if there's still no car, tell the driver they're released",
+        "Book the 09:52 train and send the driver the booking reference",
+        "Log the waiting time against the order",
+        "Move the order back to the readiness desk"
+      ]
+    }
+  ],
+  "steps": [
+    {
+      "run_id": "run_593_a",
+      "seq": 1,
+      "agent": "shift-watch",
+      "kind": "READ",
+      "tool": null,
+      "input": {},
+      "result_summary": "Message read: German, about the order, states a 30-minute limit",
+      "at": "2026-10-21T08:55:30Z"
+    },
+    {
+      "run_id": "run_593_a",
+      "seq": 2,
+      "agent": "order-agent",
+      "kind": "ASK",
+      "tool": "ask_site",
+      "input": {},
+      "result_summary": "Called the site: no answer",
+      "at": "2026-10-21T08:56:00Z"
+    },
+    {
+      "run_id": "run_593_a",
+      "seq": 3,
+      "agent": "order-agent",
+      "kind": "ASK",
+      "tool": "ask_site",
+      "input": {},
+      "result_summary": "Called again: no answer",
+      "at": "2026-10-21T08:57:30Z"
+    },
+    {
+      "run_id": "run_593_a",
+      "seq": 4,
+      "agent": "order-agent",
+      "kind": "TOOL_CALL",
+      "tool": "check_train",
+      "input": {},
+      "result_summary": "09:52 train to Hamburg, €64",
+      "at": "2026-10-21T08:58:00Z"
+    },
+    {
+      "run_id": "run_593_a",
+      "seq": 5,
+      "agent": "order-agent",
+      "kind": "PROPOSE",
+      "tool": "propose",
+      "input": {},
+      "result_summary": "Proposed: release at 09:25 and book the train",
+      "at": "2026-10-21T08:59:00Z"
+    }
+  ],
+  "stop_reason": "Releasing the driver is an instruction, and the train costs money.",
+  "notes_updated_at": "2026-10-21T08:59:00Z",
+  "notes": [
+    {
+      "text": "Driver is at the site; the car isn't in the bay.",
+      "source": "App chat",
+      "at": "2026-10-21T08:55:00Z"
+    },
+    {
+      "text": "Driver can wait until about 09:25.",
+      "source": "App chat",
+      "at": "2026-10-21T08:55:00Z"
+    },
+    {
+      "text": "Site hasn't answered two calls.",
+      "source": "Call log",
+      "at": "2026-10-21T08:57:30Z"
+    }
+  ],
+  "timeline": [
+    {
+      "id": "t3",
+      "at": "2026-10-21T08:56:00Z",
+      "source": "APP_CHAT",
+      "who": "Shift Watch to driver",
+      "text": "Danke, wir rufen den Standort an. Sie hören bis 09:10 UTC von uns.",
+      "language": "de",
+      "translation": "Thanks, we're calling the site. You'll hear from us by 09:10 UTC.",
+      "agent_written": true,
+      "hear_back_by": "2026-10-21T09:10:00Z"
+    },
+    {
+      "id": "t2",
+      "at": "2026-10-21T08:55:00Z",
+      "source": "APP_CHAT",
+      "who": "Driver says",
+      "text": "Ich bin am Standort, aber das Auto ist nicht da. Ich kann noch 30 Minuten warten, danach brauche ich einen neuen Plan für die Rückreise.",
+      "language": "de",
+      "translation": "I'm at the site, but the car isn't here. I can wait another 30 minutes. After that I need a new plan for my travel back.",
+      "tone": "warning"
+    },
+    {
+      "id": "t1",
+      "at": "2026-10-21T07:30:00Z",
+      "source": "SYSTEM",
+      "who": "Driver app",
+      "text": "Driver checked in at the pickup address."
+    }
+  ],
+  "travel": [
+    {
+      "id": "l1",
+      "mode": "TRAIN",
+      "label": "Bremen → Hamburg",
+      "when": "Today, 09:52 CEST",
+      "state": "QUOTED",
+      "detail": "Quoted €64 for the driver's way home.",
+      "checked_at": "2026-10-21T08:58:00Z"
+    }
+  ],
+  "facts": [
+    {
+      "label": "Pickup slot",
+      "value": "Today, 09:00–10:00 CEST",
+      "source": "Selected slot",
+      "at": "2026-10-17T12:00:00Z"
+    },
+    {
+      "label": "Car at site",
+      "value": "Driver says: not in the bay",
+      "source": "App chat",
+      "at": "2026-10-21T08:55:00Z"
+    }
+  ]
+}

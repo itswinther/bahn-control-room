@@ -1,0 +1,74 @@
+.shell {
+  min-height: 100dvh;
+}
+
+.skip {
+  position: absolute;
+  left: 16px;
+  top: -48px;
+  z-index: 100;
+  padding: 10px 16px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-weight: 600;
+}
+
+.skip:focus {
+  top: 8px;
+}
+
+/*
+  data-panel is "auto" until someone toggles the panel: open on wide screens,
+  closed on narrow ones, decided by CSS so nothing flashes before hydration.
+*/
+.body {
+  display: grid;
+  overflow-x: clip;
+  grid-template-columns: minmax(0, 1fr) var(--panel-w);
+  transition: grid-template-columns 0.24s var(--ease);
+}
+
+.shell[data-panel="false"] .body {
+  grid-template-columns: minmax(0, 1fr) 0;
+}
+
+.main {
+  --main-top: 32px;
+  min-width: 0;
+  padding: var(--main-top) var(--gutter) 96px;
+}
+
+.scrim {
+  display: none;
+}
+
+@media (max-width: 1179px) {
+  .body,
+  .shell[data-panel="false"] .body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .scrim {
+    position: fixed;
+    inset: var(--header-h) 0 0 0;
+    z-index: 30;
+    display: block;
+    background: rgba(18, 17, 14, 0.32);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.24s var(--ease);
+  }
+
+  .shell[data-panel="true"] .scrim {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .main {
+    --gutter: 16px;
+    --main-top: 20px;
+  }
+}

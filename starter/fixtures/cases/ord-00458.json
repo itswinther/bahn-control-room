@@ -1,0 +1,107 @@
+{
+  "_note": "Sample data shaped like GET /api/cases/ord-00458. Facts follow the review bundle (seller hold over an unpaid invoice, site call 21 Oct 08:34).",
+  "order": {
+    "id": "ord-00458",
+    "reference": "CD-420458",
+    "vehicle": "Ferrari Roma",
+    "pickup": {
+      "place": "Hamburg",
+      "country": "DE",
+      "tz": "Europe/Berlin"
+    },
+    "delivery": {
+      "place": "Hamburg",
+      "country": "DE",
+      "tz": "Europe/Berlin"
+    },
+    "customer": "Elbe Sportwagen GmbH",
+    "driver": null
+  },
+  "headline": "Parked until the customer sends a signed release. No driver goes out before that.",
+  "kind": "WAITING",
+  "status": {
+    "order_id": "ord-00458",
+    "summary": "Seller hold; waiting on a signed release from the customer",
+    "waiting_on": "CUSTOMER",
+    "next_check_at": "2026-10-21T12:00:00Z",
+    "decision_deadline": null,
+    "deadline_reason": "Next check with the site",
+    "owner_desk": "ops-readiness"
+  },
+  "proposals": [],
+  "steps": [
+    {
+      "run_id": "run_458_a",
+      "seq": 1,
+      "agent": "order-agent",
+      "kind": "ASK",
+      "tool": "ask_site",
+      "input": {},
+      "result_summary": "Site: seller has put a hold on the car over an unpaid invoice",
+      "at": "2026-10-21T08:34:00Z"
+    },
+    {
+      "run_id": "run_458_a",
+      "seq": 2,
+      "agent": "order-agent",
+      "kind": "FINISH",
+      "tool": "finish",
+      "input": {},
+      "result_summary": "Waiting on the customer; next check with the site at 12:00",
+      "at": "2026-10-21T08:36:00Z"
+    }
+  ],
+  "stop_reason": "Nothing to decide yet. The customer has to clear the hold and send a signed release.",
+  "notes_updated_at": "2026-10-21T08:36:00Z",
+  "notes": [
+    {
+      "text": "Seller has a hold on the car over an unpaid invoice.",
+      "source": "Call transcript",
+      "at": "2026-10-21T08:34:00Z"
+    },
+    {
+      "text": "Site said not to send a driver.",
+      "source": "Call transcript",
+      "at": "2026-10-21T08:34:00Z"
+    },
+    {
+      "text": "When the release arrives, check it names the driver, the window and the car.",
+      "source": "Release rules",
+      "at": null
+    }
+  ],
+  "timeline": [
+    {
+      "id": "t2",
+      "at": "2026-10-21T08:34:00Z",
+      "source": "CALL",
+      "who": "Pickup site",
+      "text": "The seller has put a hold on the car until an invoice is paid. Please don't send a driver.",
+      "tone": "warning"
+    },
+    {
+      "id": "t1",
+      "at": "2026-10-19T10:15:00Z",
+      "source": "EMAIL",
+      "who": "Customer",
+      "text": "Der Ferrari Roma steht bei uns in der Filiale. Bitte holen Sie ihn ab.",
+      "language": "de",
+      "translation": "The Ferrari Roma is at our branch. Please collect it."
+    }
+  ],
+  "travel": [],
+  "facts": [
+    {
+      "label": "Signed release",
+      "value": "Not received",
+      "source": "Documents",
+      "at": "2026-10-21T08:36:00Z"
+    },
+    {
+      "label": "Driver offer",
+      "value": "Blocked until the release arrives",
+      "source": "Shift Watch rule",
+      "at": "2026-10-21T08:36:00Z"
+    }
+  ]
+}

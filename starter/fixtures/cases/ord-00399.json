@@ -1,0 +1,183 @@
+{
+  "_note": "Sample data shaped like GET /api/cases/ord-00399. Slot and availability follow the review bundle (slot 09:00–10:00Z, customer and site to 15:00Z).",
+  "order": {
+    "id": "ord-00399",
+    "reference": "CD-420399",
+    "vehicle": "Ferrari 296 GTB",
+    "pickup": {
+      "place": "Leipzig",
+      "country": "DE",
+      "tz": "Europe/Berlin"
+    },
+    "delivery": {
+      "place": "Cologne",
+      "country": "DE",
+      "tz": "Europe/Berlin"
+    },
+    "customer": "Rheinland Sportwagen GmbH",
+    "driver": {
+      "id": "drv-331",
+      "name": "Tobias Lang"
+    },
+    "linked_orders": [
+      {
+        "id": "ord-00326",
+        "reference": "CD-420326",
+        "why": "Same driver, still delivering it; arrival time slipping"
+      }
+    ]
+  },
+  "headline": "Driver is still on another job and can't make tomorrow's slot. Move it to the afternoon?",
+  "kind": "DECISION",
+  "status": {
+    "order_id": "ord-00399",
+    "summary": "Driver can't reach the 11:00 slot; afternoon slot proposed",
+    "waiting_on": "OPERATOR",
+    "next_check_at": "2026-10-21T10:00:00Z",
+    "decision_deadline": "2026-10-21T09:30:00Z",
+    "deadline_reason": "Work item due",
+    "owner_desk": "ops-dispatch"
+  },
+  "proposals": [
+    {
+      "id": "prop_399_1",
+      "order_id": "ord-00399",
+      "proposed_by": "order-agent",
+      "command": "schedule.move_slot",
+      "summary": "Move tomorrow's pickup to 14:00–15:00 CEST, inside the customer's own availability. Keep the same driver.",
+      "rationale": "The driver is still delivering CD-420326 and can't leave before 12:00 CEST. The customer is available until 17:00 and the site is open until 17:00.",
+      "payload": {
+        "slot": "2026-10-22T12:00:00Z/2026-10-22T13:00:00Z"
+      },
+      "before_after": [
+        {
+          "label": "Pickup slot",
+          "before": "Thu 22 Oct, 11:00–12:00 CEST",
+          "after": "Thu 22 Oct, 14:00–15:00 CEST"
+        },
+        {
+          "label": "Driver",
+          "before": "Tobias Lang, can't make 11:00",
+          "after": "Same driver"
+        },
+        {
+          "label": "Release paper",
+          "before": "Valid for 11:00–12:00",
+          "after": "Needs reissuing for the new slot"
+        }
+      ],
+      "evidence_refs": [
+        {
+          "table": "messages",
+          "id": "msg-x3bdbe64dcd0bd46e",
+          "observed_at": "2026-10-21T08:20:00Z",
+          "label": "Driver: can't travel before 12:00"
+        }
+      ],
+      "approval": "DESK",
+      "owner_desk": "ops-dispatch",
+      "cost": null,
+      "decision_deadline": "2026-10-21T09:30:00Z",
+      "status": "PENDING_REVIEW",
+      "check": {
+        "outcome": "PASS",
+        "reasons": [
+          "Stays inside the customer's stated availability",
+          "The site must still agree, and the release paper is reissued"
+        ]
+      },
+      "review": null,
+      "execution": null,
+      "created_at": "2026-10-21T08:45:00Z",
+      "next_steps": [
+        "The agent asks the site to confirm 14:00–15:00",
+        "A new release paper is requested for the new slot",
+        "The driver is told the new slot once the site agrees"
+      ]
+    }
+  ],
+  "steps": [
+    {
+      "run_id": "run_399_a",
+      "seq": 1,
+      "agent": "shift-watch",
+      "kind": "CHECK",
+      "tool": null,
+      "input": {},
+      "result_summary": "Same driver on CD-420326; its arrival time is slipping",
+      "at": "2026-10-21T08:30:00Z"
+    },
+    {
+      "run_id": "run_399_a",
+      "seq": 2,
+      "agent": "order-agent",
+      "kind": "READ",
+      "tool": "get_order",
+      "input": {},
+      "result_summary": "Customer available 09:00–17:00; site open until 17:00",
+      "at": "2026-10-21T08:40:00Z"
+    },
+    {
+      "run_id": "run_399_a",
+      "seq": 3,
+      "agent": "order-agent",
+      "kind": "PROPOSE",
+      "tool": "propose",
+      "input": {},
+      "result_summary": "Proposed the 14:00–15:00 slot",
+      "at": "2026-10-21T08:45:00Z"
+    }
+  ],
+  "stop_reason": "Moving a slot needs the desk's yes and the site's OK.",
+  "notes_updated_at": "2026-10-21T08:45:00Z",
+  "notes": [
+    {
+      "text": "Driver is still on CD-420326 and can't travel before 12:00 CEST.",
+      "source": "App chat",
+      "at": "2026-10-21T08:20:00Z"
+    },
+    {
+      "text": "Customer is available 09:00–17:00 CEST tomorrow.",
+      "source": "Order",
+      "at": "2026-10-14T10:00:00Z"
+    },
+    {
+      "text": "Leipzig in the afternoon looks reachable after CD-420326.",
+      "source": "Agent's estimate; travel time not in the data",
+      "at": "2026-10-21T08:45:00Z",
+      "guess": true
+    }
+  ],
+  "timeline": [
+    {
+      "id": "t2",
+      "at": "2026-10-21T08:30:00Z",
+      "source": "SHIFT_WATCH",
+      "who": "Shift Watch",
+      "text": "Linked to CD-420326: same driver, and that job's arrival time is slipping.",
+      "tone": "warning"
+    },
+    {
+      "id": "t1",
+      "at": "2026-10-21T08:20:00Z",
+      "source": "APP_CHAT",
+      "who": "Driver says",
+      "text": "Still on the Hamburg job. I can't leave before 12:00 tomorrow."
+    }
+  ],
+  "travel": [],
+  "facts": [
+    {
+      "label": "Pickup site",
+      "value": "Leipzig, open until 17:00 CEST",
+      "source": "Site profile",
+      "at": "2026-10-10T08:00:00Z"
+    },
+    {
+      "label": "Delivery",
+      "value": "Customer's workshop, Cologne",
+      "source": "Order",
+      "at": null
+    }
+  ]
+}

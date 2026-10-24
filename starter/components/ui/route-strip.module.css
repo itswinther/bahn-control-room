@@ -1,0 +1,81 @@
+.strip {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.track {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.pin {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.pin[data-end="a"] {
+  background: var(--orange-strong);
+  color: #12110e;
+}
+
+.pin[data-end="b"] {
+  background: var(--headline);
+  color: var(--surface);
+  box-shadow: 0 0 0 4px var(--surface-sunken);
+}
+
+.line {
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--orange-strong), var(--headline));
+}
+
+.labels {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--headline);
+}
+
+.labels > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.labels > span:last-child {
+  text-align: right;
+  justify-content: flex-end;
+}
+
+.code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--surface-sunken);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  color: var(--muted-strong);
+}
+
+.strip[data-size="s"] .pin {
+  width: 18px;
+  height: 18px;
+  font-size: 9px;
+}
+
+.strip[data-size="s"] .labels {
+  font-size: 13px;
+}
