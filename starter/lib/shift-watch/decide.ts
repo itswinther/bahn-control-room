@@ -1,7 +1,8 @@
 // What happens after a person decides: record the decision, carry it out (mock services), and tell
 // the driver. Only the right person may decide, and a double click can't book twice.
 import { and, eq, inArray } from "drizzle-orm"
-import type { DecisionRequest, Execution, Proposal, Review } from "@/lib/contract"
+import type { DecisionRequest, Execution, Proposal, Review, RunRequest } from "@/lib/contract"
+import { agentMode, createRun, runOrderAgent } from "@/lib/agents/order-agent"
 import { nowIso } from "@/lib/clock"
 import { db } from "@/lib/db"
 import { bookFerry, ferryCapacity } from "@/lib/mocks"
@@ -111,7 +112,8 @@ export async function decide(proposalId: string, req: DecisionRequest): Promise<
   const approving = req.decision !== "REJECTED"
   if (approving && p.cost && !req.who_pays) return { ok: false, status: 400, error: "This costs money: choose who pays before approving." }
 
-  const finalPayload = req.decision === "EDITED" && req.final_payload ? req.final_payload : p.payload
+  // An edit changes the fields it names; the rest of the agent's payload stays.
+  const finalPayload = req.decision === "EDITED" && req.final_payload ? { ...p.payload, ...req.final_payload } : p.payload
   const review: Review = { decision: req.decision, final_payload: finalPayload, note: req.note ?? null, who_pays: req.who_pays ?? null, reviewer: req.reviewer, at: nowIso() }
   // Conditional on the status, so two clicks at once can't both go through.
   const claimed = await db.update(proposals)
@@ -125,18 +127,28 @@ export async function decide(proposalId: string, req: DecisionRequest): Promise<
   }
   const [after] = await db.select().from(proposals).where(eq(proposals.id, p.id))
   await refreshStatus(p.orderId, after)
+  // A rejection with a reason goes back to the agent to find another way. Live only: a replay has no
+  // recording for it.
+  if (!approving && req.note && agentMode() === "live") {
+    const next: RunRequest = { order_id: p.orderId, reason: "OPERATOR_REQUEST", reason_detail: `${req.reviewer} rejected ${p.id} ("${p.summary}"): ${req.note}` }
+    const runId = await createRun(next)
+    if (runId) void runOrderAgent(runId, next)
+  }
   return { ok: true, proposal: toContract(after) }
 }
 
 async function refreshStatus(orderId: string, p: typeof proposals.$inferSelect) {
   const [st] = await db.select().from(orderStatus).where(eq(orderStatus.orderId, orderId))
   if (!st) return
-  const summary = p.status === "EXECUTED" ? p.execution!.result_summary : p.status === "FAILED" ? `Failed: ${p.execution?.error}` : `Rejected by ${p.review?.reviewer}: ${p.summary}`
+  const summary = p.status === "EXECUTED" ? p.execution!.result_summary : p.status === "FAILED" ? `Failed: ${p.execution?.error}`
+    : `Rejected by ${p.review?.reviewer}: ${p.summary}${p.review?.note ? `. Reason: ${p.review.note}` : ""}`
+  // A failed or rejected step leaves the problem open: a person still owns it, with the same deadline.
+  const open = p.status === "FAILED" || p.status === "REJECTED"
   // After a booking, the agent's next check is when check-in closes: that's when boarding can be confirmed.
   const cutoff = p.execution?.references.find((r) => r.kind === "check_in_cutoff")?.value ?? null
   await db.update(orderStatus).set({
     summary, openProposalIds: st.openProposalIds.filter((id) => id !== p.id), nextCheckAt: cutoff ?? st.nextCheckAt,
-    waitingOn: p.status === "FAILED" ? "OPERATOR" : "NOTHING", decisionDeadline: p.status === "FAILED" ? st.decisionDeadline : null, updatedAt: nowIso(),
+    waitingOn: open ? "OPERATOR" : "NOTHING", decisionDeadline: open ? st.decisionDeadline : null, updatedAt: nowIso(),
   }).where(eq(orderStatus.orderId, orderId))
 }
 

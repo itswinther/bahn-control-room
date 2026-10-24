@@ -78,18 +78,21 @@ export async function runOrderAgent(runId: string, req: RunRequest): Promise<voi
   let toolCalls = 0
   const step = (kind: AgentStep["kind"], tool: string | null, input: Record<string, unknown>, summary: string, agent: AgentStep["agent"] = "order-agent") =>
     addStep({ run_id: runId, seq: ++seq, agent, kind, tool, input, result_summary: summary, at: nowIso() })
+  // A demo reset deletes the run row; a run that finds it gone stops without writing anything more.
+  const alive = async () => (await db.select({ id: agentRuns.id }).from(agentRuns).where(eq(agentRuns.id, runId))).length > 0
+  // Shift Watch checks what the run produced before the run reads as ended, so nothing polling it sees
+  // FINISHED next to an unchecked proposal. Its decisions are steps in this run, so the case view shows
+  // the handover in one timeline. A send-back wakes the agent again once this run is closed.
   const end = async (status: "FINISHED" | "STOPPED" | "FAILED", stopReason: string | null) => {
+    if (!(await alive())) return
+    const outcome = status === "FAILED" ? null : await reviewOrder(req.order_id)
+    if (outcome) {
+      const [checked] = await db.select().from(proposals).where(eq(proposals.runId, runId))
+      if (checked?.check) await step("TEXT", null, { proposal_id: checked.id }, `Checked ${checked.id}: ${checked.check.outcome}${checked.check.reasons.length ? " - " + checked.check.reasons.map((r) => r.message).join(" ") : ""}`, "shift-watch")
+      if (outcome.released || outcome.held) await step("TEXT", null, {}, `Driver messages: ${outcome.released} sent, ${outcome.held} held for a person`, "shift-watch")
+    }
     await db.update(agentRuns).set({ status, stopReason, toolCalls, endedAt: nowIso() }).where(eq(agentRuns.id, runId))
-    if (status !== "FAILED") await handOver()
-  }
-  // Shift Watch checks what the run produced; its decisions are steps in this run, so the case view
-  // shows the handover in one timeline. A send-back wakes the agent again.
-  const handOver = async () => {
-    const outcome = await reviewOrder(req.order_id)
-    const [checked] = await db.select().from(proposals).where(eq(proposals.runId, runId))
-    if (checked?.check) await step("TEXT", null, { proposal_id: checked.id }, `Checked ${checked.id}: ${checked.check.outcome}${checked.check.reasons.length ? " - " + checked.check.reasons.map((r) => r.message).join(" ") : ""}`, "shift-watch")
-    if (outcome.released || outcome.held) await step("TEXT", null, {}, `Driver messages: ${outcome.released} sent, ${outcome.held} held for a person`, "shift-watch")
-    if (outcome.sendBack) {
+    if (outcome?.sendBack) {
       const next: RunRequest = { order_id: req.order_id, reason: "SENT_BACK", reason_detail: `Shift Watch sent ${outcome.sendBack.proposalId} back: ${outcome.sendBack.reason}` }
       const nextId = await createRun(next)
       if (nextId) void runOrderAgent(nextId, next)
@@ -118,6 +121,7 @@ export async function runOrderAgent(runId: string, req: RunRequest): Promise<voi
   try {
     while (true) {
       const response = await source.next(messages)
+      if (!(await alive())) return
       messages.push({ role: "assistant", content: response.content })
 
       if (response.stop_reason === "refusal") return void (await end("STOPPED", "The model declined this request"))
@@ -147,6 +151,7 @@ export async function runOrderAgent(runId: string, req: RunRequest): Promise<voi
           results.push({ type: "tool_result", tool_use_id: call.id, is_error: true, content: "Tool-call limit reached. Call finish now." })
           continue
         }
+        if (!(await alive())) return
         toolCalls++
         const input = (call.input ?? {}) as Record<string, unknown>
         const out = await runTool(call.name, input, ctx)
@@ -166,6 +171,7 @@ export async function runOrderAgent(runId: string, req: RunRequest): Promise<voi
       capWarned ||= refused
     }
   } catch (error) {
+    if (!(await alive())) return
     await step("ERROR", null, {}, error instanceof Error ? error.message : String(error))
     await end("FAILED", "Agent error")
   }
