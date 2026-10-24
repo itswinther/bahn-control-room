@@ -7,6 +7,7 @@ import { nowIso, UNDO_MS } from "@/lib/clock"
 import { db } from "@/lib/db"
 import { bookFerry, ferryCapacity } from "@/lib/mocks"
 import { changeOutcome } from "@/lib/mocks/replies"
+import { driverZone, localTime } from "./zone"
 import { loadOrder } from "@/lib/present/load"
 import { buildRecordView } from "@/lib/present/record"
 import { relatedRecords } from "@/lib/schema"
@@ -24,9 +25,6 @@ function optionFor(orderId: string, payload: Record<string, unknown>, evidence: 
   const cited = evidence.filter((e) => e.table === "travel_options").map((e) => e.id)
   return ferryCapacity(orderId, true, now).options.find((o) => cited.includes(o.id) && o.vehicle_space)?.id ?? cited[0] ?? null
 }
-
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-const day = (iso: string) => `${Number(iso.slice(8, 10))} ${MONTHS[Number(iso.slice(5, 7)) - 1]}`
 
 /** The order's current ferry booking: what a replacement crossing releases unless the payload names one. */
 async function ferryBookings(orderId: string) {
@@ -74,23 +72,38 @@ async function execute(p: typeof proposals.$inferSelect, payload: Record<string,
     const booking = bookFerry(p.orderId, optionId, `${p.orderId}:${optionId}`, now)
     if (!booking.ok) return { status: "FAILED", at: now, result_summary: `Booking failed: ${booking.error}`, references: [], next_steps: ["Nothing was booked and the old booking is unchanged", "The agent checks the options again"], error: booking.error }
     if (booking.repeated) return done(`Already booked: ${booking.reference} (mock). Nothing new was booked.`, ["No change for the driver"], [{ kind: "ferry_booking", value: booking.reference }])
-    // Released only now, after the new booking is confirmed. A change request still open on it is
-    // withdrawn with it, so the carrier can't also move the old booking.
+    // The old booking stays as a fallback while the driver could still make it, and is released when its
+    // own check-in closes (at once if that has passed). Keeping both for a few hours costs less than losing
+    // a sailing the driver might still catch. A change request open on it is withdrawn now, so the carrier
+    // can't also move it.
     const old = str(payload.release_reservation_id) ?? str(payload.replaces_booking) ?? ferries.find((r) => r.status === "BOOKED")?.id ?? null
-    const oldRef = ferries.find((r) => r.id === old)?.reference ?? old
+    const oldRes = ferries.find((r) => r.id === old)
+    const oldRef = oldRes?.reference ?? old
+    const keepUntil = oldRes?.checkInCutoffAt && oldRes.checkInCutoffAt > now ? oldRes.checkInCutoffAt : null
     const withdrawn = requests.filter((r) => r.id === old)
     const o = booking.option
-    const told = await tellDriver(p.orderId, `New crossing booked: ${o.provider}, departs ${o.departs_at.slice(11, 16)} UTC on ${day(o.departs_at)}. Check-in closes ${o.check_in_cutoff_at.slice(11, 16)} UTC. Booking reference ${booking.reference}.`)
+    const hh = (iso: string) => `${iso.slice(11, 16)} UTC`
+    const zone = await driverZone(p.orderId)
+    const local = (iso: string) => localTime(iso, zone, now)
+    const told = await tellDriver(p.orderId, `New crossing booked: ${o.provider}, departs ${local(o.departs_at)}. Check-in closes ${local(o.check_in_cutoff_at)}. Booking reference ${booking.reference}.`
+      + (keepUntil ? ` We keep your current booking ${oldRef} until its check-in closes at ${local(keepUntil)}: if the queue moves and you make it, take that sailing instead.` : ""))
     return done(
-      `Booked the ${o.departs_at.slice(11, 16)} crossing (${booking.reference}, mock)${withdrawn.length ? `, withdrew the ${withdrawn.map((r) => r.amendment_request.requested_at.slice(11, 16)).join(", ")} change request` : ""}${old ? `, then released ${oldRef}` : ""}`,
+      `Booked the ${hh(o.departs_at)} crossing (${booking.reference}, mock)${withdrawn.length ? `, withdrew the ${withdrawn.map((r) => r.amendment_request.requested_at.slice(11, 16)).join(", ")} change request` : ""}`
+        + (old ? keepUntil ? `; ${oldRef} stays as a fallback until its check-in closes at ${hh(keepUntil)}, then it is released` : `, then released ${oldRef}` : ""),
       [
-        ...requests.map((r) => `Checked first: ${changeOutcome(p.orderId).detail}`),
-        told ? "Shift Watch sent the driver the new crossing with its reference and check-in time" : "No active driver to tell; the driver desk needs to pass it on",
+        ...requests.map(() => `Checked first: ${changeOutcome(p.orderId).detail}`),
+        told ? "Shift Watch sent the driver the new crossing with its reference and check-in time, in their local time" : "No active driver to tell; the driver desk needs to pass it on",
+        ...(keepUntil ? [`If the driver checks in for ${oldRef} before ${hh(keepUntil)}, cancel the new booking instead`] : []),
         "Boarding stays unconfirmed until the gate scan",
-        "The agent checks again after check-in closes",
+        `The agent checks again at ${hh(keepUntil ?? o.check_in_cutoff_at)}`,
       ],
-      [{ kind: "ferry_booking", value: booking.reference }, ...(old ? [{ kind: "released_booking", value: old }] : []),
-        ...withdrawn.map((r) => ({ kind: "withdrawn_request", value: `${r.booking_reference ?? r.id} ${r.amendment_request.requested_at}` })), { kind: "check_in_cutoff", value: o.check_in_cutoff_at }],
+      [
+        { kind: "ferry_booking", value: booking.reference },
+        ...(old ? keepUntil ? [{ kind: "fallback_booking", value: old }, { kind: "release_at", value: keepUntil }] : [{ kind: "released_booking", value: old }] : []),
+        ...withdrawn.map((r) => ({ kind: "withdrawn_request", value: `${r.booking_reference ?? r.id} ${r.amendment_request.requested_at}` })),
+        { kind: "check_in_cutoff", value: o.check_in_cutoff_at },
+        ...(keepUntil ? [{ kind: "next_check", value: keepUntil }] : []),
+      ],
     )
   }
   if (p.command.startsWith("customer.")) return done("Sent to the customer by a person", ["The customer's reply comes back to the support desk", "The agent reads it on its next run"])
@@ -178,8 +191,9 @@ async function refreshStatus(orderId: string, p: typeof proposals.$inferSelect) 
     : `Rejected by ${p.review?.reviewer}: ${p.summary}${p.review?.note ? `. Reason: ${p.review.note}` : ""}`
   // A failed or rejected step leaves the problem open: a person still owns it, with the same deadline.
   const open = p.status === "FAILED" || p.status === "REJECTED"
-  // After a booking, the agent's next check is when check-in closes: that's when boarding can be confirmed.
-  const cutoff = p.execution?.references.find((r) => r.kind === "check_in_cutoff")?.value ?? null
+  // After a booking, the agent's next check is when a check-in closes: the fallback's, then the new one's.
+  const refs = p.execution?.references ?? []
+  const cutoff = (refs.find((r) => r.kind === "next_check") ?? refs.find((r) => r.kind === "check_in_cutoff"))?.value ?? null
   await db.update(orderStatus).set({
     summary, openProposalIds: st.openProposalIds.filter((id) => id !== p.id), nextCheckAt: cutoff ?? st.nextCheckAt,
     waitingOn: open ? "OPERATOR" : "NOTHING", decisionDeadline: open ? st.decisionDeadline : null, updatedAt: nowIso(),
