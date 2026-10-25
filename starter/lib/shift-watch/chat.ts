@@ -96,7 +96,8 @@ async function runTool(name: string, input: Record<string, unknown>): Promise<Ou
     if (decision === "APPROVED" && p.cost && !whoPays) return { result: { error: "This costs money: ask the person who pays before drafting an approval." }, summary: "Draft: who pays missing", order_ids: [p.orderId] }
     const action: ChatAction = {
       kind: "DECISION", order_id: p.orderId, proposal_id: p.id,
-      label: `${decision === "APPROVED" ? "Approve" : "Reject"}: ${p.summary.slice(0, 80)}`,
+      // Who pays is part of what the person confirms, so it's in the button's words.
+      label: `${decision === "APPROVED" ? "Approve" : "Reject"}${whoPays ? ` (${whoPays === "BAHN" ? "Bahn" : whoPays === "CUSTOMER" ? "the customer" : "the driver"} pays)` : ""}: ${p.summary.slice(0, 80)}`,
       request: { decision, note: str("note") || undefined, ...(whoPays ? { who_pays: whoPays } : {}) },
     }
     return { result: { drafted: action.label, approval_needed: p.approval, owner_desk: p.ownerDesk }, summary: `Drafted: ${action.label}`, order_ids: [p.orderId], action }

@@ -9,6 +9,7 @@ import { buildRecordView } from "@/lib/present/record"
 import type { RecordView } from "@/lib/present/types"
 import { agentNotes, agentRuns, agentSteps, driverMessages, orderStatus, proposals } from "@/lib/schema-ours"
 import { toContract } from "./decide"
+import { orderParties } from "./language"
 
 const KINDS = new Set<TravelLeg["kind"]>(["FERRY", "TRAIN", "FLIGHT", "BUS", "TAXI", "HOTEL", "DRIVE"])
 const kindOf = (k: string): TravelLeg["kind"] => (KINDS.has(k as TravelLeg["kind"]) ? (k as TravelLeg["kind"]) : "DRIVE")
@@ -107,11 +108,12 @@ export async function buildCase(orderId: string): Promise<CaseResponse | null> {
     }) satisfies AgentStep),
     driver_messages: dmRows.map(toDriverMessage),
     legs: legsFrom(view, ours, (loaded.related.travel_reservations ?? []).map((r) => r.details)),
+    languages: orderParties(loaded, dmRows),
   }
 }
 
 export const toDriverMessage = (m: typeof driverMessages.$inferSelect): DriverMessage => ({
   id: m.id, driver_id: m.driverId, order_id: m.orderId, direction: m.direction, author: m.author, text: m.text,
-  language: m.language, translation: m.translation, quick_replies: m.quickReplies, hear_back_by: m.hearBackBy,
+  language: m.language, translation: m.translation, unclear: m.unclear, quick_replies: m.quickReplies, hear_back_by: m.hearBackBy,
   simulated: m.simulated, intent: m.intent, repeats_message_id: m.repeatsMessageId, status: m.status, created_at: m.createdAt,
 })

@@ -1,0 +1,125 @@
+{
+  "about": "Held-out test for Shift Watch's reading of drivers who write casually or in their own language. Scored on the facts a decision rests on: the intent, whether the reading lists what the message leaves out (`unclear`, null = either is fine), and that the English adds no time the driver didn't give (`forbid`, a regex the English must not match). Written before the first run (25 Oct 2026), and committed before the code that reads it; add cases, don't tune to these. Added 25 Oct after the first run, before the second: three clear messages that should flag nothing, because the first run flagged a gap on almost every message.",
+  "cases": [
+    {
+      "id": "fi-1",
+      "language": "fi",
+      "text": "Ehdin kyl, oon checkinis varttii vaille.",
+      "intent": "ORDER",
+      "unclear": true,
+      "forbid": "\\b\\d{1,2}[:.]\\d{2}\\b"
+    },
+    {
+      "id": "fi-2",
+      "language": "fi",
+      "text": "Oon perillä joskus kolmen jälkeen, riippuu jonosta.",
+      "intent": "ORDER",
+      "unclear": true,
+      "forbid": "\\b(3|15)[:.]\\d{2}\\b"
+    },
+    {
+      "id": "fi-3",
+      "language": "fi",
+      "text": "Mä oon viel tääl jonos, navi sanoo et oon perillä vast kakskyt yli kaks.",
+      "intent": "ORDER",
+      "unclear": null,
+      "forbid": null
+    },
+    {
+      "id": "fi-4",
+      "language": "fi",
+      "text": "Auto alko pitää ihme ääntä ja joku valo syttyi, oon levikkeellä.",
+      "intent": "SAFETY",
+      "unclear": null,
+      "forbid": null
+    },
+    {
+      "id": "fi-5",
+      "language": "fi",
+      "text": "Saako tankata Bahnin piikkiin? Kuitti on tallessa.",
+      "intent": "EXPENSE_QUESTION",
+      "unclear": null,
+      "forbid": null
+    },
+    {
+      "id": "fi-6",
+      "language": "fi",
+      "text": "Avaimet jäi myyjälle, en saanu niitä.",
+      "intent": "ORDER",
+      "unclear": null,
+      "forbid": null
+    },
+    {
+      "id": "de-1",
+      "language": "de",
+      "text": "Schaff ich nicht mehr, die Fähre ist weg.",
+      "intent": "ORDER",
+      "unclear": null,
+      "forbid": null
+    },
+    {
+      "id": "de-2",
+      "language": "de",
+      "text": "Bin um halb da.",
+      "intent": "ORDER",
+      "unclear": true,
+      "forbid": "\\b\\d{1,2}[:.]30\\b"
+    },
+    {
+      "id": "da-1",
+      "language": "da",
+      "text": "Jeg er der om lidt.",
+      "intent": "ORDER",
+      "unclear": true,
+      "forbid": "\\b\\d{1,2}[:.]\\d{2}\\b"
+    },
+    {
+      "id": "sv-1",
+      "language": "sv",
+      "text": "Kommer fram kvart i.",
+      "intent": "ORDER",
+      "unclear": true,
+      "forbid": "\\b\\d{1,2}[:.]45\\b"
+    },
+    {
+      "id": "fr-1",
+      "language": "fr",
+      "text": "J'arrive vers 14h20, je pense que le bateau ne m'attendra pas.",
+      "intent": "ORDER",
+      "unclear": null,
+      "forbid": null
+    },
+    {
+      "id": "en-1",
+      "language": "en",
+      "text": "Be there at quarter to.",
+      "intent": "ORDER",
+      "unclear": true,
+      "forbid": "\\b\\d{1,2}:45\\b"
+    },
+    {
+      "id": "fi-7",
+      "language": "fi",
+      "text": "Oon terminaalilla, lähtöselvitys tehty, auto on jonossa laivaan.",
+      "intent": "ORDER",
+      "unclear": false,
+      "forbid": null
+    },
+    {
+      "id": "de-3",
+      "language": "de",
+      "text": "Check-in erledigt, ich stehe in Spur 4.",
+      "intent": "ORDER",
+      "unclear": false,
+      "forbid": null
+    },
+    {
+      "id": "da-2",
+      "language": "da",
+      "text": "Bilen er afleveret, nøglerne ligger i receptionen siden kl. 14.10.",
+      "intent": "ORDER",
+      "unclear": false,
+      "forbid": null
+    }
+  ]
+}

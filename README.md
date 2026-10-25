@@ -1,3 +1,16 @@
+# Shift Watch: our entry for the Car Delivery Control Room
+
+One order agent per order does the legwork. Shift Watch checks everything the agents propose, answers drivers at
+once, and keeps one decision queue for the people on shift, so a person sees only the orders that need them.
+
+- **Run it and play the demo:** [`starter/README.md`](starter/README.md). It runs without an API key.
+- **What changed, and how each of Bahn's recorded mistakes is now caught:** [`SHIFT-WATCH-RECAP.md`](SHIFT-WATCH-RECAP.md).
+- **How we worked with AI:** [`PROCESS.md`](PROCESS.md).
+
+Everything below this line is Bahn's challenge packet, unchanged.
+
+---
+
 # The Car Delivery Control Room
 
 This is Bahn's challenge for the Prompt Operations Hackathon, 24 to 25 October

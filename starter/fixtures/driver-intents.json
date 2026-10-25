@@ -1,0 +1,75 @@
+{
+  "about": "What Shift Watch's reading decides a driver's message is about: safety goes to the shift lead, routine questions are answered from the records, everything else wakes the order's agent. Written on 24 Oct 2026 in our second review and run live then from a scratch script (14 of 14 with Claude, about 3 of 14 with the keyword rules); committed on 25 Oct so the result can be re-run. After that run we widened the keyword rules' safety words using these messages, so the rules' score on this set is now fitted; Claude's is not. Add cases, don't tune to these.",
+  "cases": [
+    {
+      "id": "missed-ferry",
+      "text": "I missed the ferry I was booked on. What now?",
+      "intent": "ORDER"
+    },
+    {
+      "id": "ship-left",
+      "text": "My booking says 14:00 but the gate says the ship left. Help",
+      "intent": "ORDER"
+    },
+    {
+      "id": "keys-refused",
+      "text": "The seller refuses to hand over the keys",
+      "intent": "ORDER"
+    },
+    {
+      "id": "keys-lost",
+      "text": "I lost the car keys at the rest stop",
+      "intent": "ORDER"
+    },
+    {
+      "id": "flat-tyre",
+      "text": "Flat tyre, I'm on the hard shoulder of the A7",
+      "intent": "SAFETY"
+    },
+    {
+      "id": "no-start",
+      "text": "The car won't start at the services",
+      "intent": "SAFETY"
+    },
+    {
+      "id": "burning",
+      "text": "There is a burning smell from the engine bay",
+      "intent": "SAFETY"
+    },
+    {
+      "id": "brakes",
+      "text": "Brakes feel spongy, is it ok to continue?",
+      "intent": "SAFETY"
+    },
+    {
+      "id": "unwell",
+      "text": "I feel unwell and I don't think I should drive",
+      "intent": "SAFETY"
+    },
+    {
+      "id": "fi-light",
+      "text": "Varoitusvalo palaa kojelaudassa",
+      "intent": "SAFETY"
+    },
+    {
+      "id": "de-light",
+      "text": "Die Motorkontrollleuchte ist an",
+      "intent": "SAFETY"
+    },
+    {
+      "id": "booked",
+      "text": "Is my ferry booked? I don't have a reference",
+      "intent": "BOOKING_QUESTION"
+    },
+    {
+      "id": "keys-where",
+      "text": "Where do I leave the keys at the dealer?",
+      "intent": "KEYS_QUESTION"
+    },
+    {
+      "id": "demo-line",
+      "text": "Still in the queue. Navigation now says 14:20 at check-in.",
+      "intent": "ORDER"
+    }
+  ]
+}

@@ -9,10 +9,10 @@ import { DESK_LABEL } from "@/lib/ui/present";
 import { useClock, useDesk } from "./providers";
 import styles from "./header.module.css";
 
-// The same wake-ups the team recorded (scripts/record.ts), so replay mode plays them back.
+// The same wake-ups the team recorded (scripts/record.ts), so replay mode plays them back. CD-420322's driver
+// writes in through Shift Watch, so the message is on the timeline and the agent answers what was said.
 const OTHER_RUNS: RunRequest[] = [
   { order_id: "ord-00299", reason: "LOOSE_END", reason_detail: "The 07:10 ferry booking attempt for the driver timed out with no reference, and the crossing shows sold out. Nobody has checked what happened to that attempt." },
-  { order_id: "ord-00322", reason: "DRIVER_MESSAGE", reason_detail: "Driver message relayed by Shift Watch: 'The warning light is still on. I'm parked and waiting.'" },
   { order_id: "ord-00593", reason: "LOOSE_END", reason_detail: "The driver at the pickup site said at 07:57 they could wait 30 more minutes; that ran out at 08:27 and the car still isn't released." },
 ];
 
@@ -82,7 +82,7 @@ export function DemoMenu() {
           disabled={busy}
           onClick={() =>
             run(async () => {
-              const results = await Promise.all(OTHER_RUNS.map(runAgent));
+              const results = await Promise.all([...OTHER_RUNS.map(runAgent), driverWrites("drv-319", "The warning light is still on. I'm parked and waiting.")]);
               const started = results.filter((r) => r.ok).length;
               return started ? `${started} agents started. Their plans show up in a few seconds.` : results.map((r) => (r.ok ? "" : r.error)).join(" ");
             })

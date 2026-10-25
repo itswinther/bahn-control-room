@@ -1,12 +1,13 @@
 // What happens after a person decides: record the decision, carry it out (mock services), and tell
 // the driver. Only the right person may decide, and a double click can't book twice.
-import { and, eq, inArray, sql } from "drizzle-orm"
+import { and, desc, eq, inArray, sql } from "drizzle-orm"
 import type { DecisionRequest, Execution, Proposal, Review, RunRequest } from "@/lib/contract"
 import { agentMode, createRun, runOrderAgent } from "@/lib/agents/order-agent"
 import { nowIso, UNDO_MS } from "@/lib/clock"
 import { db } from "@/lib/db"
 import { bookFerry, ferryCapacity } from "@/lib/mocks"
 import { changeOutcome } from "@/lib/mocks/replies"
+import { toDriverLanguage } from "./translate"
 import { driverZone, localTime } from "./zone"
 import { loadOrder } from "@/lib/present/load"
 import { buildRecordView } from "@/lib/present/record"
@@ -45,9 +46,14 @@ async function tellDriver(orderId: string, text: string) {
   const loaded = await loadOrder(orderId)
   const driver = loaded && buildRecordView(loaded.bundle).assignments.find((a) => a.status === "IN_PROGRESS" || a.status === "ASSIGNED")?.driver.id
   if (!driver) return false
+  // In the language the driver writes in, with the English under it.
+  const [last] = await db.select({ language: driverMessages.language }).from(driverMessages)
+    .where(and(eq(driverMessages.driverId, driver), eq(driverMessages.direction, "IN"))).orderBy(desc(driverMessages.createdAt)).limit(1)
+  const language = last?.language ?? "en"
+  const sent = await toDriverLanguage(text, language).catch(() => text)
   await db.insert(driverMessages).values({
-    id: `dm_${crypto.randomUUID().slice(0, 8)}`, driverId: driver, orderId, direction: "OUT", author: "shift-watch", text,
-    language: "en", translation: null, quickReplies: [], hearBackBy: null, simulated: false, repeatsMessageId: null,
+    id: `dm_${crypto.randomUUID().slice(0, 8)}`, driverId: driver, orderId, direction: "OUT", author: "shift-watch", text: sent,
+    language: sent === text ? "en" : language, translation: sent === text ? null : text, quickReplies: [], hearBackBy: null, simulated: false, repeatsMessageId: null,
     status: "SENT", createdAt: nowIso(),
   })
   return true
@@ -84,7 +90,8 @@ async function execute(p: typeof proposals.$inferSelect, payload: Record<string,
     const o = booking.option
     const hh = (iso: string) => `${iso.slice(11, 16)} UTC`
     const zone = await driverZone(p.orderId)
-    const local = (iso: string) => localTime(iso, zone, now)
+    // Always with the date: a check-in on the evening before an after-midnight departure reads as after it otherwise.
+    const local = (iso: string) => localTime(iso, zone, now, true)
     const told = await tellDriver(p.orderId, `New crossing booked: ${o.provider}, departs ${local(o.departs_at)}. Check-in closes ${local(o.check_in_cutoff_at)}. Booking reference ${booking.reference}.`
       + (keepUntil ? ` We keep your current booking ${oldRef} until its check-in closes at ${local(keepUntil)}: if the queue moves and you make it, take that sailing instead.` : ""))
     return done(
@@ -106,7 +113,7 @@ async function execute(p: typeof proposals.$inferSelect, payload: Record<string,
       ],
     )
   }
-  if (p.command.startsWith("customer.")) return done("Sent to the customer by a person", ["The customer's reply comes back to the support desk", "The agent reads it on its next run"])
+  if (p.command.startsWith("customer.")) return done("Approved for a person to send to the customer; nothing was sent by the system", ["The customer's reply comes back to the support desk", "The agent reads it on its next run"])
   if (p.command.startsWith("recovery.")) return done("Recovery decision recorded", ["The shift lead arranges the owner's choice: roadside assistance or collection", "The agent keeps the driver updated and replans the delivery once the car moves"])
   if (p.command.startsWith("driver.")) {
     const told = await tellDriver(p.orderId, "Thanks for waiting. A person has decided the next step; you'll get the details in this chat shortly.")
@@ -152,7 +159,11 @@ export async function settle(proposalId: string): Promise<void> {
     .where(and(eq(proposals.id, proposalId), unsettled(now))).returning()
   if (!p) return
   if (p.status === "APPROVED") {
-    const execution = await execute(p, p.review!.final_payload)
+    // A step that throws is a failed step, shown on the card until a person deals with it, never an approval that silently didn't run.
+    const execution = await execute(p, p.review!.final_payload).catch((e): Execution => ({
+      status: "FAILED", at: nowIso(), result_summary: "It failed when it ran", references: [],
+      next_steps: ["Nothing new was booked or sent", "A person checks the order and decides again"], error: e instanceof Error ? e.message : String(e),
+    }))
     await db.update(proposals).set({ status: execution.status === "SUCCEEDED" ? "EXECUTED" : "FAILED", execution }).where(eq(proposals.id, p.id))
   }
   const [after] = await db.select().from(proposals).where(eq(proposals.id, p.id))

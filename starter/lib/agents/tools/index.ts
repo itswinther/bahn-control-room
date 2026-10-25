@@ -9,6 +9,7 @@ import { loadOrder } from "@/lib/present/load"
 import { buildRecordView } from "@/lib/present/record"
 import { agentNotes, driverMessages, orderStatus, proposals } from "@/lib/schema-ours"
 import { askDriver, askSite, askToolDefs, checkBookingOutcome } from "./ask"
+import { orderParties } from "@/lib/shift-watch/language"
 
 export type ToolContext = {
   runId: string
@@ -142,6 +143,9 @@ async function getOrder(ctx: ToolContext): Promise<ToolOutput> {
       alerts: view.alerts, work_items: view.workItems, incidents: view.incidents, operator_notes: view.notes,
       documents: view.documents, bahn_agent_proposals: view.proposals,
       sites_owned_by_customer: customerSites,
+      // Who reads what: a message drafted for the customer or a site is for a person to send in their language.
+      languages: orderParties(loaded, await db.select({ direction: driverMessages.direction, language: driverMessages.language }).from(driverMessages)
+        .where(eq(driverMessages.orderId, ctx.orderId)).orderBy(driverMessages.createdAt)),
       // What a person decided and what ran: our mock bookings aren't in the dataset's reservations, so this is
       // the only place a later run learns the new booking reference.
       our_proposals: ours.map((p) => ({ id: p.id, status: p.status, command: p.command, summary: p.summary, check: p.check, created_at: p.createdAt,
@@ -175,6 +179,8 @@ async function propose(input: Input, ctx: ToolContext): Promise<ToolOutput> {
   const refs = (Array.isArray(input.evidence_refs) ? (input.evidence_refs as EvidenceRef[]) : [])
     .map((r) => (r?.id ? { ...r, table: tableFor(r.id, r.table) } : r))
     .map((r) => (r?.id && ctx.observed[r.id] ? { ...r, observed_at: ctx.observed[r.id].at, mock: ctx.observed[r.id].mock } : r))
+    // A quote's age decides whether a booking may go ahead, so it comes from the tool that returned it, never the agent.
+    .map((r) => (r?.table === "travel_options" && !ctx.observed[r.id] ? { ...r, observed_at: null } : r))
   if (!refs.length) return fail("A proposal needs at least one evidence record.")
   const unseen = refs.filter((r) => !r?.id || !ctx.seen.includes(r.id))
   if (unseen.length) return fail(`Not in anything you read this run: ${unseen.map((r) => r?.id).join(", ")}. Cite only records you read.`)

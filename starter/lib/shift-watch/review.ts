@@ -1,7 +1,7 @@
 // Shift Watch's pass over one order after its agent runs: check pending proposals and release or
 // hold the agent's messages to the driver. It decides; the agent loop does the waking, so the two
 // modules don't import each other.
-import { and, eq, gt, inArray, or } from "drizzle-orm"
+import { and, desc, eq, gt, inArray, or } from "drizzle-orm"
 import { INSTRUCTION } from "@/lib/agents/rules"
 import { nowIso, UNDO_MS } from "@/lib/clock"
 import { db } from "@/lib/db"
@@ -11,6 +11,7 @@ import type { DriverMessage, HeldMessageReview } from "@/lib/contract"
 import { toDriverMessage } from "./case"
 import { checkProposal, driverMessageOk } from "./checks"
 import { liveReading, readProposalText } from "./judge"
+import { labelsToDriverLanguage, toDriverLanguage } from "./translate"
 
 /** After this many send-backs on one order, the next failing proposal is held for a person instead. */
 const MAX_SEND_BACKS = 2
@@ -51,7 +52,7 @@ async function reviewProposals(orderId: string): Promise<ReviewOutcome["sendBack
     const result = checkProposal({
       command: p.command, summary: p.summary, payload: p.payload, created_at: p.createdAt,
       evidence: p.evidenceRefs.map((e) => ({ table: e.table, id: e.id, observed_at: e.observed_at })),
-      failures, outcomeCheckedSince: (iso) => checkedAt.some((at) => at > iso),
+      failures, outcomeCheckedSince: (iso) => checkedAt.some((at) => at > iso), cost: p.cost,
     }, read)
     let outcome = result.outcome
     const reasons = [...result.reasons]
@@ -72,9 +73,10 @@ async function reviewDriverMessages(orderId: string) {
   let released = 0
   let held = 0
   for (const m of pending) {
-    // Live: Claude reads the message too, as for proposals. If that call fails, the word list still runs.
+    // Live: Claude reads the message too, as for proposals.
     const read = liveReading() ? await readProposalText({ command: "driver.message", summary: m.text, payload: {} }).catch(() => undefined) : undefined
-    let ok = driverMessageOk(m.text, read)
+    // Fail closed: in live mode a message Claude couldn't read waits for a person rather than going out on the word list.
+    let ok = liveReading() && !read ? false : driverMessageOk(m.text, read)
     if (ok && INSTRUCTION.test(m.text)) {
       // A repeated instruction must cite an operator's own message to this driver.
       const [cited] = m.repeatsMessageId
@@ -82,7 +84,15 @@ async function reviewDriverMessages(orderId: string) {
         : []
       ok = !!cited && cited.authorType === "operator" && (cited.details as { recipient_id?: string }).recipient_id === m.driverId
     }
-    await db.update(driverMessages).set({ status: ok ? "SENT" : "HELD" }).where(eq(driverMessages.id, m.id))
+    // Checked in English, then sent in the language the driver writes in, with the English under it.
+    const [last] = ok ? await db.select({ language: driverMessages.language }).from(driverMessages)
+      .where(and(eq(driverMessages.driverId, m.driverId), eq(driverMessages.direction, "IN"))).orderBy(desc(driverMessages.createdAt)).limit(1) : []
+    // Already in two languages (written that way) goes out as written, so a driver never gets it translated twice.
+    const text = last && last.language !== "en" && !m.text.includes("(English) ") ? await toDriverLanguage(m.text, last.language).catch(() => m.text) : m.text
+    const labels = text !== m.text ? await labelsToDriverLanguage(m.quickReplies.map((q) => q.label), last!.language).catch(() => null) : null
+    const quickReplies = labels ? m.quickReplies.map((q, i) => ({ ...q, label: labels[i] })) : m.quickReplies
+    await db.update(driverMessages).set(ok && text !== m.text ? { status: "SENT", text, quickReplies, language: last!.language, translation: m.text } : { status: ok ? "SENT" : "HELD" })
+      .where(eq(driverMessages.id, m.id))
     if (ok) released++
     else held++
   }

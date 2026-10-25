@@ -144,11 +144,15 @@ words: `npm run eval:reworded -- --claude`.
   crossing at €390, keeping the old booking. The checks pass, the travel desk
   picks who pays and approves, and after the undo window it books (mock). The
   driver gets the reference and check-in time in local time.
-- **Warning light, CD-420322.** Always the top card. The agent repeats the
-  operator's "keep it stopped", citing that message, and hands the recovery
-  decision to the shift lead. It gives no driving advice.
+- **Warning light, CD-420322.** The driver writes "The warning light is still
+  on. I'm parked and waiting." Shift Watch answers at once with a fixed
+  safety line ("Please stay somewhere safe. A person is taking over now...")
+  and the card goes to the top for the shift lead. The agent reads the order,
+  sees the shift lead already owns the recovery decision (due 09:15), writes
+  its notes and adds no proposal of its own. It gives no driving advice.
 - **Car not at the site, CD-420593.** The card appears at 09:00 because the
-  driver's wait ran out at 08:27. The agent asks the driver whether she can
+  driver's wait ran out at 08:27, and that is its deadline, so it goes
+  straight to the shift lead. The agent asks the driver whether she can
   keep waiting (yes or no) and proposes releasing her with a travel-back plan,
   for the dispatch desk to decide.
 - **Timed-out booking, CD-420299.** The agent checks the outcome first (no
