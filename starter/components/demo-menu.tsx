@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
-import { ChevronDown, Languages, MessageSquare, Play, RotateCcw } from "lucide-react";
+import { ChevronDown, Languages, MessageSquare, Play, RotateCcw, UserX } from "lucide-react";
 import type { Desk, RunRequest } from "@/lib/contract";
 import { driverWrites, runAgent } from "@/lib/ui/api";
 import { DESK_LABEL } from "@/lib/ui/present";
@@ -77,6 +77,27 @@ export function DemoMenu({ live }: { live: boolean }) {
           <span>
             <strong>Driver writes in</strong>
             CD-420603, stuck in the ferry queue
+          </span>
+        </button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() =>
+            run(async () => {
+              // Bahn's real case: a driver took the job, went quiet, and wrote "won't deliver" days later, after the
+              // customer had cancelled. Here the driver never writes: Shift Watch asked at 09:00 for tomorrow's pickup,
+              // and three hours of silence put the job back on the dispatch desk with a day to re-offer it.
+              const res = await fetch("/api/demo/advance", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ minutes: 180, quiet_order_id: "ord-00442" }) });
+              if (!res.ok) return "Couldn't move the clock.";
+              window.location.assign("/cases/ord-00442");
+              return "Three hours on: CD-420442's driver never answered.";
+            })
+          }
+        >
+          <UserX size={17} strokeWidth={1.8} aria-hidden="true" />
+          <span>
+            <strong>A driver goes quiet</strong>
+            CD-420442: took the job, then nothing. Skip 3 hours
           </span>
         </button>
         <button

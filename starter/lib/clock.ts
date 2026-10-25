@@ -23,5 +23,10 @@ export function resetClock(): void {
   state()
 }
 
+/** Demo only: jump the clock forward, to show what hours of silence look like without waiting for them. */
+export function advanceClock(ms: number): void {
+  state().startAt += ms
+}
+
 /** How long a person's decision or released message can be undone before it takes effect. */
 export const UNDO_MS = 10_000

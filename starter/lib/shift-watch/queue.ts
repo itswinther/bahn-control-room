@@ -126,7 +126,7 @@ export async function buildQueue(team?: Team): Promise<QueueResponse> {
   for (const ask of chat.filter((m) => m.direction === "OUT" && m.orderId && m.quickReplies.some((q) => q.value === CONFIRM_YES))) {
     const replyBy = new Date(Date.parse(ask.createdAt) + REPLY_WITHIN_MS).toISOString()
     if (Date.parse(replyBy) > nowMs || chat.some((m) => m.direction === "IN" && m.driverId === ask.driverId && m.createdAt > ask.createdAt)) continue
-    add(ask.orderId!, { text: `No reply from the driver: asked at ${when(ask.createdAt, now)} to confirm the pickup. Re-offer the job while there's time.`, owner: "ops-dispatch", deadline: replyBy, deadlineReason: `Driver was asked to confirm by ${when(replyBy, now)}` })
+    add(ask.orderId!, { text: `Driver has gone quiet: asked at ${when(ask.createdAt, now)} to confirm the pickup and hasn't answered. Re-offer the job while there's time.`, owner: "ops-dispatch", deadline: replyBy, deadlineReason: `Driver was asked to confirm by ${when(replyBy, now)}` })
   }
   // The pickup slot has opened, the booked driver hasn't started and isn't talking to us: a no-show in the making.
   const assignments = byOrder("work_assignments")

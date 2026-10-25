@@ -1187,6 +1187,26 @@ entries further down.
   CD-420593, whose driver is at the site and talking to us, stays out.
 - Evidence: `starter/lib/shift-watch/confirm.ts`, `starter/lib/shift-watch/queue.ts`.
 
+### 2026-10-25 · team + Claude · Bahn's own no-show, as a demo case
+
+- From Bahn: "a driver took a gig and they just did not deliver the car.
+  Multiple days later they just sent us a message that they won't deliver
+  the car. Nobody caught that and the customer cancelled the order." Mock
+  data is fine for showing it.
+- Our first demo of this case started with the driver's "won't deliver"
+  message, so it showed what happens after the damage, not how to prevent
+  it. We changed it so the driver never writes.
+- The case, on CD-420442, a real accepted job in the dataset: at 09:00, the
+  day before the Stockholm pickup, Shift Watch asks the driver to confirm.
+  "Demo → A driver goes quiet" jumps the demo clock three hours; the other
+  drivers asked have said yes, and this one hasn't answered. At 12:00 the
+  dispatch desk has "Driver has gone quiet … Re-offer the job while there's
+  time", with the pickup slot (22 Oct 08:00 UTC) as the deadline: a day's
+  notice, before any message and before the customer could cancel.
+- Checked on the production build: after the jump, exactly one "gone quiet"
+  card, on CD-420442.
+- Evidence: `starter/app/api/demo/advance/route.ts`, `starter/components/demo-menu.tsx`.
+
 ## Evidence in this repo
 
 - `starter/recordings/`: every recorded live agent run, also used by replay mode.
