@@ -3,8 +3,8 @@ import assert from "node:assert/strict"
 import { DRIVING_ADVICE, INSTRUCTION, route, tableFor } from "../lib/agents/rules"
 import { driverRest, ferryCapacity } from "../lib/mocks"
 import { bookingOutcome, siteReply } from "../lib/mocks/replies"
-import { booksOrBuys, mayDecide } from "../lib/shift-watch/checks"
-import { readByRules } from "../lib/shift-watch/read"
+import { booksOrBuys, checkProposal, mayDecide } from "../lib/shift-watch/checks"
+import { readByRules, SAFETY_LINE } from "../lib/shift-watch/read"
 import { bookFerry } from "../lib/mocks"
 
 assert.deepEqual(route("travel.rebook_ferry"), { approval: "DESK", owner_desk: "ops-travel" })
@@ -54,8 +54,21 @@ for (const t of ["Flat tyre, I'm on the hard shoulder", "The car won't start", "
 assert.equal(readByRules("I accidentally sent the wrong photo").intent, "ORDER")
 assert.equal(readByRules("Still in the queue. Navigation now says 14:20 at check-in.").intent, "ORDER") // the demo line
 
+// The fixed safety reply: every language keeps the time and the place, and works without a place.
+for (const [lang, line] of Object.entries(SAFETY_LINE)) {
+  assert.ok(line("11:15", "Hamburg").includes("11:15") && line("11:15", "Hamburg").includes("Hamburg"), lang)
+  assert.ok(line("09:15 UTC", null).includes("09:15 UTC") && !line("09:15 UTC", null).includes("null"), lang)
+}
+assert.deepEqual(Object.keys(SAFETY_LINE).sort(), ["da", "de", "en", "fi", "fr", "sv"])
+
 // One idea of "books", shared by the freshness check and the code that books on approval.
 for (const c of ["travel.rebook_crossing", "travel.book_ferry", "travel.change_crossing", "travel.move_to_later_crossing", "travel.switch_sailing"]) assert.ok(booksOrBuys(c), c)
 for (const c of ["travel.cancel_booking", "travel.refresh_crossing", "travel.verify_booking_outcome", "billing.check_reference"]) assert.ok(!booksOrBuys(c), c)
+
+// A booking with no price is sent back; with a price, or for Bahn's records (no cost field), it isn't.
+const fresh = { command: "travel.book_ferry", summary: "Book the 22:00 crossing", payload: {}, created_at: now, evidence: [{ table: "travel_options", id: "opt", observed_at: now }] }
+assert.ok(checkProposal({ ...fresh, cost: null }).reasons.some((r) => r.check === "price_named"))
+assert.equal(checkProposal({ ...fresh, cost: { amount_minor: 39000 } }).outcome, "PASS")
+assert.equal(checkProposal(fresh).outcome, "PASS")
 
 console.log("agent rules: ok")

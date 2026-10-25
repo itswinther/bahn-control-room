@@ -1,5 +1,5 @@
 import type { BetaMessageParam, BetaToolResultBlockParam, BetaToolUseBlock } from "@anthropic-ai/sdk/resources/beta/messages/messages"
-import { and, desc, eq, gte, lte, ne } from "drizzle-orm"
+import { and, desc, eq, gt, gte, lte, ne } from "drizzle-orm"
 import type { AgentRun, AgentStep, RunRequest } from "@/lib/contract"
 import { nowIso } from "@/lib/clock"
 import { db } from "@/lib/db"
@@ -91,13 +91,21 @@ export async function createRun(req: RunRequest): Promise<string | null> {
 export async function wakeDue(): Promise<void> {
   if (agentMode() !== "live") return
   const now = nowIso()
-  for (const st of await db.select().from(orderStatus).where(lte(orderStatus.nextCheckAt, now))) {
+  // shortcut: at most 5 wake-ups a minute from one in-process timer, so a burst of due checks can't hit the API's rate
+  // limits at once; at Bahn's scale this becomes a job queue with workers.
+  for (const st of await db.select().from(orderStatus).where(lte(orderStatus.nextCheckAt, now)).orderBy(orderStatus.nextCheckAt).limit(5)) {
     const [ran] = await db.select({ id: agentRuns.id }).from(agentRuns).where(and(eq(agentRuns.orderId, st.orderId), gte(agentRuns.startedAt, st.nextCheckAt!))).limit(1)
     if (ran) continue
     const req: RunRequest = { order_id: st.orderId, reason: "NEXT_CHECK", reason_detail: `The check you set for ${st.nextCheckAt!.slice(11, 16)} UTC is due. Where you left it: ${st.summary}` }
     const id = await createRun(req)
     if (id) void runOrderAgent(id, req)
   }
+}
+
+/** Runs live in this process, so after a restart a run still marked RUNNING never ends, and the order's agent could
+ *  never be woken again (one running run per order). Called once when the server starts. */
+export async function failOrphanedRuns(): Promise<void> {
+  await db.update(agentRuns).set({ status: "FAILED", stopReason: "The server restarted during this run", endedAt: nowIso() }).where(eq(agentRuns.status, "RUNNING"))
 }
 
 export async function runOrderAgent(runId: string, req: RunRequest): Promise<void> {
@@ -119,9 +127,19 @@ export async function runOrderAgent(runId: string, req: RunRequest): Promise<voi
       if (checked?.check) await step("TEXT", null, { proposal_id: checked.id }, `Checked ${checked.id}: ${checked.check.outcome}${checked.check.reasons.length ? " - " + checked.check.reasons.map((r) => r.message).join(" ") : ""}`, "shift-watch")
       if (outcome.released || outcome.held) await step("TEXT", null, {}, `Driver messages: ${outcome.released} sent, ${outcome.held} held for a person`, "shift-watch")
     }
-    await db.update(agentRuns).set({ status, stopReason, toolCalls, endedAt: nowIso() }).where(eq(agentRuns.id, runId))
+    const [ended] = await db.update(agentRuns).set({ status, stopReason, toolCalls, endedAt: nowIso() }).where(eq(agentRuns.id, runId)).returning()
     if (outcome?.sendBack) {
       const next: RunRequest = { order_id: req.order_id, reason: "SENT_BACK", reason_detail: `Shift Watch sent ${outcome.sendBack.proposalId} back: ${outcome.sendBack.reason}` }
+      const nextId = await createRun(next)
+      if (nextId) void runOrderAgent(nextId, next)
+      return
+    }
+    // Intake can't start a second run while this one is going, so a driver who wrote meanwhile is woken for here.
+    const [late] = ended ? await db.select().from(driverMessages)
+      .where(and(eq(driverMessages.orderId, req.order_id), eq(driverMessages.direction, "IN"), gt(driverMessages.createdAt, ended.startedAt)))
+      .orderBy(desc(driverMessages.createdAt)).limit(1) : []
+    if (late) {
+      const next: RunRequest = { order_id: req.order_id, reason: "DRIVER_MESSAGE", reason_detail: `The driver wrote again while you were working, at ${late.createdAt.slice(11, 16)} UTC: '${late.translation ?? late.text}'` }
       const nextId = await createRun(next)
       if (nextId) void runOrderAgent(nextId, next)
     }

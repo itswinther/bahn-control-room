@@ -25,7 +25,7 @@ export type ProposalStatus =
 
 export type CheckName =
   | "fresh_data" | "quote_not_booking" | "no_blame" | "no_driving_advice"
-  | "no_blind_retry" | "contact_rules" | "one_step_per_approval"
+  | "no_blind_retry" | "contact_rules" | "one_step_per_approval" | "price_named"
 
 export type CheckOutcome = "PASS" | "SEND_BACK" | "HOLD"
 

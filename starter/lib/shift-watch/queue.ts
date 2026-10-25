@@ -28,7 +28,7 @@ const SHOWN_TOOLS = new Set(["check_ferry_capacity", "check_driver_rest", "check
 const DONE_BY: [RegExp, string][] = [[/^travel\.refresh_/, "check_ferry_capacity"], [/verify_booking_outcome$/, "check_booking_outcome"]]
 
 /** `ours`: a commitment Shift Watch made (a promise to a driver, a held message), which escalates if missed. */
-type Reason = { text: string; owner: Desk; deadline: string | null; deadlineReason: string | null; ours?: true }
+type Reason = { text: string; owner: Desk; deadline: string | null; deadlineReason: string | null; ours?: true; decideBy?: true }
 
 const DESK_NAME: Record<string, string> = {
   "ops-dispatch": "Driver marketplace", "ops-travel": "Driver travel", "ops-readiness": "Readiness desk", "ops-support": "Support desk",
@@ -114,7 +114,7 @@ export async function buildQueue(): Promise<QueueResponse> {
     const said = last.authoredAt.toISOString()
     if (thread.some((m) => m.authoredAt > last.authoredAt && s((m.details as Row).recipient_id) === s((last.details as Row).author_id))) continue
     const until = new Date(Date.parse(said) + limit * MINUTE).toISOString()
-    add(c.orderId, { text: `Driver's wait ${Date.parse(until) < nowMs ? "ran out" : "ends"} at ${when(until, now)}: "${last.body.slice(0, 90)}"`, owner: (s((c.details as Row).owner) as Desk) ?? "ops-support", deadline: until, deadlineReason: `Driver said at ${when(said, now)} they could wait ${limit} more minutes` })
+    add(c.orderId, { text: `Driver's wait ${Date.parse(until) < nowMs ? "ran out" : "ends"} at ${when(until, now)}: "${last.body.slice(0, 90)}"`, owner: (s((c.details as Row).owner) as Desk) ?? "ops-support", deadline: until, deadlineReason: `Driver said at ${when(said, now)} they could wait ${limit} more minutes`, decideBy: true })
   }
   for (const st of statusRows) {
     if (st.nextCheckAt && Date.parse(st.nextCheckAt) < nowMs) add(st.orderId, { text: `Agent's next check (${when(st.nextCheckAt, now)}) is overdue: ${st.summary}`, owner: st.ownerDesk ?? "ops-shift", deadline: st.nextCheckAt, deadlineReason: "Agent's next check" })
@@ -180,8 +180,8 @@ export async function buildQueue(): Promise<QueueResponse> {
     const at = deadline ?? (created ? new Date(Date.parse(created) + 30 * MINUTE).toISOString() : null)
     return { at, from: at && Date.parse(at) < nowMs && owner !== "ops-shift" ? owner : null }
   }
-  const ifNobody = (fallback: string, owner: Desk, at: string | null, from: Desk | null, hard: { at: string; why: string } | null) => [
-    from ? `Moved to the shift lead at ${when(at!, now)}: ${DESK_NAME[from] ?? from} didn't decide in time.` : null,
+  const ifNobody = (fallback: string, owner: Desk, at: string | null, from: Desk | null, hard: { at: string; why: string } | null, lateOnArrival = false) => [
+    from ? lateOnArrival ? `Went straight to the shift lead: its deadline had passed before it reached ${DESK_NAME[from] ?? from}.` : `Moved to the shift lead at ${when(at!, now)}: ${DESK_NAME[from] ?? from} didn't decide in time.` : null,
     fallback,
     hard ? `${hard.why} at ${when(hard.at, now)}.` : null,
     !from && owner !== "ops-shift" && at ? `If nobody decides by ${when(at, now)}, it moves to the shift lead.` : null,
@@ -197,17 +197,21 @@ export async function buildQueue(): Promise<QueueResponse> {
     // end's "was due" time isn't a decide-by time. No deadline at all means decide as soon as possible.
     // A decided card keeps the deadline it had when the person decided, so it stays where they left it.
     const promise = p.review ? [...chat].reverse().find((m) => m.orderId === p.orderId && m.direction === "OUT" && m.hearBackBy && m.createdAt <= p.review!.at)?.hearBackBy : promises.get(p.orderId)
-    const deadline = [p.decisionDeadline, p.review ? null : st?.decisionDeadline, hard?.at, promise].filter((x): x is string => !!x).sort()[0] ?? p.createdAt
+    // A driver waiting on the spot sets a decide-by time too: the end of the wait they said they could manage.
+    const waiting = p.review ? undefined : (reasons.get(p.orderId) ?? []).find((r) => r.decideBy)
+    const deadline = [p.decisionDeadline, p.review ? null : st?.decisionDeadline, hard?.at, promise, waiting?.deadline].filter((x): x is string => !!x).sort()[0] ?? p.createdAt
     const outcome = outcomeOf(p, now)
-    const esc = outcome ? { at: null, from: null } : escalation(p.ownerDesk, deadline === p.createdAt ? null : deadline, p.createdAt)
+    // A deadline that passed before the card existed moves it when it appears, not before.
+    const esc = outcome ? { at: null, from: null } : escalation(p.ownerDesk, deadline === p.createdAt ? null : deadline < p.createdAt ? p.createdAt : deadline, p.createdAt)
     items.push({
       id: `q_${p.id}`, kind: outcome ? "DECIDED" : "PROPOSAL", order_id: p.orderId, reference: ref.get(p.orderId) ?? p.orderId,
       decision: p.status === "HELD" ? `Held for a person: ${p.summary}` : p.summary, outcome,
       stopped_because: outcome ? null : stoppedBecause(p, runs.find((r) => r.id === p.runId)),
-      if_no_decision: outcome ? null : ifNobody(p.approval === "SHIFT_LEAD" ? "Nothing changes until the shift lead decides: the car stays where it is and the driver waits." : "Nothing is booked or sent until a person decides.", p.ownerDesk, esc.at, esc.from, hard),
+      if_no_decision: outcome ? null : ifNobody(p.approval === "SHIFT_LEAD" ? "Nothing changes until the shift lead decides: the car stays where it is and the driver waits." : "Nothing is booked or sent until a person decides.", p.ownerDesk, esc.at, esc.from, hard, deadline < p.createdAt),
       escalated_from: esc.from, owner_desk: esc.from ? "ops-shift" : p.ownerDesk, deadline,
       deadline_reason: deadline === p.createdAt && !p.decisionDeadline ? "No deadline given; decide as soon as possible"
         : deadline === promise ? `Driver was promised an answer by ${when(deadline, now)}`
+        : deadline === waiting?.deadline ? waiting.deadlineReason!
         : deadline === hard?.at ? hard.why : st?.deadlineReason ?? "Decision deadline",
       safety: safety.has(p.orderId) || p.approval === "SHIFT_LEAD", checked, proposal_id: p.id, held_message_id: held.get(p.orderId) ?? null,
     })

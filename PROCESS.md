@@ -26,7 +26,7 @@ bottom. Every entry points to the commit, file or output that backs it up.
    quote treated as a booking, blaming the driver, restart advice, retrying a
    timed-out booking). Those five became Shift Watch's checks, and the 14
    proposals became its test set.
-   Evidence: _link the proposal replay output here._
+   Evidence: `starter/evals/proposals.txt` (the replay's output), `npm run eval:proposals`.
 
 3. **We checked our teammate's analysis instead of trusting it.**
    A teammate's review bundle cited 45 record IDs and shipped a script. Claude
@@ -51,7 +51,7 @@ bottom. Every entry points to the commit, file or output that backs it up.
    repeated that in our shared docs. We corrected it, and fixed every doc that
    said so.
 
-7. **A teammate checked Claude's plan against the data and found four errors
+7. **A teammate checked Claude's plan against the data and found five errors
    before anyone built on them.**
    - Claude's plan promised the replay would catch all 5 corrected or failed
      proposals. Run by hand, it catches the 4 that people corrected before they
@@ -67,8 +67,8 @@ bottom. Every entry points to the commit, file or output that backs it up.
    - Claude's reply-time count included internal operator notes. The
      teammate's method, counting only replies addressed to the driver, gives a
      median of 12 minutes and a longest of 152 from 20 replies.
-   Claude re-ran each check against the data before we changed the plan; all
-   four held.
+   Claude re-ran each check against the data before we changed the plan; each
+   held.
    Evidence: `starter/fixtures/proposal-replay-expected.json` (expected result
    per proposal), the team plan's change list.
 
@@ -499,7 +499,9 @@ entries further down.
   08:43 carrier request first". The double booking in the scripted demo was
   real: the driver's second line woke the agent after approval, and the replay
   proposed the same crossing again. Our own held-out set of reworded
-  mistakes, written before the first run, gave the rules alone 0 of 10.
+  mistakes, written before the first run, gave the rules alone 0 of 10. (The
+  set was committed together with the check, in 5acfaf4, so git can't show
+  the order.)
 - Changed: one demo reset (our tables, mock bookings, clock); each recording
   plays once per reset; bookings keyed by order and sailing; the carrier's open
   change request checked, then withdrawn with the old booking. A fresh check
@@ -674,7 +676,7 @@ entries further down.
   calls something booked or boarded. If the reading fails, the word list
   still runs.
 - Checked: before the first run we wrote a held-out set of 15 messages
-  (`fixtures/driver-messages.json`): 8 that must be held, and 7 that must
+  (`fixtures/driver-messages.json`, committed with the check in c0bad1d): 8 that must be held, and 7 that must
   go out, two of them the agent's own words from live runs. Word list alone:
   7 of 15, holding none of the 8 bad ones. With Claude: 15 of 15, and both
   real messages still go out. One run each.
@@ -776,8 +778,9 @@ entries further down.
 
 ### 2026-10-25 · team + Claude · the agent remembers what people decided
 
-- Why: we reread the partner's point about memory: one thread per order, a
-  notes file so "a new agent ... can just read what happened there". Our
+- Why: in our conversations with Bahn, the partner described how their agents
+  remember: one thread per order, plus a notes file that a new run reads to
+  see what happened. Our
   notes already work that way, and each wake-up is a short fresh run, so
   context never compacts. But when the agent woke again, it saw its earlier
   proposals only by status ("EXECUTED"). It didn't see the person's note,
@@ -798,15 +801,100 @@ entries further down.
   change.
 - Evidence: `starter/lib/agents/tools/index.ts` (`get_order`).
 
+### 2026-10-25 · team + Claude · a safety reply that never waits on a model
+
+- Why: in live mode, a driver's safety message got an English reply that
+  Claude then translated. So the first thing a stopped driver read depended
+  on a model call working, and on its wording.
+- Decided (team): the first safety reply is fixed text that we wrote, in the
+  languages Bahn's drivers write in: English, Finnish, Swedish, Danish,
+  German and French. Other languages still fall back to a translation.
+  Safety now counts if either reader says so: Claude in live mode, or the
+  keywords run on Claude's English translation. The keywords can add safety,
+  never remove it.
+- Checked: `check:agent` asserts every line keeps the time and the place.
+  Live, a Finnish and a German warning-light message each got their fixed
+  line at once, and the second one kept the first one's 11:15 promise.
+- Evidence: `starter/lib/shift-watch/read.ts` (`SAFETY_LINE`), `starter/lib/shift-watch/intake.ts`.
+
+### 2026-10-25 · team + Claude · what Bahn told us, written down
+
+- Why: our design choices came from conversations with Bahn: one agent per
+  order with notes, driver chat handled only by people today, operators
+  talking to one agent, the scaling question, and GPS as a small nudge. A
+  judge couldn't see that link anywhere except scattered through this log.
+- Changed: a table in `starter/README.md`, "What Bahn told us, and what we
+  changed", one row per point.
+- Evidence: `starter/README.md`.
+
+### 2026-10-25 · team + Claude · a scored judging round, and what it found
+
+- Asked: score the entry 1–5 on the brief's three criteria the way the real
+  judges will, before they do. We set up three reviewers who hadn't seen our
+  own assessment: a Bahn shift lead, Bahn's engineering lead, and the judge
+  for "how you worked with AI". They read a frozen copy of `main` (d150e7d)
+  and the text of every screen, captured while we played the demo from a
+  reset. They couldn't see colours or layout, and said so.
+- Scores, weighted out of 5: 3.3 (shift lead), 3.7 (engineering), 3.7 (AI
+  process). The AI process got 4 from all three. Taste got 3 from all three.
+- What all three found first: the CD-420322 safety card said "the driver
+  says the red warning has gone off and asks to continue". The driver never
+  said that. The recording was made from an older demo trigger, and we
+  hadn't re-read it when the trigger changed. That broke our own rule that
+  every fact has a source.
+- Fixed:
+  - CD-420322's driver now writes in through Shift Watch, so the message is
+    on the timeline. We re-recorded the run live and read it before keeping
+    it. The agent now sees the shift lead already owns the recovery decision
+    and adds no proposal.
+  - A booking proposal with no price is sent back, so nobody approves a
+    booking without choosing who pays.
+  - In live mode, an agent message to a driver that Claude couldn't read is
+    held for a person, not sent on the word list alone.
+  - A step that throws when it runs is marked failed and stays on the card.
+    Before, it stayed "approved" and quietly dropped off the queue: Bahn's
+    own "approved, never run".
+  - After a restart, runs left as "running" are marked failed. Before, that
+    order's agent could never wake again.
+  - A driver who writes while their agent is still running now wakes it again
+    when it finishes. Live test: "the queue started moving, now 13:50"
+    arrived mid-run. The second run read it as 11:50 UTC, before the cutoff,
+    and kept the rebooking as a fallback.
+  - CD-420593 showed three deadlines on one card. The driver's own wait limit
+    (08:27) is now its decide-by time everywhere. Since that had already
+    passed, the card goes straight to the shift lead and says why.
+  - Self-wake starts at most 5 runs a minute, marked as a shortcut.
+  - Docs: the placeholder evidence link, an evidence list that named a load
+    test and screenshots we never made, "four errors" that listed five, a
+    root README that was still Bahn's, and a superseded review report.
+- Caught before committing: a live test ran on the server we used for
+  recording, and it overwrote the demo's CD-420603 recording with the test's
+  run. `git status` showed the change; we restored the recording and
+  replayed the demo again.
+- Passed to our frontend teammate: times from other days shown without a
+  date, repeated names and times on timeline lines, headline counts that
+  don't add up to the queue, "Passed Shift Watch's checks" in replay, where
+  only the rules run.
+- Not fixed, and why:
+  - The queue reads every order on each request. That's fine for 100
+    orders, but not for Bahn's 25,000 a year; that needs paging and an
+    index, which is past our freeze.
+  - The reviewer is chosen in the screen, not signed in.
+  - Very overdue paperwork still sorts above a driver in a ferry queue.
+    That's a judgement call we'll ask Bahn about.
+- Evidence: the commit that closes this entry, `starter/evals/`.
+
 ## Evidence in this repo
 
-Filled in as the build goes:
+- `starter/recordings/`: every recorded live agent run, also used by replay mode.
+- `starter/evals/proposals.txt`: Bahn's 14 recorded proposals through Shift Watch, next to what Bahn's
+  people decided (`npm run eval:proposals`).
+- `starter/evals/reworded-claude.txt`: the held-out mistakes and driver messages, rules alone and with
+  Claude, one run (`npm run eval:reworded -- --claude`).
+- `starter/fixtures/`: the expected results and held-out sets those evals read.
+- `SHIFT-WATCH-RECAP.md`: the system before and after, and each of Bahn's recorded mistakes replayed.
 
-- `recordings/`: every recorded agent run (also used by replay mode).
-- Proposal replay output: what Shift Watch would have done with Bahn's 14
-  recorded proposals, next to what Bahn's people decided.
-- Load test results: 5,000 generated orders.
-- Screenshots of the screens before and after each round of changes.
+Not in the repo: screenshots and a load test. Everything has been tested on Bahn's 100 orders only.
 
 ## Rules we keep
 

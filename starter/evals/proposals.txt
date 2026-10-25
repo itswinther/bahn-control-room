@@ -1,0 +1,17 @@
+# npm run eval:proposals, 60ae498 on 2026-10-25, no API key
+ok   ord-00194 travel.rebook                    Bahn: EDITED           Shift Watch: SEND_BACK DESK  fresh_data
+ok   ord-00020 alert.resolve                    Bahn: EDITED           Shift Watch: SEND_BACK DESK  quote_not_booking
+ok   ord-00299 travel.book_ferry                Bahn: APPROVED         Shift Watch: PASS      DESK  
+ok   ord-00089 travel.book_driver_positioning   Bahn: APPROVED         Shift Watch: PASS      DESK  
+ok   ord-00449 assignment.prepare_backup        Bahn: APPROVED         Shift Watch: PASS      DESK  
+ok   ord-00603 travel.refresh_crossing          Bahn: APPROVED         Shift Watch: PASS      NONE  
+ok   ord-00593 pickup.verify_identity           Bahn: PENDING_REVIEW   Shift Watch: SEND_BACK DESK  contact_rules, one_step_per_approval
+ok   ord-00299 travel.verify_booking_outcome    Bahn: PENDING_REVIEW   Shift Watch: SEND_BACK DESK  contact_rules, one_step_per_approval
+ok   ord-00055 condition.record_attribution     Bahn: REJECTED         Shift Watch: HOLD      SHIFT_LEAD no_blame
+ok   ord-00322 driver.request_safe_stop_details Bahn: EDITED           Shift Watch: SEND_BACK DESK  no_driving_advice
+ok   ord-00399 assignment.review_positioning    Bahn: PENDING_REVIEW   Shift Watch: SEND_BACK DESK  contact_rules, one_step_per_approval
+ok   ord-00194 billing.check_reference          Bahn: APPROVED         Shift Watch: PASS      NONE  
+ok   ord-00055 condition.compare_evidence       Bahn: PENDING_REVIEW   Shift Watch: PASS      NONE    (uncertain)
+ok   ord-00154 travel.refresh_quote             Bahn: APPROVED         Shift Watch: PASS      NONE  
+
+14 of 14 match the expected outcome.

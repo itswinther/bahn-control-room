@@ -16,6 +16,8 @@ export type CheckInput = {
   failures?: { at: string; command: string }[]
   /** True if someone checked the outcome of a failed action after it failed. */
   outcomeCheckedSince?: (iso: string) => boolean
+  /** Our agent's price for the step: null means it named none. Left out for Bahn's recorded proposals, which have no cost field. */
+  cost?: { amount_minor: number } | null
 }
 
 export type CheckResult = Check & { approval: Approval }
@@ -71,6 +73,9 @@ export function checkProposal(p: CheckInput, read?: TextReading): CheckResult {
         : `A booking needs capacity checked in the last ${FRESH_MINUTES} minutes; none is cited.`)
     }
   }
+
+  // A booking with no price would reach Approve without anyone choosing who pays.
+  if (booksOrBuys(p.command) && p.cost === null) add("price_named", "SEND_BACK", "A booking needs its price, so the person deciding can choose who pays.")
 
   // CD-420020: "Keep boarding unconfirmed." Booked or boarded needs a reservation or gate record.
   const claimsBoarded = Object.entries(p.payload).some(([k, v]) => /boarding_confirmed|mark_boarded/.test(k) && v === true) || /\b(has boarded|boarding (is )?confirmed)\b/i.test(p.summary) || !!read?.claims_boarded

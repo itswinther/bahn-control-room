@@ -1,5 +1,9 @@
 # Shift Watch Backend Report: Backend 1 and Backend 2
 
+> **Superseded.** This is a snapshot from 24 Oct (at commit d5c5001), kept as a record of the review. Some of it has changed
+> since: the operator chat is built, and an old ferry booking is now kept as a fallback until its check-in closes rather
+> than released at once. For the current state, see `SHIFT-WATCH-RECAP.md` and `PROCESS.md`.
+
 What Mike and Claude built for **Backend 1** (the order agent) and **Backend 2** (Shift Watch), the decisions made along the way, what testing turned up, and what is still open. Written for a review before the hand-in on Sun 25 Oct 15:00.
 
 - **Date:** 24 Oct 2026

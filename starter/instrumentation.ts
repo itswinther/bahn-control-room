@@ -5,6 +5,7 @@ export async function register() {
   ;(await import("./lib/clock")).now()
   const timers = globalThis as { __wakeTimer?: ReturnType<typeof setInterval> }
   if (timers.__wakeTimer) return // a dev-server reload must not start a second one
-  const { wakeDue } = await import("./lib/agents/order-agent")
+  const { failOrphanedRuns, wakeDue } = await import("./lib/agents/order-agent")
+  await failOrphanedRuns().catch((e) => console.error("failOrphanedRuns:", e))
   timers.__wakeTimer = setInterval(() => void wakeDue().catch((e) => console.error("wakeDue:", e)), 60_000)
 }

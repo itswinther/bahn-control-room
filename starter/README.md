@@ -39,14 +39,33 @@ Then play the demo case, CD-420603, from the screen. Its driver is stuck in the 
 
 The screens live in `app/(control-room)/`, `components/` and `lib/ui/`. They read Shift Watch's queue and case builders directly (`lib/ui/data.ts`, `lib/ui/adapt.ts`) and write through the API routes (`lib/ui/api.ts`). Bahn's starter screens keep their own layout in `app/(starter)/`.
 
+## What Bahn told us, and what we changed
+
+Based on our conversations with Bahn during the hackathon.
+
+| Bahn told us | What we changed |
+|---|---|
+| Today there is one agent per order. It emails the site, sleeps, and wakes itself; a markdown notes file lets a new run read what happened. | One order agent per order. It reads its notes first and writes them last, gets a short fresh run per wake-up so its context never compacts, sees what people decided on its earlier proposals, and wakes itself when its own next check comes due (live mode). |
+| Driver chat is handled only by people, and support is in a separate tool. | Shift Watch answers every driver message at once with a time they'll hear back by, in their language and local time. Routine questions get answered from the records; anything else wakes the order's agent; safety goes straight to the shift lead. |
+| Operations should talk to one agent, not pick between threads. | One queue and one Shift Watch panel. People never talk to the order agents directly. |
+| One overseer for thousands of orders won't scale; how would you split it? | The queue is built by rules on every request, with no model call. The model work is per order (the agent) or per message (Shift Watch reading one proposal or driver message), so it splits by order. |
+| Tying the areas together is as valid as going deep on one. | Driver support, on-the-road problems and the travel desk's decisions meet in one queue, ordered by safety, then deadline. |
+| Problems spanning several orders exist but aren't common. | No cross-order agent. When a driver with several jobs writes in, Shift Watch asks "which car?" first. |
+| GPS route-deviation triggers are small nudges, not a main focus. | Tracking is shown as evidence with its time, never as a live position or a reason on its own. |
+| Slack is out of scope; cost isn't graded; the starter is optional. | No Slack. We kept the starter's data layer and moved its lane board to `/orders`. Sonnet against Opus was chosen on speed and accuracy, not price. |
+
 ## Check it
 
 ```sh
 npm run typecheck
 npm run check:agent        # the rules enforced in code
-npm run eval:proposals     # Bahn's 14 recorded proposals through Shift Watch: 14 of 14
-npm run eval:reworded      # held-out reworded mistakes: rules alone (add -- --claude with a key)
+npm run eval:proposals     # Bahn's 14 recorded proposals: 14 of 14 (the checks were written from these, so see the next line)
+npm run eval:reworded      # held-out mistakes and driver messages: rules alone (add -- --claude with a key)
 ```
+
+The last committed outputs are in `evals/`. Rules alone catch 0 of 10 reworded mistakes and hold none of 8 bad driver
+messages; with Claude reading (live mode), 15 of 15 on each set, one run each. Replay mode, the default demo, uses the rules
+only.
 
 ## Live mode
 

@@ -152,7 +152,11 @@ export async function settle(proposalId: string): Promise<void> {
     .where(and(eq(proposals.id, proposalId), unsettled(now))).returning()
   if (!p) return
   if (p.status === "APPROVED") {
-    const execution = await execute(p, p.review!.final_payload)
+    // A step that throws is a failed step, shown on the card until a person deals with it, never an approval that silently didn't run.
+    const execution = await execute(p, p.review!.final_payload).catch((e): Execution => ({
+      status: "FAILED", at: nowIso(), result_summary: "It failed when it ran", references: [],
+      next_steps: ["Nothing new was booked or sent", "A person checks the order and decides again"], error: e instanceof Error ? e.message : String(e),
+    }))
     await db.update(proposals).set({ status: execution.status === "SUCCEEDED" ? "EXECUTED" : "FAILED", execution }).where(eq(proposals.id, p.id))
   }
   const [after] = await db.select().from(proposals).where(eq(proposals.id, p.id))

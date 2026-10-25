@@ -51,7 +51,7 @@ async function reviewProposals(orderId: string): Promise<ReviewOutcome["sendBack
     const result = checkProposal({
       command: p.command, summary: p.summary, payload: p.payload, created_at: p.createdAt,
       evidence: p.evidenceRefs.map((e) => ({ table: e.table, id: e.id, observed_at: e.observed_at })),
-      failures, outcomeCheckedSince: (iso) => checkedAt.some((at) => at > iso),
+      failures, outcomeCheckedSince: (iso) => checkedAt.some((at) => at > iso), cost: p.cost,
     }, read)
     let outcome = result.outcome
     const reasons = [...result.reasons]
@@ -72,9 +72,10 @@ async function reviewDriverMessages(orderId: string) {
   let released = 0
   let held = 0
   for (const m of pending) {
-    // Live: Claude reads the message too, as for proposals. If that call fails, the word list still runs.
+    // Live: Claude reads the message too, as for proposals.
     const read = liveReading() ? await readProposalText({ command: "driver.message", summary: m.text, payload: {} }).catch(() => undefined) : undefined
-    let ok = driverMessageOk(m.text, read)
+    // Fail closed: in live mode a message Claude couldn't read waits for a person rather than going out on the word list.
+    let ok = liveReading() && !read ? false : driverMessageOk(m.text, read)
     if (ok && INSTRUCTION.test(m.text)) {
       // A repeated instruction must cite an operator's own message to this driver.
       const [cited] = m.repeatsMessageId

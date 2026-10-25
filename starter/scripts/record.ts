@@ -7,10 +7,10 @@
 import type { RunRequest, RunResponseDetail } from "../lib/contract"
 
 // The order agent's demo wake-ups. CD-420603 comes in through Shift Watch's intake, like the demo.
-const CASES: (RunRequest | { driver_id: string; text: string })[] = [
-  { driver_id: "drv-121", text: "Still in the queue. Navigation now says 14:20 at check-in." },
+const CASES: (RunRequest | { order_id: string; driver_id: string; text: string })[] = [
+  { order_id: "ord-00603", driver_id: "drv-121", text: "Still in the queue. Navigation now says 14:20 at check-in." },
   { order_id: "ord-00299", reason: "LOOSE_END", reason_detail: "The 07:10 ferry booking attempt for the driver timed out with no reference, and the crossing shows sold out. Nobody has checked what happened to that attempt." },
-  { order_id: "ord-00322", reason: "DRIVER_MESSAGE", reason_detail: "Driver message relayed by Shift Watch: 'The warning light is still on. I'm parked and waiting.'" },
+  { order_id: "ord-00322", driver_id: "drv-319", text: "The warning light is still on. I'm parked and waiting." },
   { order_id: "ord-00593", reason: "LOOSE_END", reason_detail: "The driver at the pickup site said at 07:57 they could wait 30 more minutes; that ran out at 08:27 and the car still isn't released." },
 ]
 
@@ -33,8 +33,8 @@ async function waitFor(runId: string): Promise<RunResponseDetail> {
 async function main() {
   await post("/api/clock", {}) // recordings are only valid from the snapshot state
   const only = process.argv.slice(2).filter((a) => /^ord-\d{5}$/.test(a))
-  for (const c of CASES.filter((c) => !only.length || only.includes("driver_id" in c ? "ord-00603" : c.order_id))) {
-    const res = "driver_id" in c ? await post("/api/driver/messages", { ...c, simulated: true }) : await post("/api/agents/run", c)
+  for (const c of CASES.filter((c) => !only.length || only.includes(c.order_id))) {
+    const res = "driver_id" in c ? await post("/api/driver/messages", { driver_id: c.driver_id, text: c.text, simulated: true }) : await post("/api/agents/run", c)
     const runId = res.body.run_id as string | undefined
     if (!runId) throw new Error(`No run started (${res.status}): ${JSON.stringify(res.body)}`)
     const { run, steps } = await waitFor(runId)
