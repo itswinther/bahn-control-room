@@ -8,6 +8,7 @@ import { db } from "@/lib/db"
 import { alerts, conversations, messages, orders, relatedRecords } from "@/lib/schema"
 import { agentRuns, agentSteps, driverMessages, orderStatus, proposals } from "@/lib/schema-ours"
 import { languageNeed, type LanguageNeed, type Team } from "./language"
+import { CONFIRM_YES, REPLY_WITHIN_MS } from "./confirm"
 import { readByRules } from "./read"
 
 type Row = Record<string, unknown>
@@ -51,7 +52,7 @@ export async function buildQueue(team?: Team): Promise<QueueResponse> {
     db.select({ id: orders.id, reference: orders.reference, status: orders.status }).from(orders),
     db.select().from(alerts).where(inArray(alerts.status, ["OPEN", "ACKNOWLEDGED"])),
     db.select().from(conversations).where(eq(conversations.status, "OPEN")),
-    db.select().from(relatedRecords).where(inArray(relatedRecords.collection, ["work_items", "incidents", "agent_proposals", "travel_reservations", "time_windows"])),
+    db.select().from(relatedRecords).where(inArray(relatedRecords.collection, ["work_items", "incidents", "agent_proposals", "travel_reservations", "time_windows", "work_assignments"])),
     db.select().from(proposals).where(inArray(proposals.status, ["PENDING_REVIEW", "HELD", "APPROVED", "REJECTED", "EXECUTED", "FAILED"])),
     db.select().from(orderStatus),
   ])
@@ -119,6 +120,24 @@ export async function buildQueue(team?: Team): Promise<QueueResponse> {
     if (thread.some((m) => m.authoredAt > last.authoredAt && s((m.details as Row).recipient_id) === s((last.details as Row).author_id))) continue
     const until = new Date(Date.parse(said) + limit * MINUTE).toISOString()
     add(c.orderId, { text: `Driver's wait ${Date.parse(until) < nowMs ? "ran out" : "ends"} at ${when(until, now)}: "${last.body.slice(0, 90)}"`, owner: (s((c.details as Row).owner) as Desk) ?? "ops-support", deadline: until, deadlineReason: `Driver said at ${when(said, now)} they could wait ${limit} more minutes`, decideBy: true })
+  }
+  // A booked driver who hasn't answered the day-before check (confirm.ts) in time: re-offer while there's a day left,
+  // instead of hearing "can't do it" when the slot has come.
+  for (const ask of chat.filter((m) => m.direction === "OUT" && m.orderId && m.quickReplies.some((q) => q.value === CONFIRM_YES))) {
+    const replyBy = new Date(Date.parse(ask.createdAt) + REPLY_WITHIN_MS).toISOString()
+    if (Date.parse(replyBy) > nowMs || chat.some((m) => m.direction === "IN" && m.driverId === ask.driverId && m.createdAt > ask.createdAt)) continue
+    add(ask.orderId!, { text: `No reply from the driver: asked at ${when(ask.createdAt, now)} to confirm the pickup. Re-offer the job while there's time.`, owner: "ops-dispatch", deadline: replyBy, deadlineReason: `Driver was asked to confirm by ${when(replyBy, now)}` })
+  }
+  // The pickup slot has opened, the booked driver hasn't started and isn't talking to us: a no-show in the making.
+  const assignments = byOrder("work_assignments")
+  for (const [orderId, list] of windows) {
+    const slot = list.find((w) => w.purpose === "SELECTED_PICKUP_SLOT" && w.is_selected && s(w.start_at) && Date.parse(s(w.start_at)!) <= nowMs)
+    if (!slot || !(assignments.get(orderId) ?? []).some((a) => a.status === "ASSIGNED")) continue
+    const from = Date.parse(s(slot.start_at)!) - 120 * MINUTE
+    const talking = chat.some((m) => m.orderId === orderId && m.direction === "IN" && Date.parse(m.createdAt) >= from)
+      || threadMessages.some((m) => m.orderId === orderId && m.authorType === "driver" && m.authoredAt.getTime() >= from)
+    if (talking) continue
+    add(orderId, { text: `Driver hasn't started: the pickup slot opened at ${when(s(slot.start_at)!, now)}, with no start in the app and no message from the driver.`, owner: "ops-dispatch", deadline: s(slot.end_at) ?? s(slot.start_at), deadlineReason: "Pickup slot closes" })
   }
   for (const st of statusRows) {
     if (st.nextCheckAt && Date.parse(st.nextCheckAt) < nowMs) add(st.orderId, { text: `Agent's next check (${when(st.nextCheckAt, now)}) is overdue: ${st.summary}`, owner: st.ownerDesk ?? "ops-shift", deadline: st.nextCheckAt, deadlineReason: "Agent's next check" })

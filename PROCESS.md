@@ -1159,6 +1159,34 @@ entries further down.
 - Evidence: `starter/lib/shift-watch/queue.ts`, `starter/lib/ui/queue.ts`,
   `starter/components/workspace/workspace.tsx`, `starter/components/demo-menu.tsx`.
 
+### 2026-10-25 · team + Claude · catch the no-show before the driver says it
+
+- Why (team): a real case we know of. A driver accepted a job, went quiet,
+  and wrote "can't do it" days after he should have been on his way. A
+  better reading of that message is too late: nothing was checking on him.
+- Checked against the data: CD-420702's second driver missed a 09:00–11:00
+  yard slot. The records showed the slot open with the job not started from
+  06:00 UTC. The first anyone said was the driver's message at 07:47 and the
+  yard's at 08:11. At demo time, six orders have a booked driver for
+  tomorrow who hasn't confirmed. Bahn's own CD-420449 already has a work
+  item for exactly that.
+- Built, with no model so it runs in replay too:
+  - The day before a pickup, Shift Watch asks the booked driver to confirm,
+    in local time, with "Yes, I'll be there" and "No, I can't do this job".
+  - No answer within 3 hours puts a card on the dispatch desk: re-offer the
+    job while there's a day left.
+  - A slot that has opened with the job not started, and the driver not
+    talking to us, puts a card on the dispatch desk at once.
+  - "Yes" closes the question. "No" goes through the normal path to the
+    agent and the paging.
+- Checked: at 09:00, six asks went out (CD-420154, 399, 442, 449, 719, 992).
+  The "Yes" got "you're confirmed" with no agent run. An ask backdated four
+  hours produced the no-reply card on CD-420449. The drop-out message on
+  CD-420442 woke the agent. Moving CD-420992's slot to 08:30 in the local
+  database produced "Driver hasn't started", and we moved it back.
+  CD-420593, whose driver is at the site and talking to us, stays out.
+- Evidence: `starter/lib/shift-watch/confirm.ts`, `starter/lib/shift-watch/queue.ts`.
+
 ## Evidence in this repo
 
 - `starter/recordings/`: every recorded live agent run, also used by replay mode.

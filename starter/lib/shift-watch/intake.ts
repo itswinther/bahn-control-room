@@ -13,6 +13,7 @@ import { readByClaude, readByRules, SAFETY_LINE, type Reading } from "./read"
 import { fmtClock } from "@/lib/present/time"
 import { languageName } from "./language"
 import { toDriverLanguage } from "./translate"
+import { CONFIRM_YES, confirmYes } from "./confirm"
 import { driverZone, localTime, utcOffset } from "./zone"
 
 const HEAR_BACK_MINUTES = 15
@@ -63,6 +64,9 @@ async function store(row: Omit<typeof driverMessages.$inferInsert, "id" | "creat
 }
 
 export async function intake(driverId: string, text: string, opts: { quickReplyValue?: string; simulated?: boolean } = {}): Promise<DriverMessageResponse> {
+  // "Yes" to the day-before check (confirm.ts) closes it; "No" goes on as an ordinary message to the agent.
+  const confirmed = opts.quickReplyValue === CONFIRM_YES ? await confirmYes(driverId, text) : null
+  if (confirmed) return confirmed
   const jobs = await activeJobs(driverId)
   const picked = jobs.find((j) => j.id === opts.quickReplyValue)
   let job = picked ?? (jobs.length === 1 ? jobs[0] : null)

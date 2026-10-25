@@ -10,5 +10,10 @@ export async function register() {
   // Anything a run left unchecked before the restart is checked now, so it can't sit out of sight.
   const { pendingOrders, reviewOrder } = await import("./lib/shift-watch/review")
   for (const id of await pendingOrders().catch(() => [])) await reviewOrder(id).catch((e) => console.error("reviewOrder:", e))
-  timers.__wakeTimer = setInterval(() => void wakeDue().catch((e) => console.error("wakeDue:", e)), 60_000)
+  // Once a minute: wake agents whose next check is due (live), and ask tomorrow's drivers to confirm (both modes).
+  const { askConfirmations } = await import("./lib/shift-watch/confirm")
+  timers.__wakeTimer = setInterval(() => {
+    void wakeDue().catch((e) => console.error("wakeDue:", e))
+    void askConfirmations().catch((e) => console.error("askConfirmations:", e))
+  }, 60_000)
 }
