@@ -3,6 +3,7 @@ import { Archivo, Urbanist } from "next/font/google";
 import Script from "next/script";
 import { Providers } from "@/components/providers";
 import { AppShell } from "@/components/app-shell";
+import { nowIso } from "@/lib/clock";
 import "./globals.css";
 
 // Free stand-ins for Bahn's Owners Wide and Duplet Open; swap for the starter's fonts later.
@@ -41,7 +42,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Script id="bahn-theme" strategy="beforeInteractive">
           {themeScript}
         </Script>
-        <Providers>
+        <Providers start={Date.parse(nowIso())}>
           {/* Live: agents and Shift Watch's reading run on Claude (needs a key); otherwise recorded runs replay. */}
           <AppShell live={process.env.AGENT_MODE === "live" && !!process.env.ANTHROPIC_API_KEY}>{children}</AppShell>
         </Providers>

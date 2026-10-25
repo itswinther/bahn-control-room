@@ -14,9 +14,10 @@ const ClockContext = createContext<{ now: number; ready: boolean; reset: () => P
 });
 
 // The server owns the demo clock (GET /api/clock); the browser keeps the offset and ticks locally.
-function ClockProvider({ children }: { children: React.ReactNode }) {
+// `start` is the server's demo time at render, so the first paint is right even after the demo skips ahead.
+function ClockProvider({ start, children }: { start: number; children: React.ReactNode }) {
   const [offset, setOffset] = useState<number | null>(null);
-  const [now, setNow] = useState(SNAPSHOT);
+  const [now, setNow] = useState(start);
 
   useEffect(() => {
     let alive = true;
@@ -181,9 +182,9 @@ function PanelProvider({ children }: { children: React.ReactNode }) {
 
 export const usePanel = () => useContext(PanelContext);
 
-export function Providers({ children }: { children: React.ReactNode }) {
+export function Providers({ start, children }: { start: number; children: React.ReactNode }) {
   return (
-    <ClockProvider>
+    <ClockProvider start={start}>
       <DeskProvider>
         <FocusProvider>
           <PanelProvider>{children}</PanelProvider>

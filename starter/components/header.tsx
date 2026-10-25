@@ -51,7 +51,7 @@ export function Wordmark() {
 }
 
 export function Header({ live }: { live: boolean }) {
-  const { now, ready } = useClock();
+  const { now } = useClock();
   const { open, setOpen } = usePanel();
   const { theme, cycle } = useTheme();
   const ThemeIcon = theme === "light" ? Sun : theme === "dark" ? Moon : SunMoon;
@@ -83,7 +83,7 @@ export function Header({ live }: { live: boolean }) {
         <span className={styles.clock} title="Demo clock: starts at the data snapshot and runs in real time">
           <span className={styles.liveDot} aria-hidden="true" />
           <span className="visually-hidden">Demo time </span>
-          <span suppressHydrationWarning>{ready ? dayClock(now) : "Wed 21 Oct, 09:00 UTC"}</span>
+          <span suppressHydrationWarning>{dayClock(now)}</span>
         </span>
         <DeskPicker />
         <DemoMenu live={live} />

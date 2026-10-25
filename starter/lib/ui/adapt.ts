@@ -40,6 +40,7 @@ const TOPICS: [RegExp, string][] = [
   [/warning|recovery|breakdown/i, "warning"],
   [/crossing|ferry|sailing|vehicle-space/i, "ferry"],
   [/wait (ran out|ends)|driver (still )?waiting|promised an answer/i, "driver waiting"],
+  [/gone quiet|hasn't started|won't deliver/i, "no-show"],
   [/required rest|\brest\b/i, "driver rest"],
   [/fitness/i, "driver fitness"],
   [/active .* duty/i, "driver schedule"],
@@ -76,7 +77,7 @@ function eventsFor(raw: RawItem, kind: QueueKind): TimelineEvent[] {
   if (kind === "WAITING") return [{ type: "CHECK", start: raw.deadline, end: null, label }];
   const type: TimelineEvent["type"] =
     kind === "SAFETY" ? "SAFETY"
-    : kind === "DRIVER_WAITING" || /^Driver (was promised|said)/.test(label) ? "DRIVER"
+    : kind === "DRIVER_WAITING" || /^Driver (was promised|said|was asked)/.test(label) || /^Driver (has gone quiet|hasn't started)/.test(raw.decision) ? "DRIVER"
     : /check-in|Pickup slot/i.test(label) ? "TRAVEL"
     : "DECISION";
   return [{ type, start: raw.deadline, end: null, label }];
