@@ -16,11 +16,6 @@ type Msg = { id: number; role: "user"; text: string } | Watch | { id: number; ro
 
 let nextId = 1;
 
-const suggestions = (orderId: string | null) =>
-  orderId
-    ? ["What's going on here?", "What did the agent already check?", "What happens if I approve?"]
-    : ["What needs me now?", "Anything on safety?", "Which desk is busiest?"];
-
 const DESK_NAMES: Record<string, string> = DESK_LABEL;
 
 /** Without an API key the chat can't run; answer from the records instead, by what was asked, and say so. */
@@ -330,15 +325,6 @@ export function ShiftWatchPanel() {
       </div>
 
       <div className={styles.bottom}>
-        {!streaming && (
-          <div className={styles.suggestions}>
-            {suggestions(orderId).map((s) => (
-              <button key={s} type="button" className={styles.suggestion} onClick={() => send(s)}>
-                {s}
-              </button>
-            ))}
-          </div>
-        )}
         <form
           className={styles.form}
           onSubmit={(e) => {

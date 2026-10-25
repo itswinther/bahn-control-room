@@ -303,30 +303,6 @@
   border-top: 1px solid var(--p-line);
 }
 
-.suggestions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.suggestion {
-  padding: 8px 13px;
-  border: 1px solid var(--p-line);
-  border-radius: var(--radius-chip);
-  background: transparent;
-  color: var(--p-body);
-  font-size: 13px;
-  font-weight: 600;
-  text-align: left;
-  transition: background-color 0.15s var(--ease), border-color 0.15s var(--ease), color 0.15s var(--ease);
-}
-
-.suggestion:hover {
-  background: var(--p-raised);
-  border-color: var(--p-muted);
-  color: var(--p-fg);
-}
-
 .form {
   display: flex;
   align-items: center;
