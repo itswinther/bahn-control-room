@@ -67,6 +67,17 @@ The last committed outputs are in `evals/`. Rules alone catch 0 of 10 reworded m
 messages; with Claude reading (live mode), 15 of 15 on each set, one run each. Replay mode, the default demo, uses the rules
 only.
 
+## Languages
+
+Bahn's people work in Finland, Denmark and Germany; drivers, sellers and dealers write in their own languages.
+
+- Shift Watch's reading (live mode) lists what a driver's message leaves out ("no hour given") and never fills it in. The agent gets the driver's own words beside the English, and asks rather than assumes.
+- A card where someone wrote in another language says who, what's unclear, and which team reads it (`QueueItem.language`). `GET /api/queue?team=FI|DK|DE` puts that team's cards first, after safety.
+- Machine-translated messages to a driver go out in their language with the English underneath. The first reply to a safety message is fixed text in six languages.
+- Each case lists the driver, pickup, delivery and customer with the language each most likely reads and where that comes from, and flags cross-border orders (`CaseResponse.languages`).
+
+Added a column to `driver_messages` (`unclear`): on an existing database, run `npm run db:push` again.
+
 ## Live mode
 
 Set these in `.env`:

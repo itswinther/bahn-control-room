@@ -1,4 +1,4 @@
-# npm run eval:proposals, 60ae498 on 2026-10-25, no API key
+# npm run eval:proposals, on 2026-10-25, no API key
 ok   ord-00194 travel.rebook                    Bahn: EDITED           Shift Watch: SEND_BACK DESK  fresh_data
 ok   ord-00020 alert.resolve                    Bahn: EDITED           Shift Watch: SEND_BACK DESK  quote_not_booking
 ok   ord-00299 travel.book_ferry                Bahn: APPROVED         Shift Watch: PASS      DESK  

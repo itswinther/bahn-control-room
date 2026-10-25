@@ -884,6 +884,61 @@ entries further down.
     That's a judgement call we'll ask Bahn about.
 - Evidence: the commit that closes this entry, `starter/evals/`.
 
+### 2026-10-25 · team + Claude · languages: read the gaps, route to the team that reads it
+
+- Asked (team): we read Finnish, and machine translation of Finnish is often
+  wrong. Can messages go to the country team that reads the language, and
+  what about cross-border orders, where the driver, the seller and the
+  dealer each read something different?
+- Checked our assumption first, and it was wrong in an instructive way:
+  - 12 time phrases that translate badly word for word ("puoli kolme",
+    "halb drei", "halv tre" all mean 14:30): Claude read 12 of 12 right. We
+    threw away the keyword guard for "half N" we were about to build.
+  - 8 messages in spoken Finnish, German and Danish: 7 fully right. The miss
+    was "Ehdin kyl, oon checkinis varttii vaille": the English said "at
+    quarter to", correctly, but the reading still filled in **14:45**, an
+    hour the driver never gave. The risk isn't the words. It's the machine
+    filling gaps.
+- Decided (team), from that:
+  - The reading lists what a message leaves out ("no hour given") and never
+    fills it in. The agent gets the driver's own words beside the English,
+    and is told to ask rather than assume.
+  - Bahn's people work in Finland, Denmark and Germany. A card where someone
+    wrote in another language names the team that reads it (Swedish goes to
+    Finland). That team's view (`GET /api/queue?team=FI`) puts those cards
+    first, after safety. French has no team, and the card says so.
+  - Anything machine-translated to a driver goes out in their language with
+    the English underneath, so a bad translation can be caught. The fixed
+    safety lines are written by people and go out on their own.
+  - Each case lists the driver, pickup, delivery and customer with the
+    language each most likely reads and where that comes from, and flags a
+    cross-border order. The agent sees the same in `get_order`.
+- Checked:
+  - Live: "Ehdin kyl, oon checkinis varttii vaille" came back as "unclear:
+    no hour given". The driver got the Finnish reply with the English under
+    it, and the agent asked which time they meant instead of assuming. For
+    the Finland team, the card was first after safety.
+  - Bug found in that test: the agent wrote its question in two languages
+    itself, and Shift Watch translated it again. The driver got Finnish,
+    Finnish and English. Now the agent writes driver messages in English
+    only, and an already-bilingual message isn't translated twice.
+  - Held-out set (`fixtures/driver-languages.json`): 12 colloquial messages
+    in six languages, committed before the first run (05fa07a). The first
+    run passed 12 of 12 but flagged gaps on almost every message, which
+    would be noise on the cards. The set couldn't see that, so we added
+    three clear messages before the second run (310fb20). Then we limited
+    the reading to at most two gaps that would change what a person does.
+    Result: 15 of 15, and the clear messages flag nothing.
+  - The driver-message classification set still scores 14 of 14 with the
+    new reading. The replay demo still plays from a reset.
+- Not done: the screens don't show the language yet. The fields are in the
+  API for our frontend teammate (`QueueItem.language`,
+  `CaseResponse.languages`, `DriverMessage.unclear`). At demo start no card
+  needs another language: the dataset's non-English threads are either
+  answered or not in the queue.
+- Evidence: `starter/lib/shift-watch/language.ts`, `read.ts` (`readByClaude`),
+  `translate.ts`, `queue.ts`, `starter/evals/reworded-claude.txt`.
+
 ## Evidence in this repo
 
 - `starter/recordings/`: every recorded live agent run, also used by replay mode.

@@ -1,7 +1,7 @@
 // Shift Watch's pass over one order after its agent runs: check pending proposals and release or
 // hold the agent's messages to the driver. It decides; the agent loop does the waking, so the two
 // modules don't import each other.
-import { and, eq, gt, inArray, or } from "drizzle-orm"
+import { and, desc, eq, gt, inArray, or } from "drizzle-orm"
 import { INSTRUCTION } from "@/lib/agents/rules"
 import { nowIso, UNDO_MS } from "@/lib/clock"
 import { db } from "@/lib/db"
@@ -11,6 +11,7 @@ import type { DriverMessage, HeldMessageReview } from "@/lib/contract"
 import { toDriverMessage } from "./case"
 import { checkProposal, driverMessageOk } from "./checks"
 import { liveReading, readProposalText } from "./judge"
+import { toDriverLanguage } from "./translate"
 
 /** After this many send-backs on one order, the next failing proposal is held for a person instead. */
 const MAX_SEND_BACKS = 2
@@ -83,7 +84,13 @@ async function reviewDriverMessages(orderId: string) {
         : []
       ok = !!cited && cited.authorType === "operator" && (cited.details as { recipient_id?: string }).recipient_id === m.driverId
     }
-    await db.update(driverMessages).set({ status: ok ? "SENT" : "HELD" }).where(eq(driverMessages.id, m.id))
+    // Checked in English, then sent in the language the driver writes in, with the English under it.
+    const [last] = ok ? await db.select({ language: driverMessages.language }).from(driverMessages)
+      .where(and(eq(driverMessages.driverId, m.driverId), eq(driverMessages.direction, "IN"))).orderBy(desc(driverMessages.createdAt)).limit(1) : []
+    // Already in two languages (written that way) goes out as written, so a driver never gets it translated twice.
+    const text = last && last.language !== "en" && !m.text.includes("(English) ") ? await toDriverLanguage(m.text, last.language).catch(() => m.text) : m.text
+    await db.update(driverMessages).set(ok && text !== m.text ? { status: "SENT", text, language: last!.language, translation: m.text } : { status: ok ? "SENT" : "HELD" })
+      .where(eq(driverMessages.id, m.id))
     if (ok) released++
     else held++
   }

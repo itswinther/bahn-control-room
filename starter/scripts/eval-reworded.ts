@@ -7,6 +7,7 @@ import { readFileSync } from "node:fs"
 import path from "node:path"
 import { checkProposal, driverMessageOk, type CheckInput } from "../lib/shift-watch/checks"
 import { canRead, readProposalText } from "../lib/shift-watch/judge"
+import { readByClaude } from "../lib/shift-watch/read"
 
 type Case = { id: string; expect: string; command: string; summary: string; payload: Record<string, unknown>; evidence?: { table: string; id: string; minutes_old: number }[] }
 const { cases } = JSON.parse(readFileSync(path.join(process.cwd(), "fixtures", "reworded-mistakes.json"), "utf8")) as { cases: Case[] }
@@ -46,6 +47,24 @@ async function main() {
     console.log(`${m.id.padEnd(10)} want ${m.expect}  rules: ${show(rules)}${both ? `  rules+Claude: ${show(both)}` : ""}  "${m.text.slice(0, 60)}"`)
   }
   console.log(`\nRules alone: ${said.rules} of ${msgs.length}.${withClaude ? ` Rules plus Claude: ${said.claude} of ${msgs.length}.` : ""}`)
+
+  // Drivers writing casually or in their own language (fixtures/driver-languages.json): live reading only.
+  if (!withClaude) return
+  type Lang = { id: string; text: string; intent: string; unclear: boolean | null; forbid: string | null }
+  const { cases: langs } = JSON.parse(readFileSync(path.join(process.cwd(), "fixtures", "driver-languages.json"), "utf8")) as { cases: Lang[] }
+  let read = 0
+  console.log("\nDrivers in their own words:")
+  for (const c of langs) {
+    const r = await readByClaude(c.text)
+    const misses = [
+      r.intent !== c.intent ? `intent ${r.intent}` : "",
+      c.unclear !== null && c.unclear !== r.unclear.length > 0 ? (c.unclear ? "missed a gap" : "flagged a gap that isn't there") : "",
+      c.forbid && new RegExp(c.forbid).test(r.english ?? c.text) ? "added a time" : "",
+    ].filter(Boolean)
+    read += Number(!misses.length)
+    console.log(`${c.id.padEnd(6)} ${misses.length ? `MISS ${misses.join(", ")}` : "ok  "}  "${c.text}" -> ${r.english ?? "(English)"}${r.unclear.length ? ` | unclear: ${r.unclear.join("; ")}` : ""}`)
+  }
+  console.log(`\nClaude's reading: ${read} of ${langs.length}.`)
 }
 
 main().catch((e) => { console.error(e instanceof Error ? e.message : e); process.exit(1) })

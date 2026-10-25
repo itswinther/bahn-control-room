@@ -9,6 +9,7 @@ import { loadOrder } from "@/lib/present/load"
 import { buildRecordView } from "@/lib/present/record"
 import { agentNotes, driverMessages, orderStatus, proposals } from "@/lib/schema-ours"
 import { askDriver, askSite, askToolDefs, checkBookingOutcome } from "./ask"
+import { orderParties } from "@/lib/shift-watch/language"
 
 export type ToolContext = {
   runId: string
@@ -142,6 +143,9 @@ async function getOrder(ctx: ToolContext): Promise<ToolOutput> {
       alerts: view.alerts, work_items: view.workItems, incidents: view.incidents, operator_notes: view.notes,
       documents: view.documents, bahn_agent_proposals: view.proposals,
       sites_owned_by_customer: customerSites,
+      // Who reads what: a message drafted for the customer or a site is for a person to send in their language.
+      languages: orderParties(loaded, await db.select({ direction: driverMessages.direction, language: driverMessages.language }).from(driverMessages)
+        .where(eq(driverMessages.orderId, ctx.orderId)).orderBy(driverMessages.createdAt)),
       // What a person decided and what ran: our mock bookings aren't in the dataset's reservations, so this is
       // the only place a later run learns the new booking reference.
       our_proposals: ours.map((p) => ({ id: p.id, status: p.status, command: p.command, summary: p.summary, check: p.check, created_at: p.createdAt,

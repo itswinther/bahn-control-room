@@ -1,7 +1,6 @@
 // Shift Watch's front door for drivers: match the message to the driver's job, answer at once with a
 // "you'll hear back by" time, answer routine questions from the records, send safety straight to the
 // shift lead, and wake the order's agent.
-import Anthropic from "@anthropic-ai/sdk"
 import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm"
 import type { DriverMessage, DriverMessageResponse, QuickReply } from "@/lib/contract"
 import { createRun, runOrderAgent } from "@/lib/agents/order-agent"
@@ -10,50 +9,16 @@ import { db } from "@/lib/db"
 import { orders, relatedRecords } from "@/lib/schema"
 import { driverMessages } from "@/lib/schema-ours"
 import { buildCase, toDriverMessage } from "./case"
-import { readByRules, SAFETY_LINE, type Reading } from "./read"
+import { readByClaude, readByRules, SAFETY_LINE, type Reading } from "./read"
 import { fmtClock } from "@/lib/present/time"
+import { languageName } from "./language"
+import { toDriverLanguage } from "./translate"
 import { driverZone, localTime, utcOffset } from "./zone"
 
 const HEAR_BACK_MINUTES = 15
-let client: Anthropic | null = null
 const live = () => process.env.AGENT_MODE === "live" && !!process.env.ANTHROPIC_API_KEY
-const MODEL = () => process.env.SHIFT_WATCH_MODEL ?? "claude-sonnet-5-5"
-
-async function readByClaude(text: string): Promise<Reading> {
-  const response = await (client ??= new Anthropic()).messages.create({
-    model: MODEL(), max_tokens: 1000, output_config: { effort: "low", format: { type: "json_schema", schema: {
-      type: "object", additionalProperties: false, required: ["language", "intent", "limit_minutes", "english"],
-      properties: {
-        language: { type: "string", description: "ISO 639-1 code of the message" },
-        intent: {
-          type: "string", enum: ["SAFETY", "BOOKING_QUESTION", "EXPENSE_QUESTION", "KEYS_QUESTION", "ORDER"],
-          description: "SAFETY: the driver, the car or anyone may be unsafe (warning light, breakdown, accident). BOOKING_QUESTION: the driver asks what is booked or for a booking reference. EXPENSE_QUESTION: the driver asks about a claim or payment. KEYS_QUESTION: the driver asks what to do with the keys. ORDER: anything else, including updates on their progress, delays, a missed time or a problem on the job; these go to the order's agent. A report that mentions a ferry or check-in is ORDER unless it asks what is booked.",
-        },
-        limit_minutes: { type: ["integer", "null"], description: "Minutes the driver says they can still wait, if stated" },
-        english: { type: ["string", "null"], description: "English translation, or null if already English" },
-      },
-    } } },
-    system: "You read one message from a freelance car-delivery driver to the operations team. Classify it; do not answer it.",
-    messages: [{ role: "user", content: text }],
-  })
-  const block = response.content.find((b) => b.type === "text")
-  if (block?.type !== "text") throw new Error(`No reading (stop reason ${response.stop_reason})`)
-  return JSON.parse(block.text) as Reading
-}
-
-async function inLanguage(english: string, language: string): Promise<string> {
-  if (language === "en" || !live()) return english
-  const response = await (client ??= new Anthropic()).messages.create({
-    model: MODEL(), max_tokens: 1000, output_config: { effort: "low" },
-    system: `Translate the operations team's message to the driver into the language with ISO code "${language}". Keep times, references and names exactly. Reply with the translation only.`,
-    messages: [{ role: "user", content: english }],
-  })
-  const block = response.content.find((b) => b.type === "text")
-  return block?.type === "text" ? block.text.trim() : english
-}
 
 const hhmm = (iso: string) => iso.slice(11, 16)
-
 
 /** The driver's jobs that are still open, with their references. */
 async function activeJobs(driverId: string) {
@@ -119,7 +84,7 @@ export async function intake(driverId: string, text: string, opts: { quickReplyV
   if (reading.intent !== "SAFETY" && readByRules(reading.english ?? subject).intent === "SAFETY") reading.intent = "SAFETY"
   const message = await store({
     driverId, orderId: job?.id ?? null, direction: "IN", author: "driver", text, language: reading.language,
-    translation: reading.english, quickReplies: [], hearBackBy: null, simulated: !!opts.simulated, intent: reading.intent,
+    translation: reading.english, unclear: reading.unclear, quickReplies: [], hearBackBy: null, simulated: !!opts.simulated, intent: reading.intent,
     repeatsMessageId: null, status: "SENT",
   })
 
@@ -127,7 +92,7 @@ export async function intake(driverId: string, text: string, opts: { quickReplyV
     const quickReplies: QuickReply[] = jobs.map((j) => ({ kind: "CHOICE", label: j.reference, value: j.id }))
     const ask = jobs.length ? "Thanks. Which car is this about?" : "Thanks. We can't find an active job for you right now. A person will get back to you."
     const reply = await store({
-      driverId, orderId: null, direction: "OUT", author: "shift-watch", text: await inLanguage(ask, reading.language), language: reading.language,
+      driverId, orderId: null, direction: "OUT", author: "shift-watch", text: await toDriverLanguage(ask, reading.language), language: reading.language,
       translation: reading.language === "en" ? null : ask, quickReplies, hearBackBy: null, simulated: false, intent: jobs.length ? "WHICH_CAR" : null,
       repeatsMessageId: null, status: "SENT",
     })
@@ -153,14 +118,17 @@ export async function intake(driverId: string, text: string, opts: { quickReplyV
     : promised === earlier ? `Got it, added to your earlier message. You'll still hear from us by ${local(promised)}.` : `Got it, we're on it. You'll hear from us by ${local(promised)}.`
   const fixed = reading.intent === "SAFETY" ? safety(reading.language) : undefined
   const reply = await store({
-    driverId, orderId: job.id, direction: "OUT", author: "shift-watch", text: fixed ?? await inLanguage(english, reading.language), language: reading.language,
+    driverId, orderId: job.id, direction: "OUT", author: "shift-watch", text: fixed ?? await toDriverLanguage(english, reading.language), language: reading.language,
     translation: reading.language === "en" ? null : english, quickReplies: [], hearBackBy: closes ? null : promised, simulated: false, intent: null,
     repeatsMessageId: null, status: "SENT",
   })
   if (closes) return { message, reply, run_id: null }
 
+  // The agent gets the driver's own words beside the English, and what the message leaves open, so it asks rather than assumes.
+  const said = reading.english ? `'${reading.english}' (Shift Watch's English reading; the driver wrote in ${languageName(reading.language)}: '${subject}')` : `'${subject}'`
+  const gaps = reading.unclear.length ? ` Not clear from the message: ${reading.unclear.join("; ")}. Ask the driver; don't assume.` : ""
   const clock = zone ? ` Times the driver writes are local: ${zone.place} time (${zone.zone}, ${utcOffset(zone, message.created_at)}).` : ""
-  const runReq = { order_id: job.id, reason: "DRIVER_MESSAGE" as const, reason_detail: `Driver message relayed by Shift Watch at ${hhmm(message.created_at)} UTC: '${reading.english ?? subject}'${reading.limit_minutes ? ` (says they can wait ${reading.limit_minutes} more minutes)` : ""}.${clock}` }
+  const runReq = { order_id: job.id, reason: "DRIVER_MESSAGE" as const, reason_detail: `Driver message relayed by Shift Watch at ${hhmm(message.created_at)} UTC: ${said}${reading.limit_minutes ? ` (says they can wait ${reading.limit_minutes} more minutes)` : ""}.${gaps}${clock}` }
   const runId = await createRun(runReq)
   if (runId) void runOrderAgent(runId, runReq)
   return { message, reply, run_id: runId }

@@ -1,4 +1,4 @@
-# npm run eval:reworded -- --claude, 60ae498 on 2026-10-25, SHIFT_WATCH_MODEL=claude-sonnet-5-5, one run
+# npm run eval:reworded -- --claude, on 2026-10-25, SHIFT_WATCH_MODEL=claude-sonnet-5-5, one run
 blame-1    want no_blame           rules: MISS PASS      rules+Claude: ok   HOLD      no_blame
 blame-2    want no_blame           rules: MISS PASS      rules+Claude: ok   HOLD      no_blame
 advice-1   want no_driving_advice  rules: MISS PASS      rules+Claude: ok   SEND_BACK no_driving_advice
@@ -35,3 +35,22 @@ send-6     want SEND  rules: ok   SEND  rules+Claude: ok   SEND  "Do you have a 
 send-7     want SEND  rules: ok   SEND  rules+Claude: ok   SEND  "Thanks, we've got your message. A person is checking the nex"
 
 Rules alone: 7 of 15. Rules plus Claude: 15 of 15.
+
+Drivers in their own words:
+fi-1   ok    "Ehdin kyl, oon checkinis varttii vaille." -> I'll make it, I'm at check-in at quarter to. | unclear: no hour given for 'quarter to'; unclear if already at check-in or will be
+fi-2   ok    "Oon perillä joskus kolmen jälkeen, riippuu jonosta." -> I'll arrive sometime after three, depends on the queue. | unclear: 'after three' - no exact time, am/pm not stated; where the queue is not stated
+fi-3   ok    "Mä oon viel tääl jonos, navi sanoo et oon perillä vast kakskyt yli kaks." -> I'm still in the queue here, the GPS says I'll arrive only at twenty past two. | unclear: queue location not stated; am or pm not stated
+fi-4   ok    "Auto alko pitää ihme ääntä ja joku valo syttyi, oon levikkeellä." -> The car is making a strange noise and some light came on, I'm in a lay-by. | unclear: which warning light
+fi-5   ok    "Saako tankata Bahnin piikkiin? Kuitti on tallessa." -> Can I fill up the tank on the Bahn's tab? I have the receipt saved. | unclear: unclear what 'Bahnin piikki' means (company account or rail)
+fi-6   ok    "Avaimet jäi myyjälle, en saanu niitä." -> The keys stayed with the seller, I didn't get them. | unclear: unclear if car can still be collected
+de-1   ok    "Schaff ich nicht mehr, die Fähre ist weg." -> I won't make it anymore, the ferry is gone.
+de-2   ok    "Bin um halb da." -> I'll be there at half past. | unclear: no hour given; unclear place or 'there' vs 'arrived'
+da-1   ok    "Jeg er der om lidt." -> I'll be there shortly. | unclear: no arrival time given; place not stated
+sv-1   ok    "Kommer fram kvart i." -> Will arrive a quarter to. | unclear: 'kvart i' needs an hour; none given; unclear if arriving at pickup or delivery
+fr-1   ok    "J'arrive vers 14h20, je pense que le bateau ne m'attendra pas." -> I'll arrive around 2:20 pm, I think the boat won't wait for me.
+en-1   ok    "Be there at quarter to." -> (English) | unclear: no hour given; unclear what 'there' refers to
+fi-7   ok    "Oon terminaalilla, lähtöselvitys tehty, auto on jonossa laivaan." -> I'm at the terminal, check-in is done, the car is in the queue for the ferry.
+de-3   ok    "Check-in erledigt, ich stehe in Spur 4." -> Check-in done, I'm standing in lane 4.
+da-2   ok    "Bilen er afleveret, nøglerne ligger i receptionen siden kl. 14.10." -> The car has been delivered, the keys have been in reception since 2:10 pm.
+
+Claude's reading: 15 of 15.

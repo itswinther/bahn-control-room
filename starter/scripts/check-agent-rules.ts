@@ -4,6 +4,7 @@ import { DRIVING_ADVICE, INSTRUCTION, route, tableFor } from "../lib/agents/rule
 import { driverRest, ferryCapacity } from "../lib/mocks"
 import { bookingOutcome, siteReply } from "../lib/mocks/replies"
 import { booksOrBuys, checkProposal, mayDecide } from "../lib/shift-watch/checks"
+import { languageNeed, parties, teamFor } from "../lib/shift-watch/language"
 import { readByRules, SAFETY_LINE } from "../lib/shift-watch/read"
 import { bookFerry } from "../lib/mocks"
 
@@ -36,7 +37,8 @@ assert.ok(DRIVING_ADVICE.test("Reset the warning light and go"))
 assert.ok(!DRIVING_ADVICE.test("We will reset the booking reference"))
 assert.ok(INSTRUCTION.test("Please keep the car stopped."))
 assert.ok(!INSTRUCTION.test("Are you still at the site?"))
-assert.equal(mayDecide({ approval: "SHIFT_LEAD", owner_desk: "ops-shift" }, "ops-travel"), false)
+
+assert.equal(mayDecide({ approval: "SHIFT_LEAD", owner_desk: "ops-shift" }, "ops-travel"), false)
 assert.equal(mayDecide({ approval: "DESK", owner_desk: "ops-travel" }, "ops-travel"), true)
 assert.equal(mayDecide({ approval: "DESK", owner_desk: "ops-travel" }, "ops-dispatch"), false)
 assert.equal(mayDecide({ approval: "DESK", owner_desk: "ops-travel" }, "ops-shift"), true)
@@ -70,5 +72,13 @@ const fresh = { command: "travel.book_ferry", summary: "Book the 22:00 crossing"
 assert.ok(checkProposal({ ...fresh, cost: null }).reasons.some((r) => r.check === "price_named"))
 assert.equal(checkProposal({ ...fresh, cost: { amount_minor: 39000 } }).outcome, "PASS")
 assert.equal(checkProposal(fresh).outcome, "PASS")
+
+// Language: the team that reads it, what's unclear on the card, and cross-border orders.
+assert.equal(teamFor("fi"), "FI"); assert.equal(teamFor("sv"), "FI"); assert.equal(teamFor("da"), "DK"); assert.equal(teamFor("de"), "DE"); assert.equal(teamFor("fr"), null)
+assert.equal(languageNeed("The driver", "en"), null)
+assert.ok(languageNeed("The driver", "fi", ["no hour given"])!.why.includes("no hour given"))
+assert.ok(languageNeed("The customer", "fr")!.why.includes("No team reads French"))
+assert.equal(parties({ driver: { name: "D", homeCountry: "FI", wrote: "en" }, pickup: { name: "P", country: "FI" }, customer: { name: "C", country: "FI" } }).mixed, false)
+assert.equal(parties({ driver: { name: "D", homeCountry: "DE", wrote: null }, pickup: { name: "P", country: "DE" }, delivery: { name: "L", country: "FI" } }).mixed, true)
 
 console.log("agent rules: ok")

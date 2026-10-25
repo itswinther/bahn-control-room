@@ -7,6 +7,7 @@ import { nowIso } from "@/lib/clock"
 import { db } from "@/lib/db"
 import { alerts, conversations, messages, orders, relatedRecords } from "@/lib/schema"
 import { agentRuns, agentSteps, driverMessages, orderStatus, proposals } from "@/lib/schema-ours"
+import { languageNeed, type LanguageNeed, type Team } from "./language"
 import { readByRules } from "./read"
 
 type Row = Record<string, unknown>
@@ -35,12 +36,15 @@ const DESK_NAME: Record<string, string> = {
   "ops-evidence": "Handover evidence", "ops-expenses": "Driver expense review", "ops-shift": "Shift lead", "ops-intake": "Order intake",
   "ops-planning": "Transport planning", "ops-import": "Import operations", "ops-finance": "Cancellation and payment review",
 }
+/** Who wrote a message in Bahn's threads, for "<who> wrote in Finnish". Operators and agents don't need a reader. */
+const WRITER: Record<string, string> = { driver: "The driver", customer: "The customer", site_contact: "The site", handoff_contact: "The person receiving the car" }
 const label = (signal: string) => signal.toLowerCase().replace(/_/g, " ")
 /** "09:15", or "19 Oct 11:39" when it isn't today on the demo clock. */
 const when = (iso: string, now: string) => iso.slice(0, 10) === now.slice(0, 10) ? iso.slice(11, 16)
   : `${Number(iso.slice(8, 10))} ${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][Number(iso.slice(5, 7)) - 1]} ${iso.slice(11, 16)}`
 
-export async function buildQueue(): Promise<QueueResponse> {
+/** `team`: a country team's view puts the cards in the language it reads first, after safety. */
+export async function buildQueue(team?: Team): Promise<QueueResponse> {
   const now = nowIso()
   const nowMs = Date.parse(now)
   const [orderRows, alertRows, threadRows, related, ours, statusRows] = await Promise.all([
@@ -205,7 +209,7 @@ export async function buildQueue(): Promise<QueueResponse> {
     const esc = outcome ? { at: null, from: null } : escalation(p.ownerDesk, deadline === p.createdAt ? null : deadline < p.createdAt ? p.createdAt : deadline, p.createdAt)
     items.push({
       id: `q_${p.id}`, kind: outcome ? "DECIDED" : "PROPOSAL", order_id: p.orderId, reference: ref.get(p.orderId) ?? p.orderId,
-      decision: p.status === "HELD" ? `Held for a person: ${p.summary}` : p.summary, outcome,
+      decision: p.status === "HELD" ? `Held for a person: ${p.summary}` : p.summary, outcome, language: null,
       stopped_because: outcome ? null : stoppedBecause(p, runs.find((r) => r.id === p.runId)),
       if_no_decision: outcome ? null : ifNobody(p.approval === "SHIFT_LEAD" ? "Nothing changes until the shift lead decides: the car stays where it is and the driver waits." : "Nothing is booked or sent until a person decides.", p.ownerDesk, esc.at, esc.from, hard, deadline < p.createdAt),
       escalated_from: esc.from, owner_desk: esc.from ? "ops-shift" : p.ownerDesk, deadline,
@@ -233,11 +237,17 @@ export async function buildQueue(): Promise<QueueResponse> {
       stopped_because: last && ["STOPPED", "FAILED"].includes(last.status) ? `The agent stopped: ${last.stopReason ?? last.status.toLowerCase()}.` : null,
       if_no_decision: top.ours ? ifNobody("The driver hears nothing more until a person replies.", top.owner, esc.at, esc.from, hard) : null,
       deadline_reason: deadline === top.deadline ? top.deadlineReason : hard?.why ?? null,
-      safety: safety.has(orderId), checked: sorted.slice(1).map((r) => r.text), proposal_id: null, held_message_id: held.get(orderId) ?? null, outcome: null,
+      safety: safety.has(orderId), checked: sorted.slice(1).map((r) => r.text), proposal_id: null, held_message_id: held.get(orderId) ?? null, outcome: null, language: null,
     })
   }
 
-  items.sort((a, b) => Number(b.safety) - Number(a.safety) || (a.deadline ?? "9").localeCompare(b.deadline ?? "9"))
+  // The last person (not an operator) to write on each order, in Bahn's open threads, then our driver chat, which is newer.
+  const needs = new Map<string, LanguageNeed | null>()
+  for (const m of threadMessages) if (WRITER[m.authorType]) needs.set(m.orderId, languageNeed(WRITER[m.authorType], s((m.details as Row).language) ?? "en"))
+  for (const m of chat) if (m.direction === "IN" && m.orderId) needs.set(m.orderId, languageNeed("The driver", m.language, m.unclear))
+  for (const i of items) i.language = needs.get(i.order_id) ?? null
+  const mine = (i: QueueItem) => Number(!!team && i.language?.team === team)
+  items.sort((a, b) => Number(b.safety) - Number(a.safety) || mine(b) - mine(a) || (a.deadline ?? "9").localeCompare(b.deadline ?? "9"))
   return { at: now, summary: summarise(items, nowMs), items, quiet_count: orderRows.length - new Set(items.map((i) => i.order_id)).size }
 }
 
@@ -277,6 +287,14 @@ function outcomeOf(p: typeof proposals.$inferSelect, now: string): CardOutcome |
 }
 
 /** Three lines from rules, so the summary works without the model. */
+/** " 3 in another language: French 2, German 1." */
+function languages(items: QueueItem[]): string {
+  const by = new Map<string, number>()
+  for (const i of items) if (i.language) by.set(i.language.name, (by.get(i.language.name) ?? 0) + 1)
+  const total = [...by.values()].reduce((a, b) => a + b, 0)
+  return total ? ` ${total} in another language: ${[...by].sort((a, b) => b[1] - a[1]).map(([n, k]) => `${n} ${k}`).join(", ")}.` : ""
+}
+
 function summarise(all: QueueItem[], nowMs: number): [string, string, string] {
   // A card a person just decided no longer needs anyone, unless it failed.
   const items = all.filter((i) => !i.outcome || i.outcome.failed)
@@ -289,7 +307,7 @@ function summarise(all: QueueItem[], nowMs: number): [string, string, string] {
   return [
     `${items.length} need a person: ${safety} safety, ${soon.length} due within the hour.`,
     busiest ? `Busiest desk: ${DESK_NAME[busiest] ?? busiest}, ${load} due within the hour.` : "No desk has anything due within the hour.",
-    `${proposalsWaiting} agent proposal${proposalsWaiting === 1 ? "" : "s"} ready to decide; ${items.length - proposalsWaiting} loose end${items.length - proposalsWaiting === 1 ? "" : "s"} to chase.`,
+    `${proposalsWaiting} agent proposal${proposalsWaiting === 1 ? "" : "s"} ready to decide; ${items.length - proposalsWaiting} loose end${items.length - proposalsWaiting === 1 ? "" : "s"} to chase.${languages(items)}`,
   ]
 }
 

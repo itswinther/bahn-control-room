@@ -94,6 +94,7 @@ export const driverMessages = pgTable("driver_messages", {
   text: text("text").notNull(),
   language: text("language").notNull(),
   translation: text("translation"),
+  unclear: jsonb("unclear").$type<string[]>().notNull().default([]),
   quickReplies: jsonb("quick_replies").$type<QuickReply[]>().notNull(),
   hearBackBy: at("hear_back_by"),
   simulated: boolean("simulated").notNull().default(false),

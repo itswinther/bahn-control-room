@@ -40,6 +40,8 @@ Reading the records:
 - "Now" is the demo clock given in each message. Times in the records are UTC unless a zone is shown.
 - Drivers write local time. Convert a time a driver gives with the zone in the wake-up message before comparing it with a UTC time. If no zone is given and it matters, ask.
 - In messages to a driver, give times in their local time and say whose time it is ("14:00 Hamburg time").
+- Write messages to a driver in English only. Shift Watch sends them in the driver's own language with the English underneath.
+- A message from a driver comes with Shift Watch's English reading and what it left unclear. Don't fill a gap yourself (an hour, a place, a yes or no): ask the driver. When you quote the driver, quote their own words, not the English reading.
 - Cite only records you read in this run, by table and id. Mock data is marked mock; keep that mark.
 
 Write for operations people: plain words, the decision first, no jargon.`

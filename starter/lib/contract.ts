@@ -3,6 +3,7 @@
 // Every time is an ISO 8601 UTC string on the demo clock, never the computer's clock.
 
 import type { RecordView } from "./present/types"
+import type { LanguageNeed, Party } from "./shift-watch/language"
 
 export type Desk =
   | "ops-dispatch" | "ops-travel" | "ops-readiness" | "ops-support" | "ops-evidence" | "ops-expenses"
@@ -149,6 +150,8 @@ export type DriverMessage = {
   language: string
   /** English for operators when the driver writes in another language. */
   translation: string | null
+  /** On a driver's message: what it leaves out or can't be read with confidence ("no hour given"). Never filled in. */
+  unclear: string[]
   quick_replies: QuickReply[]
   hear_back_by: string | null
   /** True for the scripted demo driver and any line we invented. */
@@ -211,6 +214,8 @@ export type QueueItem = {
    *  POST /api/driver/messages/:id/review. */
   held_message_id: string | null
   outcome: CardOutcome | null
+  /** Someone on this order wrote in another language: who, what's unclear, and which country team reads it. */
+  language: LanguageNeed | null
   /** Why the agent stopped and handed this to a person (on agent cards). */
   stopped_because: string | null
   /** What happens if nobody decides: the default, and when it moves to the shift lead. */
@@ -235,6 +240,8 @@ export type CaseResponse = {
   steps: AgentStep[]
   driver_messages: DriverMessage[]
   legs: TravelLeg[]
+  /** Who is on the order and the language each most likely reads; `mixed` when they differ (a cross-border order). */
+  languages: { parties: Party[]; mixed: boolean }
 }
 
 /** POST /api/proposals/:id/decision */
