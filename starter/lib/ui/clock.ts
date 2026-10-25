@@ -2,7 +2,8 @@
  * The demo clock. The server owns it (lib/clock.ts): it starts at the dataset snapshot and runs in
  * real time, so "in 2 h" always means from the snapshot, never the computer's clock.
  */
-export const SNAPSHOT = Date.parse(process.env.NEXT_PUBLIC_DEMO_CLOCK_START ?? "2026-10-21T09:00:00Z");
+/** Only for the first paint, before GET /api/clock answers. */
+export const SNAPSHOT = Date.parse("2026-10-21T09:00:00Z");
 
 /** Demo time minus this computer's time, from GET /api/clock; null if the server can't be reached. */
 export async function syncDemoClock(): Promise<number | null> {

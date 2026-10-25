@@ -4,7 +4,7 @@ import Link from "next/link";
 import { AlertTriangle, ArrowRight, Clock, ShieldAlert, UserRound } from "lucide-react";
 import type { Desk, QueueItem, QueueResponse } from "@/lib/ui/contract";
 import { DESK_LABEL } from "@/lib/ui/present";
-import { groupOf, needsCall, sortQueue } from "@/lib/ui/queue";
+import { needsCall, sortQueue } from "@/lib/ui/queue";
 import { useClock, useLiveRefresh } from "../providers";
 import { timeLeft, tone } from "../workspace/time-left";
 import { ShiftTimeline } from "./shift-timeline";
@@ -15,9 +15,13 @@ export function Overview({ queue }: { queue: QueueResponse }) {
   const { now, ready } = useClock();
   useLiveRefresh();
 
+  // Until the browser has the server's clock, count at the time the queue was built, so nothing jumps.
+  const t = ready ? now : Date.parse(queue.generated_at);
+  // Counted the way Shift Watch counts (lib/shift-watch/queue.ts summarise): every card that still needs a
+  // person, parked ones included, so calls plus quiet orders make the whole board.
   const open = sortQueue(queue.items).filter(needsCall);
   const active = open.filter((i) => i.kind !== "WAITING");
-  const dueNow = active.filter((i) => groupOf(i, now) === "now");
+  const dueNow = open.filter((i) => i.deadline && Date.parse(i.deadline) < t + 3_600_000);
   const safety = active.filter((i) => i.kind === "SAFETY");
   const waiting = active.filter((i) => i.kind === "DRIVER_WAITING");
   const held = active.filter((i) => i.kind === "HELD");
@@ -35,7 +39,7 @@ export function Overview({ queue }: { queue: QueueResponse }) {
       <div className={styles.kpis}>
         <Link href="/inbox" className={styles.kpi}>
           <span className={styles.kLabel}>Need a call</span>
-          <span className={styles.kValue}>{active.length}</span>
+          <span className={styles.kValue}>{open.length}</span>
         </Link>
         <Link href={first(dueNow)} className={styles.kpi}>
           <span className={styles.kLabel}>

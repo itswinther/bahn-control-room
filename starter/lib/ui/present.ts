@@ -46,7 +46,7 @@ export const SOURCE_LABEL: Record<Source, string> = {
   EMAIL: "Email",
   CALL: "Call transcript",
   SYSTEM: "System",
-  AGENT: "Order agent",
+  AGENT: "Agent",
   SHIFT_WATCH: "Shift Watch",
   OPERATOR: "Operator",
   TRACKING: "Driver app reading",

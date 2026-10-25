@@ -28,12 +28,14 @@ export function Workspace({
   useLiveRefresh();
 
   const items = useMemo(() => sortQueue(queue.items), [queue.items]);
+  // Group at the time the queue was built until the browser has the server's clock, so counts don't jump.
+  const t = ready ? now : Date.parse(queue.generated_at);
   const selected = items.find((i) => i.order_id === selectedId);
 
   const counts = { now: 0, today: 0, parked: 0 } as Record<Group, number>;
-  for (const i of items) if (needsCall(i)) counts[groupOf(i, now)]++;
+  for (const i of items) if (needsCall(i)) counts[groupOf(i, t)]++;
 
-  const [group, setGroup] = useState<Group>(() => (selected ? groupOf(selected, now) : "now"));
+  const [group, setGroup] = useState<Group>(() => (selected ? groupOf(selected, t) : "now"));
   const [query, setQuery] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -43,7 +45,7 @@ export function Workspace({
     ? items.filter((i) =>
         [i.reference, i.vehicle, i.route, i.title].some((f) => f?.toLowerCase().replace("cd-", "").includes(q)),
       )
-    : items.filter((i) => groupOf(i, now) === group);
+    : items.filter((i) => groupOf(i, t) === group);
 
   // "/" jumps to search from anywhere outside a text field.
   useEffect(() => {
@@ -111,7 +113,7 @@ export function Workspace({
             </li>
           )}
           {listed.map((i) => {
-            const d = !!i.outcome && !i.outcome.failed;
+            const d = !!i.outcome && !i.outcome.failed && !i.outcome.undo_until;
             return (
               <li key={i.id}>
                 <Link
@@ -127,7 +129,7 @@ export function Workspace({
                   <span className={styles.rowText}>
                     <span className={styles.ref}>
                       {i.reference}
-                      {q && <span className={styles.rowGroup}> · {GROUP_LABEL[groupOf(i, now)]}</span>}
+                      {q && <span className={styles.rowGroup}> · {GROUP_LABEL[groupOf(i, t)]}</span>}
                     </span>
                     <span className={styles.rowTitle}>{i.title}</span>
                   </span>

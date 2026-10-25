@@ -63,7 +63,11 @@ export function DemoMenu() {
           onClick={() =>
             run(async () => {
               const res = await driverWrites("drv-121", "Still in the queue. Navigation now says 14:20 at check-in.");
-              return res.ok ? "CD-420603's driver wrote in. Shift Watch answered; the agent is on it." : res.error;
+              if (!res.ok) return res.error;
+              // Show the case the story is about.
+              menu.current?.removeAttribute("open");
+              router.push("/cases/ord-00603");
+              return "CD-420603's driver wrote in. Shift Watch answered; the agent is on it.";
             })
           }
         >

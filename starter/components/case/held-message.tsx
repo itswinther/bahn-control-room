@@ -38,7 +38,7 @@ function Held({ message }: { message: DriverMessage }) {
         <span className={styles.approval}>Message to the driver · {clock(message.created_at)}</span>
       </div>
       <h2 id={`held-${message.id}`} className={styles.summaryText}>
-        <AlertTriangle size={16} strokeWidth={2} aria-hidden="true" /> The driver hasn&apos;t seen this. It tells them what to do, so a person checks it first.
+        <AlertTriangle size={16} strokeWidth={2} aria-hidden="true" /> Shift Watch stopped this before the driver saw it. Read it before it goes out.
       </h2>
       {editing ? (
         <label className={styles.noteField}>

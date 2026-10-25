@@ -44,7 +44,7 @@ function Entry({ entry: e }: { entry: TimelineEntry }) {
   const [original, setOriginal] = useState(false);
   const { now, ready } = useClock();
   const Icon = ICON[e.source];
-  const fromDriver = e.who.startsWith("Driver");
+  const fromDriver = /· driver\b/i.test(e.who);
   const promise = e.hear_back_by ? Date.parse(e.hear_back_by) : null;
 
   return (
@@ -55,7 +55,9 @@ function Entry({ entry: e }: { entry: TimelineEntry }) {
       <div className={styles.entryBody}>
         <p className={styles.entryMeta}>
           <span className={styles.entryWho}>{e.who}</span>
-          <span className={styles.entrySource}>{SOURCE_LABEL[e.source]}</span>
+          {!e.who.toLowerCase().includes(SOURCE_LABEL[e.source].toLowerCase()) && (
+            <span className={styles.entrySource}>{SOURCE_LABEL[e.source]}</span>
+          )}
           <span className={styles.entryTime}>
             {clock(e.at)} · <Age at={e.at} />
           </span>

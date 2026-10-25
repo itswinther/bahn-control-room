@@ -216,7 +216,7 @@
 .event {
   position: absolute;
   height: calc(var(--row-h) - 6px);
-  min-width: 28px;
+  min-width: 92px;
   display: flex;
   align-items: center;
   gap: 5px;

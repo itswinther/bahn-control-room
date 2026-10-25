@@ -107,18 +107,20 @@ function timelineOf(c: CaseResponse): TimelineEntry[] {
   for (const t of c.view.threads) for (const m of t.messages) {
     out.push({
       id: m.id, at: m.at, source: m.author.kind === "agent" ? "AGENT" : sourceOf(m.channel),
-      who: [m.author.name, m.author.role].filter(Boolean).join(" · "), text: m.body, language: m.language ?? undefined,
+      who: [m.author.name, m.author.role].filter((x, i, all) => x && (i === 0 || x.toLowerCase() !== all[0]?.toLowerCase())).join(" · "),
+      text: m.body, language: m.language ?? undefined,
     });
   }
   for (const a of c.view.alerts) {
     out.push({ id: a.id, at: a.triggeredAt, source: "SYSTEM", who: `Alert · ${a.signalLabel}`, text: a.summary, tone: a.tone === "danger" ? "critical" : "warning" });
   }
   // The driver chat as the driver saw it: held or unchecked agent messages haven't reached them.
+  const driverName = (id: string) => c.view.assignments.find((a) => a.driver.id === id)?.driver.name ?? "Driver";
   for (const m of c.driver_messages) {
     if (m.direction === "OUT" && m.status !== "SENT") continue;
     out.push({
       id: m.id, at: m.created_at, source: m.direction === "IN" ? "APP_CHAT" : m.author === "operator" ? "OPERATOR" : "SHIFT_WATCH",
-      who: m.direction === "IN" ? `Driver${m.simulated ? " (scripted)" : ""}` : m.author === "operator" ? "Operator" : "Shift Watch",
+      who: m.direction === "IN" ? `${driverName(m.driver_id)} · driver${m.simulated ? " (scripted for the demo)" : ""}` : m.author === "operator" ? "Operator" : "Shift Watch",
       text: m.text, language: m.language, translation: m.translation ?? undefined,
       agent_written: m.direction === "OUT" && m.author !== "operator", hear_back_by: m.hear_back_by,
       tone: m.intent === "SAFETY" ? "critical" : undefined,

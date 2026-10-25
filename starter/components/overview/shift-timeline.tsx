@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Car, Check, Clock3, Hand, MessageSquare, ShieldAlert } from "lucide-react";
 import type { Desk, QueueItem, TimelineEvent } from "@/lib/ui/contract";
 import { DESK_LABEL, clock } from "@/lib/ui/present";
@@ -12,6 +12,8 @@ const HOUR = 3_600_000;
 /** Lanes in this order first; any other desk with work follows. */
 const DESK_ORDER: Desk[] = ["ops-shift", "ops-dispatch", "ops-travel", "ops-readiness", "ops-support"];
 const MAX_ROWS = 3;
+/** Narrowest chip: icon plus a six-digit order number (matches .event min-width). */
+const CHIP_MIN_PX = 92;
 
 const TYPE: Record<TimelineEvent["type"], { label: string; Icon: typeof Hand }> = {
   SAFETY: { label: "Safety", Icon: ShieldAlert },
@@ -48,6 +50,16 @@ export function ShiftTimeline({ items }: { items: QueueItem[] }) {
   const { now, ready } = useClock();
   const [hours, setHours] = useState<(typeof RANGES)[number]>(6);
   const [tip, setTip] = useState<{ p: Placed; x: number; y: number } | null>(null);
+  // Every chip is at least wide enough for its order number, so packing works in pixels, not minutes.
+  const chart = useRef<HTMLDivElement>(null);
+  const [trackW, setTrackW] = useState(640);
+  useEffect(() => {
+    const el = chart.current?.querySelector(`.${styles.track}`);
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => setTrackW(Math.max(1, e.contentRect.width)));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   // The window starts a little before now, so what just slipped is still in view.
   const start = now - Math.min(1, hours / 6) * HOUR;
@@ -72,7 +84,7 @@ export function ShiftTimeline({ items }: { items: QueueItem[] }) {
         (item.events ?? []).map((ev) => {
           const s = Date.parse(ev.start);
           // A moment (agent check) gets a small footprint so it can be packed.
-          const e = ev.end ? Date.parse(ev.end) : s + span * 0.06;
+          const e = Math.max(ev.end ? Date.parse(ev.end) : s, s + (span * CHIP_MIN_PX) / trackW);
           return { item, ev, start: s, end: e };
         }),
       )
@@ -113,7 +125,7 @@ export function ShiftTimeline({ items }: { items: QueueItem[] }) {
         ))}
       </ul>
 
-      <div className={styles.chart} onMouseLeave={() => setTip(null)}>
+      <div className={styles.chart} ref={chart} onMouseLeave={() => setTip(null)}>
         <div className={styles.axis} aria-hidden="true">
           <span className={styles.axisLane} />
           <div className={styles.axisTrack}>
@@ -138,7 +150,9 @@ export function ShiftTimeline({ items }: { items: QueueItem[] }) {
               <span className={styles.past} style={{ width: `${Math.max(0, pct(now))}%` }} aria-hidden="true" />
               {placed.map((p) => {
                 const decided = !!p.item.outcome && !p.item.outcome.failed;
-                const late = !decided && p.ev.type === "DECISION" && p.end < now;
+                // The real end, not the chip's minimum footprint.
+                const realEnd = p.ev.end ? Date.parse(p.ev.end) : p.start;
+                const late = !decided && p.ev.type === "DECISION" && realEnd < now;
                 const left = Math.max(0, pct(p.start));
                 const width = Math.min(100, pct(p.end)) - left;
                 const { Icon } = TYPE[p.ev.type];
@@ -149,7 +163,7 @@ export function ShiftTimeline({ items }: { items: QueueItem[] }) {
                     className={styles.event}
                     data-type={p.ev.type}
                     data-late={late || undefined}
-                    data-past={p.end < now || undefined}
+                    data-past={realEnd < now || undefined}
                     data-decided={decided ? "" : undefined}
                     style={{
                       left: `${left}%`,
@@ -160,7 +174,7 @@ export function ShiftTimeline({ items }: { items: QueueItem[] }) {
                     onMouseEnter={(e) => show(p, e.currentTarget)}
                     onFocus={(e) => show(p, e.currentTarget)}
                     onBlur={() => setTip(null)}
-                    aria-label={`${TYPE[p.ev.type].label}, ${p.item.reference}: ${p.ev.label}, ${clock(p.start)}${p.ev.end ? ` to ${clock(p.end)}` : ""}${late ? ", late" : ""}`}
+                    aria-label={`${TYPE[p.ev.type].label}, ${p.item.reference}: ${p.ev.label}, ${clock(p.start)}${p.ev.end ? ` to ${clock(p.ev.end)}` : ""}${late ? ", late" : ""}`}
                   >
                     {decided ? <Check size={13} strokeWidth={2.6} aria-hidden="true" /> : <Icon size={13} strokeWidth={2.2} aria-hidden="true" />}
                     <span className={styles.eventText}>
@@ -195,7 +209,7 @@ export function ShiftTimeline({ items }: { items: QueueItem[] }) {
             <span>{tip.p.ev.label}</span>
             <span className={styles.tipTime}>
               {clock(tip.p.start)}
-              {tip.p.ev.end ? ` – ${clock(tip.p.end)}` : ""}
+              {tip.p.ev.end ? ` – ${clock(tip.p.ev.end)}` : ""}
             </span>
             <span className={styles.tipTitle}>{tip.p.item.title}</span>
           </div>
@@ -216,7 +230,7 @@ export function ShiftTimeline({ items }: { items: QueueItem[] }) {
                 <td>{p.ev.label}</td>
                 <td>
                   {clock(p.start)}
-                  {p.ev.end ? ` to ${clock(p.end)}` : ""}
+                  {p.ev.end ? ` to ${clock(p.ev.end)}` : ""}
                 </td>
               </tr>
             )),

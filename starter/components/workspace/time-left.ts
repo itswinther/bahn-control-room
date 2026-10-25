@@ -3,6 +3,11 @@ import { clock, relative, urgency } from "@/lib/ui/present";
 
 /** "6m", "2h 47m", "Late 2m", "Sat"; "Done" once a person has decided. */
 export function timeLeft(item: QueueItem, now: number, ready: boolean) {
+  // Inside the undo window nothing has happened yet, so the row mustn't say "Done".
+  if (item.outcome?.undo_until) {
+    const left = Math.ceil((Date.parse(item.outcome.undo_until) - now) / 1000);
+    return !ready ? "Undo" : left > 0 ? `Undo ${left}s` : "Taking effect";
+  }
   if (item.outcome) return item.outcome.failed ? "Failed" : item.outcome.decision === "REJECTED" ? "Rejected" : "Done";
   if (!item.deadline) return "—";
   const t = Date.parse(item.deadline);
@@ -20,6 +25,7 @@ export function timeLeft(item: QueueItem, now: number, ready: boolean) {
 }
 
 export function tone(item: QueueItem, now: number) {
+  if (item.outcome?.undo_until) return "orange";
   if (item.outcome) return item.outcome.failed ? "red" : "done";
   if (item.kind === "WAITING") return "grey";
   if (item.kind === "SAFETY") return "red";

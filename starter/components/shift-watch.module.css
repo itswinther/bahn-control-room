@@ -457,3 +457,31 @@
     animation: none;
   }
 }
+
+.confirmFacts {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 2px;
+  color: var(--p-body);
+  font-weight: 500;
+}
+
+/* Shift Watch's own three-line read of the shift, from the queue. */
+.summary {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--p-raised);
+  box-shadow: inset 0 0 0 1px var(--p-line);
+  color: var(--p-body);
+  font-size: 15px;
+  line-height: 21px;
+  margin-bottom: 8px;
+}
+.summaryLabel {
+  color: var(--p-muted);
+  font-size: 13px;
+  font-weight: 700;
+}

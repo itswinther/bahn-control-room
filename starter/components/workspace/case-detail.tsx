@@ -5,7 +5,7 @@ import { useState } from "react";
 import { FileText, Loader2, MessageCircleQuestion } from "lucide-react";
 import type { CaseView, QueueItem } from "@/lib/ui/contract";
 import { clock, relative, urgency } from "@/lib/ui/present";
-import { useClock, usePanel } from "../providers";
+import { useClock, useFocusOrder, usePanel } from "../providers";
 import { KindTag } from "../ui/tags";
 import { RouteStrip } from "../ui/route-strip";
 import { DecisionCard } from "../case/decision-card";
@@ -19,14 +19,16 @@ import styles from "./workspace.module.css";
 
 type Tab = "timeline" | "travel" | "notes" | "steps";
 
-/** How long a decided plan stays on top of the case, showing what happened. */
-const SHOWN_AFTER_DECISION = 10 * 60_000;
+/** How long a decided plan stays on top of the case, showing what happened: the same five minutes the
+ *  queue keeps a decided card (DECIDED_SHOWN_MS in lib/shift-watch/queue.ts). */
+const SHOWN_AFTER_DECISION = 5 * 60_000;
 
 export function CaseDetail({ data, item }: { data: CaseView; item?: QueueItem }) {
   const { now, ready } = useClock();
   const { ask } = usePanel();
   const [tab, setTab] = useState<Tab>("timeline");
   const { order, status } = data;
+  useFocusOrder(order.id);
 
   // The plan waiting for a person, or one a person just decided (failed ones stay until dealt with).
   const active =

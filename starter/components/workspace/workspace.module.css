@@ -255,9 +255,12 @@
   line-height: 20px;
   font-weight: 600;
   color: var(--headline);
-  white-space: nowrap;
+  /* Two lines: one is too few to tell the calls apart with three columns on screen. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .emptyRow {

@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { ArrowUp, Check, Eye, X } from "lucide-react";
 import type { CaseResponse, ChatAction, ChatEvent, QueueResponse } from "@/lib/contract";
 import { decideProposal, runAgent } from "@/lib/ui/api";
-import { useDesk, usePanel } from "./providers";
+import { DESK_LABEL, WHO_PAYS_LABEL } from "@/lib/ui/present";
+import { useDesk, useFocus, usePanel } from "./providers";
 import styles from "./shift-watch.module.css";
 
 type Lookup = { summary: string; order_ids: string[] };
@@ -15,20 +16,37 @@ type Msg = { id: number; role: "user"; text: string } | Watch | { id: number; ro
 
 let nextId = 1;
 
-const refOf = (orderId: string) => `CD-42${orderId.slice(-4)}`;
-
 const suggestions = (orderId: string | null) =>
   orderId
     ? ["What's going on here?", "What did the agent already check?", "What happens if I approve?"]
     : ["What needs me now?", "Anything on safety?", "Which desk is busiest?"];
 
-/** Without an API key the chat can't run; answer from the records instead, and say so. */
-async function offlineAnswer(orderId: string | null): Promise<string> {
+const DESK_NAMES: Record<string, string> = DESK_LABEL;
+
+/** Without an API key the chat can't run; answer from the records instead, by what was asked, and say so. */
+async function offlineAnswer(question: string, orderId: string | null, queue: QueueResponse | null): Promise<string> {
+  const q = question.toLowerCase();
   if (orderId) {
     const res = await fetch(`/api/cases/${orderId}`, { cache: "no-store" });
     if (res.ok) {
       const c = (await res.json()) as CaseResponse;
       const open = c.proposals.find((p) => p.status === "PENDING_REVIEW" || p.status === "HELD");
+      if (/check|look|did/.test(q)) {
+        const run = c.runs[0];
+        const looked = run ? c.steps.filter((s) => s.run_id === run.id && s.kind === "TOOL_CALL") : [];
+        return looked.length
+          ? [`The agent's last run on ${c.view.header.reference}:`, ...looked.map((s) => `• ${s.result_summary}`)].join("\n")
+          : `The agent hasn't worked on ${c.view.header.reference} yet.`;
+      }
+      if (/approve|happen|yes/.test(q)) {
+        if (!open) return "Nothing is waiting for a decision on this order.";
+        return [
+          `If you approve: ${open.summary}`,
+          ...open.before_after.map((r) => `• ${r.label}: ${r.before} → ${r.after}`),
+          open.cost ? `It costs ${(open.cost.amount_minor / 100).toFixed(0)} ${open.cost.currency}; you choose who pays.` : "",
+          "You can undo for 10 seconds before anything is booked or sent.",
+        ].filter(Boolean).join("\n");
+      }
       return [
         `${c.view.header.reference}: ${c.view.story.headline}`,
         c.status ? `Agent: ${c.status.summary}` : "The agent hasn't worked on this order yet.",
@@ -36,14 +54,23 @@ async function offlineAnswer(orderId: string | null): Promise<string> {
       ].join("\n");
     }
   }
-  const q = (await (await fetch("/api/queue", { cache: "no-store" })).json()) as QueueResponse;
-  return [...q.summary, "", ...q.items.slice(0, 3).map((i) => `• ${i.reference}: ${i.decision}`)].join("\n");
+  const board = queue ?? ((await (await fetch("/api/queue", { cache: "no-store" })).json()) as QueueResponse);
+  const line = (i: QueueResponse["items"][number]) => `• ${i.reference}: ${i.decision}`;
+  if (/safe/.test(q)) {
+    const safety = board.items.filter((i) => i.safety);
+    return safety.length ? [`${safety.length} safety ${safety.length === 1 ? "call" : "calls"}, shift lead decides:`, ...safety.map(line)].join("\n") : "No safety calls right now.";
+  }
+  if (/desk|busiest|busy/.test(q)) {
+    const soon = board.items.filter((i) => i.deadline && Date.parse(i.deadline) < Date.parse(board.at) + 3_600_000);
+    const byDesk = [...new Set(soon.map((i) => i.owner_desk))].map((d) => [d, soon.filter((i) => i.owner_desk === d).length] as const).sort((a, b) => b[1] - a[1]);
+    return [board.summary[1], ...byDesk.map(([d, n]) => `• ${DESK_NAMES[d] ?? d}: ${n} due within the hour`)].join("\n");
+  }
+  return [...board.summary, "", ...board.items.slice(0, 3).map(line)].join("\n");
 }
 
 export function ShiftWatchPanel() {
   const router = useRouter();
-  const pathname = usePathname();
-  const orderId = pathname.startsWith("/cases/") ? decodeURIComponent(pathname.split("/")[2] ?? "") : null;
+  const { orderId } = useFocus();
   const { open, attr, setOpen, pending, consume } = usePanel();
   const { desk } = useDesk();
   const [msgs, setMsgs] = useState<Msg[]>([]);
@@ -51,6 +78,20 @@ export function ShiftWatchPanel() {
   const [confirming, setConfirming] = useState<string | null>(null);
   const [acted, setActed] = useState<Record<string, string>>({});
   const scroller = useRef<HTMLDivElement>(null);
+  // The board as Shift Watch sees it: its own three-line summary and the order references.
+  const [queue, setQueue] = useState<QueueResponse | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const load = () => fetch("/api/queue", { cache: "no-store" }).then((r) => r.json()).then((q: QueueResponse) => alive && setQueue(q)).catch(() => {});
+    load();
+    const id = setInterval(load, 20_000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, []);
+  const refOf = (id: string) => queue?.items.find((i) => i.order_id === id)?.reference ?? id;
+  const total = queue ? queue.quiet_count + new Set(queue.items.map((i) => i.order_id)).size : null;
   const lastContext = useRef<string | null>(null);
   const contextLabel = orderId ? refOf(orderId) : "the whole board";
 
@@ -106,7 +147,7 @@ export function ShiftWatchPanel() {
         body: JSON.stringify({ message: t, open_order_id: orderId, history }),
       });
       if (res.status === 503) {
-        const answer = await offlineAnswer(orderId);
+        const answer = await offlineAnswer(t, orderId, queue);
         return update(id, (w) => ({ ...w, text: answer, done: true, offline: true }));
       }
       if (!res.ok || !res.body) throw new Error();
@@ -162,7 +203,7 @@ export function ShiftWatchPanel() {
           <h2 className={styles.title}>Shift Watch</h2>
           <p className={styles.sub}>
             <span className={styles.subDot} aria-hidden="true" />
-            On all 100 orders
+            {total ? `On all ${total} orders` : "On every order"}
           </p>
         </div>
         <button type="button" className={styles.close} onClick={() => setOpen(false)} aria-label="Close Shift Watch">
@@ -183,6 +224,14 @@ export function ShiftWatchPanel() {
       <div className={styles.messages} ref={scroller}>
         {msgs.length === 0 && (
           <div className={styles.intro}>
+            {queue && (
+              <div className={styles.summary}>
+                <p className={styles.summaryLabel}>Right now</p>
+                {queue.summary.map((l) => (
+                  <p key={l}>{l}</p>
+                ))}
+              </div>
+            )}
             <p className={styles.introBig}>Ask me anything on the board</p>
             <p>
               Any order, driver or desk. Agents&apos; plans pass through me before you see them, and only you approve.
@@ -240,6 +289,13 @@ export function ShiftWatchPanel() {
                       return (
                         <div key={key} className={styles.confirm}>
                           <p>{a.label}?</p>
+                          {a.kind === "DECISION" && (
+                            <ul className={styles.confirmFacts}>
+                              {a.request.who_pays && <li>{WHO_PAYS_LABEL[a.request.who_pays]} pays</li>}
+                              {a.request.note && <li>Note: {a.request.note}</li>}
+                              <li>You decide as {DESK_LABEL[desk]}. You can undo for 10 seconds.</li>
+                            </ul>
+                          )}
                           <div>
                             <button type="button" className={styles.action} onClick={() => press(key, a)}>
                               Yes, do it

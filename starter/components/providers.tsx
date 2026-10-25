@@ -87,6 +87,32 @@ export function useLiveRefresh(ms = 6000) {
   }, [router, ms]);
 }
 
+/* ---------- The case on screen ---------- */
+
+// The order the person is looking at, wherever it is shown (/cases/:id or the first call on /inbox),
+// so Shift Watch answers about that order.
+const FocusContext = createContext<{ orderId: string | null; setOrderId: (id: string | null) => void }>({
+  orderId: null,
+  setOrderId: () => {},
+});
+
+function FocusProvider({ children }: { children: React.ReactNode }) {
+  const [orderId, setOrderId] = useState<string | null>(null);
+  const value = useMemo(() => ({ orderId, setOrderId }), [orderId]);
+  return <FocusContext.Provider value={value}>{children}</FocusContext.Provider>;
+}
+
+export const useFocus = () => useContext(FocusContext);
+
+/** Marks an order as the one on screen while the calling component is mounted. */
+export function useFocusOrder(orderId: string) {
+  const { setOrderId } = useFocus();
+  useEffect(() => {
+    setOrderId(orderId);
+    return () => setOrderId(null);
+  }, [orderId, setOrderId]);
+}
+
 /* ---------- Shift Watch panel open/closed ---------- */
 
 const PanelContext = createContext<{
@@ -159,7 +185,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <ClockProvider>
       <DeskProvider>
-        <PanelProvider>{children}</PanelProvider>
+        <FocusProvider>
+          <PanelProvider>{children}</PanelProvider>
+        </FocusProvider>
       </DeskProvider>
     </ClockProvider>
   );
