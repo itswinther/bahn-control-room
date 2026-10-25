@@ -1,11 +1,25 @@
 # Shift Watch: our entry for the Car Delivery Control Room
 
 One order agent per order does the legwork. Shift Watch checks everything the agents propose, answers drivers at
-once, and keeps one decision queue for the people on shift, so a person sees only the orders that need them.
+once, catches the drivers who go quiet before a pickup, and keeps one decision queue for the people on shift. At
+09:00 on Bahn's 100 orders, a person sees 26; the other 74 stay quiet.
 
-- **Run it and play the demo:** [`starter/README.md`](starter/README.md). It runs without an API key.
-- **What changed, and how each of Bahn's recorded mistakes is now caught:** [`SHIFT-WATCH-RECAP.md`](SHIFT-WATCH-RECAP.md).
-- **How we worked with AI:** [`PROCESS.md`](PROCESS.md).
+**Two minutes with it** (from `starter/`, then http://localhost:3000; no API key needed):
+1. **Demo → Driver writes in.** CD-420603's driver is stuck in a ferry queue. Shift Watch answers him at once in
+   Hamburg time; the agent proposes the 22:00 crossing; pick who pays, approve, and watch what happens next.
+2. **Demo → A driver goes quiet.** Bahn's real case: a driver took a job and went silent. Shift Watch asked the day
+   before; three hours of silence put the job back on the dispatch desk, a day before the pickup.
+3. **Demo → Wake three more agents.** A timed-out booking, a warning light, a driver stranded at a site: each lands
+   in the Inbox with why it needs a person and what happens if nobody decides.
+
+| Bahn judges on | Read |
+|---|---|
+| The control room (40%) | [`SHIFT-WATCH-RECAP.md`](SHIFT-WATCH-RECAP.md): what it does, Bahn's mistakes replayed, the demo end to end |
+| How we worked with AI (30%) | [`PROCESS.md`](PROCESS.md): what we asked, checked, threw away, and two scored judging rounds |
+| Taste (30%) | The screens, and the "Taste" part of the recap |
+
+- **Run it, every screen, and the checks:** [`starter/README.md`](starter/README.md).
+- **Measured, not claimed:** held-out tests in `starter/fixtures/`, their outputs in `starter/evals/`.
 
 Everything below this line is Bahn's challenge packet, unchanged.
 

@@ -9,6 +9,26 @@ The first section is the short version: the decisions that changed the
 product. The log below it is the full record, written as we go, newest at the
 bottom. Every entry points to the commit, file or output that backs it up.
 
+## In short
+
+- **We measured before we designed.** Bahn's people already answer fast, so we
+  dropped "faster" from the pitch and built for what reaches a person
+  (decision 1).
+- **Bahn's own corrections became our checks, and we didn't count our 14 of
+  14.** On mistakes written in new words, the rules alone caught 0 of 10;
+  with Claude reading, 10 of 10 (decision 8, `starter/evals/`).
+- **We overruled Claude, and Claude caught us.** The chat-first design was
+  reversed; a teammate found five errors in Claude's plan; Claude's reading
+  filled in an hour a driver never gave, which shaped the language work
+  (decisions 4, 7, 10).
+- **We judged ourselves the way the judges will, twice.** Each round found a
+  real problem, a made-up driver quote and a guessed one-tap hour, and both
+  were fixed and re-tested live (decision 9).
+- **Bahn's real no-show changed the design.** We stopped reacting to the
+  driver's "won't deliver" and started asking the day before (decision 12).
+- **We say what we didn't do.** Each entry lists what wasn't tested or
+  fixed, and the recap ends with what it doesn't solve yet.
+
 ## Decisions that mattered
 
 1. **We measured before designing, and it changed the pitch.**
@@ -102,6 +122,15 @@ bottom. Every entry points to the commit, file or output that backs it up.
     the cream background and pill-shaped main buttons, because they are Bahn's
     own brand, and Claude's suggestion to cut the motion was our call to skip.
     Evidence: the design entry at the end of the log, commit e9d5684.
+
+12. **Bahn's real no-show changed the design.** Bahn told us about a driver
+    who took a job, went quiet, and wrote "won't deliver" days later; the
+    customer cancelled. Our first demo of it started from that message, which
+    only shows the damage. Now Shift Watch asks every booked driver to confirm
+    the day before; silence, or a slot that opens with the job not started,
+    is a card for the dispatch desk while there's time to re-offer. No model
+    is involved, so it works in replay too.
+    Evidence: `starter/lib/shift-watch/confirm.ts`, "Demo → A driver goes quiet".
 
 ## Log
 
@@ -1333,6 +1362,24 @@ entries further down.
   no live reload.
 - Evidence: the merge commit, `starter/lib/shift-watch/pager.ts`,
   `starter/lib/shift-watch/paging.ts`, `starter/README.md`.
+
+### 2026-10-25 · team + Claude · the hand-in documents
+
+- Asked: bring the README, the recap and this log up to date, and lay them
+  out the way the brief judges.
+- Changed:
+  - The root README now opens with what Shift Watch does, a two-minute route
+    through the demo, and which document answers which criterion.
+  - The recap is organised by the three criteria, with the held-out results
+    in one table, Bahn's real no-show, the language work and paging.
+  - This log has a six-line summary at the top, because both judging rounds
+    said it was too long to skim.
+- Checked: every number against a fresh run. At 09:00, 26 cards and 74
+  quiet; the eval figures from `starter/evals/reworded-claude.txt`. We
+  corrected one claim before publishing: the reworded-mistakes set was
+  written before its first run, but committed together with its code, so git
+  can't show the order. The recap says that.
+- Evidence: `README.md`, `SHIFT-WATCH-RECAP.md`.
 
 ## Evidence in this repo
 
