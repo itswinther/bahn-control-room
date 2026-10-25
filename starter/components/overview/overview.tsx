@@ -121,7 +121,6 @@ export function Overview({ queue }: { queue: QueueResponse }) {
               </Link>
             )}
             <p className={styles.quiet}>
-              <span className={styles.liveDot} aria-hidden="true" />
               {queue.quiet_count} quiet of {queue.orders_checked} checked
             </p>
           </div>

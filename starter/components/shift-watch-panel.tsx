@@ -202,7 +202,6 @@ export function ShiftWatchPanel() {
         <div className={styles.headText}>
           <h2 className={styles.title}>Shift Watch</h2>
           <p className={styles.sub}>
-            <span className={styles.subDot} aria-hidden="true" />
             {total ? `On all ${total} orders` : "On every order"}
           </p>
         </div>
@@ -212,7 +211,6 @@ export function ShiftWatchPanel() {
       </div>
 
       <p className={styles.context}>
-        <span className={styles.contextDot} aria-hidden="true" />
         Open: <strong>{contextLabel}</strong>
       </p>
 
@@ -224,17 +222,28 @@ export function ShiftWatchPanel() {
       <div className={styles.messages} ref={scroller}>
         {msgs.length === 0 && (
           <div className={styles.intro}>
-            {queue && (
-              <div className={styles.summary}>
-                <p className={styles.summaryLabel}>Right now</p>
-                {queue.summary.map((l) => (
-                  <p key={l}>{l}</p>
-                ))}
+            <div className={styles.summary}>
+              <p className={styles.summaryLabel}>Right now</p>
+              {queue ? queue.summary.map((l) => <p key={l}>{l}</p>) : <p>Reading the board…</p>}
+            </div>
+            {queue && queue.items.length > 0 && (
+              <div className={styles.firstUp}>
+                <p className={styles.summaryLabel}>First up</p>
+                <ul>
+                  {queue.items.slice(0, 3).map((i) => (
+                    <li key={i.id}>
+                      <Link href={`/cases/${i.order_id}`}>
+                        <span>
+                          <strong>{i.reference}</strong> {i.decision.replace(/^Held for a person: /, "")}
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
-            <p className={styles.introBig}>Ask me anything on the board</p>
-            <p>
-              Any order, driver or desk. Agents&apos; plans pass through me before you see them, and only you approve.
+            <p className={styles.introNote}>
+              Ask about any order, driver or desk. Agents&apos; plans reach you only after my checks, and only you approve.
             </p>
           </div>
         )}

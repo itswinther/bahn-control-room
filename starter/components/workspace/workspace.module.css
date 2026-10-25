@@ -29,7 +29,7 @@
   min-width: 64px;
   height: 26px;
   padding: 0 8px;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-tag);
   font-size: 13px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
@@ -78,7 +78,7 @@
   gap: 8px;
   height: 44px;
   padding: 0 8px 0 14px;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-control);
   background: var(--surface);
   box-shadow: inset 0 0 0 1px var(--divider);
   color: var(--muted);
@@ -152,7 +152,7 @@
   display: flex;
   gap: 2px;
   padding: 4px;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-control);
   background: var(--surface-sunken);
 }
 
@@ -164,7 +164,7 @@
   gap: 6px;
   padding: 0 12px;
   border: 0;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-chip);
   background: transparent;
   color: var(--body);
   font-size: 14px;
@@ -183,7 +183,7 @@
   min-width: 20px;
   height: 20px;
   padding: 0 6px;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-tag);
   background: var(--surface-pressed);
   font-size: 12px;
   line-height: 20px;
@@ -229,7 +229,7 @@
   align-items: center;
   gap: 12px;
   padding: 11px 10px;
-  border-radius: 14px;
+  border-radius: var(--radius-inner);
   transition: background-color 0.15s var(--ease);
 }
 
@@ -239,7 +239,7 @@
 
 .row[aria-current="true"] {
   background: var(--surface);
-  box-shadow: inset 3px 0 0 var(--orange-strong), 0 1px 2px rgba(18, 17, 14, 0.06);
+  box-shadow: inset 0 0 0 1.5px var(--headline), 0 1px 2px rgba(18, 17, 14, 0.06);
 }
 
 .row .chip {
@@ -324,7 +324,7 @@
   display: inline-flex;
   align-items: center;
   padding: 0 12px;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-tag);
   background: var(--surface-sunken);
   font-size: 13px;
   font-weight: 800;
@@ -347,7 +347,7 @@
   align-items: center;
   gap: 8px;
   padding: 10px 14px;
-  border-radius: 14px;
+  border-radius: var(--radius-inner);
   background: var(--teal-bg);
   font-size: 14px;
   color: var(--body);
@@ -594,7 +594,7 @@
   height: 32px;
   padding: 0 28px 0 12px;
   border: 1px solid var(--divider);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-control);
   background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23726958' stroke-width='2.4'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 10px center;
   appearance: none;
   color: var(--headline);

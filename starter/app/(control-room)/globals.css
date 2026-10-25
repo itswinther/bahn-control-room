@@ -57,9 +57,12 @@
   --font-display: var(--font-archivo), "Arial Black", system-ui, sans-serif;
   --font-body: var(--font-urbanist), system-ui, sans-serif;
 
-  --radius-card: 24px;
-  --radius-inner: 16px;
+  /* Pills only on main buttons, as on Bahn's site; everything else is a rounded rectangle. */
+  --radius-card: 14px;
+  --radius-inner: 10px;
+  --radius-control: 10px;
   --radius-chip: 8px;
+  --radius-tag: 6px;
   --radius-pill: 999px;
 
   --ease: cubic-bezier(0.2, 0, 0, 1);

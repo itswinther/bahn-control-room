@@ -166,7 +166,6 @@ export function Workspace({
           })}
         </ul>
         <p className={styles.listFoot}>
-          <span className={styles.liveDot} aria-hidden="true" />
           {queue.orders_checked} checked · {queue.quiet_count} quiet
         </p>
       </aside>

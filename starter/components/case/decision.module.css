@@ -24,10 +24,8 @@
 }
 
 .kicker {
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 14px;
+  font-weight: 700;
   color: var(--orange);
 }
 
@@ -64,7 +62,7 @@
 .check {
   justify-self: start;
   max-width: 100%;
-  border-radius: 18px;
+  border-radius: var(--radius-inner);
   background: var(--green-bg);
 }
 
@@ -224,7 +222,7 @@
 
 .evidenceChip {
   padding: 4px 10px;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-tag);
   background: var(--surface);
   color: var(--body);
   font-weight: 500;
@@ -249,7 +247,7 @@
 .paysHint {
   margin-left: 10px;
   padding: 2px 10px;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-tag);
   background: var(--orange-bg);
   color: var(--orange);
   font-size: 14px;
@@ -262,7 +260,7 @@
   flex-wrap: wrap;
   gap: 2px;
   padding: 4px;
-  border-radius: 28px;
+  border-radius: var(--radius-inner);
   background: var(--surface-sunken);
   justify-self: start;
 }
@@ -283,7 +281,7 @@
   align-items: center;
   height: 40px;
   padding: 0 18px;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-chip);
   font-weight: 600;
   font-size: 15px;
   color: var(--body);
@@ -501,11 +499,10 @@
 
 .outcomeTitle {
   font-family: var(--font-display);
-  font-stretch: 125%;
-  font-weight: 900;
-  text-transform: uppercase;
-  font-size: 26px;
-  line-height: 1;
+  font-stretch: 112%;
+  font-weight: 800;
+  font-size: 22px;
+  line-height: 1.15;
   color: var(--headline);
 }
 
@@ -521,7 +518,7 @@
   height: 36px;
   padding: 0 14px;
   border: 0;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-chip);
   background: transparent;
   color: var(--muted);
   font-size: 14px;
@@ -626,7 +623,7 @@
   display: inline-flex;
   margin-left: 10px;
   padding: 2px 10px;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-tag);
   background: var(--green-bg);
   color: var(--green);
   font-weight: 700;
@@ -716,7 +713,7 @@
 .mock {
   margin-left: 6px;
   padding: 0 7px;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-tag);
   background: var(--orange-bg);
   color: var(--orange);
   font-size: 12px;
@@ -746,12 +743,12 @@
 .quote {
   margin: 0;
   padding: 12px 16px;
-  border-left: 3px solid var(--orange);
-  border-radius: 0 var(--radius-inner) var(--radius-inner) 0;
+  border-radius: var(--radius-inner);
   background: var(--surface);
   color: var(--body);
   max-width: 68ch;
   white-space: pre-wrap;
+  box-shadow: inset 0 0 0 1px var(--divider);
 }
 
 /* Agents write long one-liners; keep them readable at a glance. */

@@ -100,11 +100,9 @@
 
 .cardHead h2 {
   font-family: var(--font-display);
-  font-stretch: 125%;
-  font-weight: 900;
-  text-transform: uppercase;
+  font-stretch: 112%;
+  font-weight: 700;
   font-size: 18px;
-  letter-spacing: -0.2px;
   color: var(--headline);
 }
 
@@ -140,7 +138,7 @@
   align-items: center;
   gap: 12px;
   padding: 10px 8px;
-  border-radius: 14px;
+  border-radius: var(--radius-inner);
   transition: background-color 0.15s var(--ease);
 }
 
@@ -157,7 +155,7 @@
   min-width: 82px;
   height: 26px;
   padding: 0 8px;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-tag);
   font-size: 13px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
