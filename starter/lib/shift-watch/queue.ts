@@ -7,6 +7,7 @@ import { nowIso } from "@/lib/clock"
 import { db } from "@/lib/db"
 import { alerts, conversations, messages, orders, relatedRecords } from "@/lib/schema"
 import { agentRuns, agentSteps, driverMessages, orderStatus, proposals } from "@/lib/schema-ours"
+import { looseEndDeadline } from "./deadline"
 import { languageNeed, type LanguageNeed, type Team } from "./language"
 import { CONFIRM_YES, REPLY_WITHIN_MS } from "./confirm"
 import { readByRules } from "./read"
@@ -246,18 +247,19 @@ export async function buildQueue(team?: Team): Promise<QueueResponse> {
     const hard = hardDeadline(orderId)
     const sorted = [...list].sort((a, b) => (a.deadline ?? "9").localeCompare(b.deadline ?? "9"))
     const top = sorted[0]
-    // A loose end that's already overdue isn't a decide-by time when the order has a real one still ahead
-    // (CD-420603's 07:59 approval, with the 12:00 check-in to come): the card keeps the overdue fact in its text.
-    const deadline = top.deadline && hard && Date.parse(top.deadline) < nowMs ? hard.at : [top.deadline, hard?.at].filter((x): x is string => !!x).sort()[0] ?? null
-    // Bahn's own loose ends keep their owner; only Shift Watch's commitments escalate.
-    const esc = top.ours ? escalation(top.owner, top.deadline, null) : { at: null, from: null }
+    // Due at the earliest time still ahead, or a promise we made: CD-420603's overdue 07:59 approval doesn't
+    // hide the driver's 09:15 promise behind the 12:00 check-in. The card keeps the overdue fact in its text.
+    const { deadline, lead } = looseEndDeadline(sorted, hard, nowMs)
+    // Bahn's own loose ends keep their owner; only Shift Watch's commitments escalate, by their own time.
+    const ours = sorted.find((r) => r.ours)
+    const esc = ours ? escalation(ours.owner, ours.deadline, null) : { at: null, from: null }
     const last = runs.filter((r) => r.orderId === orderId).sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0]
     items.push({
       id: `q_${orderId}`, kind: "LOOSE_END", order_id: orderId, reference: ref.get(orderId) ?? orderId,
       decision: top.text, owner_desk: esc.from ? "ops-shift" : top.owner, deadline, escalated_from: esc.from,
       stopped_because: last && ["STOPPED", "FAILED"].includes(last.status) ? `The agent stopped: ${last.stopReason ?? last.status.toLowerCase()}.` : null,
-      if_no_decision: top.ours ? ifNobody("The driver hears nothing more until a person replies.", top.owner, esc.at, esc.from, hard) : null,
-      deadline_reason: deadline === top.deadline ? top.deadlineReason : hard?.why ?? null,
+      if_no_decision: ours ? ifNobody("The driver hears nothing more until a person replies.", ours.owner, esc.at, esc.from, hard) : null,
+      deadline_reason: lead ? lead.deadlineReason : hard?.why ?? null,
       safety: safety.has(orderId), checked: sorted.slice(1).map((r) => r.text), proposal_id: null, held_message_id: held.get(orderId) ?? null, outcome: null, language: null, driver_waiting_until: null,
     })
   }

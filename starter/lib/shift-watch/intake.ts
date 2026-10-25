@@ -12,6 +12,7 @@ import { buildCase, toDriverMessage } from "./case"
 import { readByClaude, readByRules, SAFETY_LINE, type Reading } from "./read"
 import { fmtClock } from "@/lib/present/time"
 import { languageName } from "./language"
+import { oneAtATime } from "./one-at-a-time"
 import { toDriverLanguage } from "./translate"
 import { CONFIRM_YES, confirmYes } from "./confirm"
 import { driverZone, localTime, utcOffset } from "./zone"
@@ -63,7 +64,15 @@ async function store(row: Omit<typeof driverMessages.$inferInsert, "id" | "creat
   return toDriverMessage(saved)
 }
 
-export async function intake(driverId: string, text: string, opts: { quickReplyValue?: string; simulated?: boolean } = {}): Promise<DriverMessageResponse> {
+type IntakeOptions = { quickReplyValue?: string; simulated?: boolean }
+
+/** One driver's messages are handled in order: a quick second message sees the promise the first one made,
+ *  instead of both answering "we're on it" with different times. */
+export function intake(driverId: string, text: string, opts: IntakeOptions = {}): Promise<DriverMessageResponse> {
+  return oneAtATime(driverId, () => intakeNow(driverId, text, opts))
+}
+
+async function intakeNow(driverId: string, text: string, opts: IntakeOptions): Promise<DriverMessageResponse> {
   // "Yes" to the day-before check (confirm.ts) closes it; "No" goes on as an ordinary message to the agent.
   const confirmed = opts.quickReplyValue === CONFIRM_YES ? await confirmYes(driverId, text) : null
   if (confirmed) return confirmed
