@@ -45,20 +45,10 @@
 
 .head {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
   padding: 20px 20px 14px;
-}
-
-.mark {
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  background: var(--orange-strong);
-  color: #12110e;
 }
 
 .headText {

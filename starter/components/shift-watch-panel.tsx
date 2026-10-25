@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, Check, Eye, X } from "lucide-react";
+import { ArrowUp, Check, X } from "lucide-react";
 import type { CaseResponse, ChatAction, ChatEvent, QueueResponse } from "@/lib/contract";
 import { decideProposal, runAgent } from "@/lib/ui/api";
 import { DESK_LABEL, WHO_PAYS_LABEL } from "@/lib/ui/present";
@@ -191,9 +191,6 @@ export function ShiftWatchPanel() {
   return (
     <aside id="shift-watch" className={styles.panel} data-open={attr} aria-label="Shift Watch" inert={!open}>
       <div className={styles.head}>
-        <span className={styles.mark} aria-hidden="true">
-          <Eye size={18} strokeWidth={1.8} />
-        </span>
         <div className={styles.headText}>
           <h2 className={styles.title}>Shift Watch</h2>
           <p className={styles.sub}>
