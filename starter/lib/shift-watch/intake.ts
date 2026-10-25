@@ -27,7 +27,7 @@ async function activeJobs(driverId: string) {
   const open = rows.filter((r) => r.orderId && r.details.driver_id === driverId && ["ASSIGNED", "IN_PROGRESS"].includes(String(r.details.status)))
   const ids = [...new Set(open.map((r) => r.orderId!))]
   const refs = ids.length ? await db.select({ id: orders.id, reference: orders.reference }).from(orders).where(inArray(orders.id, ids)) : []
-  return refs
+  return refs.map((r) => ({ ...r, moving: open.some((o) => o.orderId === r.id && o.details.status === "IN_PROGRESS") }))
 }
 
 async function routineAnswer(orderId: string, driverId: string, intent: Reading["intent"], local: (iso: string) => string): Promise<string | null> {
@@ -65,7 +65,7 @@ async function store(row: Omit<typeof driverMessages.$inferInsert, "id" | "creat
 export async function intake(driverId: string, text: string, opts: { quickReplyValue?: string; simulated?: boolean } = {}): Promise<DriverMessageResponse> {
   const jobs = await activeJobs(driverId)
   const picked = jobs.find((j) => j.id === opts.quickReplyValue)
-  const job = picked ?? (jobs.length === 1 ? jobs[0] : null)
+  let job = picked ?? (jobs.length === 1 ? jobs[0] : null)
   // After "which car?", the driver's pick answers it: file their earlier message under that job and act on it.
   let subject = text
   if (picked) {
@@ -82,6 +82,8 @@ export async function intake(driverId: string, text: string, opts: { quickReplyV
   const reading = live() ? await readByClaude(subject).catch(() => ((byRules = true), readByRules(subject))) : readByRules(subject)
   // Safety if either reader says so: the keywords (on Claude's English too) can add safety, never remove it.
   if (reading.intent !== "SAFETY" && readByRules(reading.english ?? subject).intent === "SAFETY") reading.intent = "SAFETY"
+  // A safety message can't wait for "which car?": the one car being driven right now is the one.
+  if (!job && reading.intent === "SAFETY" && jobs.filter((j) => j.moving).length === 1) job = jobs.find((j) => j.moving)!
   const message = await store({
     driverId, orderId: job?.id ?? null, direction: "IN", author: "driver", text, language: reading.language,
     translation: reading.english, unclear: reading.unclear, quickReplies: [], hearBackBy: null, simulated: !!opts.simulated, intent: reading.intent,
@@ -90,7 +92,8 @@ export async function intake(driverId: string, text: string, opts: { quickReplyV
 
   if (!job) {
     const quickReplies: QuickReply[] = jobs.map((j) => ({ kind: "CHOICE", label: j.reference, value: j.id }))
-    const ask = jobs.length ? "Thanks. Which car is this about?" : "Thanks. We can't find an active job for you right now. A person will get back to you."
+    const ask = reading.intent === "SAFETY" ? "Thanks for telling us. Please stay somewhere safe. Which car is this about? A person takes over as soon as you pick it."
+      : jobs.length ? "Thanks. Which car is this about?" : "Thanks. We can't find an active job for you right now. A person will get back to you."
     const reply = await store({
       driverId, orderId: null, direction: "OUT", author: "shift-watch", text: await toDriverLanguage(ask, reading.language), language: reading.language,
       translation: reading.language === "en" ? null : ask, quickReplies, hearBackBy: null, simulated: false, intent: jobs.length ? "WHICH_CAR" : null,
@@ -110,7 +113,9 @@ export async function intake(driverId: string, text: string, opts: { quickReplyV
   const routine = await routineAnswer(job.id, driverId, reading.intent, local)
   // A routine answer closes the question only when Claude read it. Keywords misread ("the ferry I was
   // booked on" isn't a booking question), so then the driver gets the answer and a promise, and the agent wakes.
-  const closes = !!routine && !byRules
+  // The keys answer is a standing rule, not an answer to their situation ("I lost the keys" was read as a keys
+  // question in one live run), so it never closes the question either.
+  const closes = !!routine && !byRules && reading.intent !== "KEYS_QUESTION"
   // The safety reply is fixed text in the driver's language, so it never waits on, or depends on, a model.
   const safety = (language: string) => SAFETY_LINE[language]?.(zone ? fmtClock(promised, zone.zone) : `${hhmm(promised)} UTC`, zone?.place ?? null)
   const english = reading.intent === "SAFETY" ? safety("en")!

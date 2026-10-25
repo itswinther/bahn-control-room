@@ -14,7 +14,7 @@ const fail = (message: string): ToolOutput => ({ result: { error: message }, sum
 export const askToolDefs: BetaTool[] = [
   {
     name: "ask_driver",
-    description: "Send the order's driver a question or an acknowledgement. Shift Watch checks it before it goes out. Questions need no approval; instructions do (use propose). Offer quick replies so the driver can answer with one tap. The reply wakes you later as a new message.",
+    description: "Send the order's driver a question or an acknowledgement. Shift Watch checks it before it goes out. Questions need no approval; instructions do (use propose). Offer quick replies so the driver can answer with one tap, but never one with a time the driver didn't give. The reply wakes you later as a new message.",
     input_schema: {
       type: "object",
       properties: {
@@ -74,6 +74,9 @@ export async function askDriver(input: Input, ctx: ToolContext): Promise<ToolOut
   const driverId = active.driver.id
   const id = `dm_${crypto.randomUUID().slice(0, 8)}`
   const quickReplies = Array.isArray(input.quick_replies) ? (input.quick_replies as QuickReply[]) : []
+  // A one-tap answer turns a guess into the driver's word, so a button may offer only a time someone already wrote.
+  const guessed = quickReplies.flatMap((q) => `${q.label} ${q.value}`.match(/\b\d{1,2}[:.]\d{2}\b/g) ?? []).filter((t) => !ctx.seen.includes(t) && !ctx.seen.includes(t.replace(".", ":")))
+  if (guessed.length) return fail(`A quick reply can't offer a time nobody wrote (${guessed.join(", ")}). Ask the driver to type the time, or offer choices without one.`)
   await db.insert(driverMessages).values({
     id, driverId, orderId: ctx.orderId, direction: "OUT", author: "shift-watch", text,
     language: "en", translation: null, quickReplies, hearBackBy: null, simulated: false, repeatsMessageId: repeats, status: "PENDING_CHECK", createdAt: nowIso(),

@@ -216,6 +216,8 @@ export type QueueItem = {
   outcome: CardOutcome | null
   /** Someone on this order wrote in another language: who, what's unclear, and which country team reads it. */
   language: LanguageNeed | null
+  /** A driver on this order was promised an answer by this time and hasn't had one: count them as waiting, whatever the card's kind. */
+  driver_waiting_until: string | null
   /** Why the agent stopped and handed this to a person (on agent cards). */
   stopped_because: string | null
   /** What happens if nobody decides: the default, and when it moves to the shift lead. */

@@ -179,6 +179,8 @@ async function propose(input: Input, ctx: ToolContext): Promise<ToolOutput> {
   const refs = (Array.isArray(input.evidence_refs) ? (input.evidence_refs as EvidenceRef[]) : [])
     .map((r) => (r?.id ? { ...r, table: tableFor(r.id, r.table) } : r))
     .map((r) => (r?.id && ctx.observed[r.id] ? { ...r, observed_at: ctx.observed[r.id].at, mock: ctx.observed[r.id].mock } : r))
+    // A quote's age decides whether a booking may go ahead, so it comes from the tool that returned it, never the agent.
+    .map((r) => (r?.table === "travel_options" && !ctx.observed[r.id] ? { ...r, observed_at: null } : r))
   if (!refs.length) return fail("A proposal needs at least one evidence record.")
   const unseen = refs.filter((r) => !r?.id || !ctx.seen.includes(r.id))
   if (unseen.length) return fail(`Not in anything you read this run: ${unseen.map((r) => r?.id).join(", ")}. Cite only records you read.`)

@@ -30,9 +30,9 @@ export async function driverZone(orderId: string): Promise<DriverZone | null> {
 }
 
 /** "11:15 Hamburg time", with the day when it isn't today there; UTC when the zone is unknown. */
-export function localTime(iso: string, z: DriverZone | null, now: string): string {
-  if (!z) return `${iso.slice(11, 16)} UTC`
-  const day = fmtDay(iso, z.zone) === fmtDay(now, z.zone) ? "" : `${fmtDay(iso, z.zone)} `
+export function localTime(iso: string, z: DriverZone | null, now: string, withDay = false): string {
+  if (!z) return `${withDay ? `${iso.slice(8, 10)}.${iso.slice(5, 7)}. ` : ""}${iso.slice(11, 16)} UTC`
+  const day = !withDay && fmtDay(iso, z.zone) === fmtDay(now, z.zone) ? "" : `${fmtDay(iso, z.zone)} `
   return `${day}${fmtClock(iso, z.zone)} ${z.place} time`
 }
 

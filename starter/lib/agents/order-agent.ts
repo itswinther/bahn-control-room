@@ -123,7 +123,8 @@ export async function runOrderAgent(runId: string, req: RunRequest): Promise<voi
   // the handover in one timeline. A send-back wakes the agent again once this run is closed.
   const end = async (status: "FINISHED" | "STOPPED" | "FAILED", stopReason: string | null) => {
     if (!(await alive())) return
-    const outcome = status === "FAILED" ? null : await reviewOrder(req.order_id)
+    // A failed run is checked too: a proposal or driver message it wrote must not sit unchecked, out of sight, forever.
+    const outcome = await reviewOrder(req.order_id)
     if (outcome) {
       const [checked] = await db.select().from(proposals).where(eq(proposals.runId, runId))
       if (checked?.check) await step("TEXT", null, { proposal_id: checked.id }, `Checked ${checked.id}: ${checked.check.outcome}${checked.check.reasons.length ? " - " + checked.check.reasons.map((r) => r.message).join(" ") : ""}`, "shift-watch")
@@ -205,7 +206,9 @@ export async function runOrderAgent(runId: string, req: RunRequest): Promise<voi
         const input = agentMode() === "live" ? recorded : await remapReplayIds(recorded, ctx, req.order_id)
         const out = await runTool(call.name, input, ctx)
         const text = JSON.stringify(out.result)
-        ctx.seen += text
+        // Only what a tool returned counts as read: not an error (it repeats the ids it refused), and not the
+        // reference the agent itself gave check_booking_outcome.
+        if (!out.error) ctx.seen += call.name === "check_booking_outcome" ? JSON.stringify({ ...(out.result as object), reference: null }) : text
         await step(call.name === "finish" ? "FINISH" : out.error ? "ERROR" : "TOOL_CALL", call.name, input, out.summary)
         results.push({ type: "tool_result", tool_use_id: call.id, content: text, is_error: out.error })
       }

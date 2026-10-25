@@ -72,6 +72,28 @@ bottom. Every entry points to the commit, file or output that backs it up.
    Evidence: `starter/fixtures/proposal-replay-expected.json` (expected result
    per proposal), the team plan's change list.
 
+8. **We didn't count our own 14 of 14.** The checks were written from Bahn's
+   14 proposals, so we wrote mistakes in new words before running them. The
+   rules alone caught 0 of 10; with Claude reading, 10 of 10. The same for
+   messages to drivers: the word list held none of 8 bad ones; with Claude,
+   all 8.
+   Evidence: `starter/evals/reworded-claude.txt`, `starter/fixtures/`.
+
+9. **We scored ourselves the way the judges will, twice, and it caught us.**
+   Three reviewers per round, who hadn't seen our own view. Round 1 found a
+   driver quote on the safety card that the driver never wrote; it came from
+   an old recording. Round 2 found the agent offering a guessed hour as a
+   one-tap button. Both are fixed and re-tested live.
+   Evidence: the two judging entries at the end of the log.
+
+10. **We tested our idea about translation before building it, and it was
+    wrong.** We expected Finnish and German time phrases to come out wrong;
+    Claude read 12 of 12 right. The real failure was elsewhere: the reading
+    filled in an hour the driver never gave. So we built "list the gaps,
+    never fill them" and routing to the team that reads the language, not a
+    translation guard.
+    Evidence: the languages entry, `starter/fixtures/driver-languages.json`.
+
 ## Log
 
 Format for every entry:
@@ -262,7 +284,9 @@ entries further down.
 ### 2026-10-24 · team + Claude · checking the teammate's review bundle
 
 - Asked: read and evaluate the bundle.
-- Checked: all 45 cited record IDs, a re-run of its script, the claims marked
+- Checked: all 45 cited record IDs (the bundle's own check above counted 46;
+  the two scripts counted IDs differently, and both found every one in the
+  dataset), a re-run of its script, the claims marked
   as inference or estimate.
 - Changed or threw away: corrected 3 claims; added 2 missed urgent cases.
 - Evidence: decision 3.
@@ -636,9 +660,12 @@ entries further down.
   - When a driver says how long they can wait, and nobody has answered them
     in that thread since, the end of that wait becomes a card with that
     deadline.
-- Checked: at 09:00 the queue went from 23 to 26 orders, adding exactly the
-  three danger orders (CD-420593, CD-420299, CD-420702). CD-420593 now sits
-  right after the safety card, with "Driver's wait ran out at 08:27". The 20
+- Checked: at 09:00, before any agent runs, the queue went from 23 to 26
+  orders, adding exactly the three danger orders (CD-420593, CD-420299,
+  CD-420702). (The 25 in an earlier entry was counted after four agent runs,
+  a different state.) CD-420593 shows "Driver's wait ran out at 08:27". We
+  first wrote that it sits right after the safety card. A judge found it
+  fifth: our printout had been filtered to the orders we were looking at. The 20
   orders the starter flags and we still leave out are a missing position on
   two moving cars plus open threads with nothing due. 74 orders stay quiet.
 - Evidence: `starter/lib/shift-watch/queue.ts`.
@@ -938,6 +965,73 @@ entries further down.
   answered or not in the queue.
 - Evidence: `starter/lib/shift-watch/language.ts`, `read.ts` (`readByClaude`),
   `translate.ts`, `queue.ts`, `starter/evals/reworded-claude.txt`.
+
+### 2026-10-25 · team + Claude · a second judging round
+
+- Asked: score again after the language work, with three new reviewers who
+  weren't told the first round's scores: the same three angles, a frozen
+  copy of `backend-1` (dbeaa62), the screens' text from a replay of the
+  demo, and a live run where the CD-420603 driver writes casual Finnish.
+- Scores, weighted out of 5: 3.0 (shift lead), 3.7 (engineering), 3.7 (AI
+  process). Round 1 gave 3.3, 3.7 and 3.7. With different reviewers that
+  isn't a trend. Taste is again the low score (2 and 3), and most of it is
+  the screens.
+- The finding that hurt most: in the live Finnish run, the reading flagged
+  "no hour given", but the agent then offered the driver a one-tap button
+  "13:45 Hamburg time". That's the same filled gap we had just written
+  about, moved into a button. Two of the three reviewers found it.
+- Fixed:
+  - A quick reply may offer only a time that's already in the records or
+    the messages, enforced in `ask_driver`. Live retest: no time buttons;
+    the agent asked which hour, quoting the driver's own Finnish words.
+  - Quick-reply labels are translated with the message.
+  - Booking messages to a driver go through translation too, and always
+    carry dates. Before, a check-in on the evening of 21 Oct read as after a
+    00:00 departure. Live, the Finnish driver got "lähtee 22.10. klo 00:00 …
+    Lähtöselvitys sulkeutuu 21.10. klo 22:00", with the English under it.
+  - A run that fails is still checked by Shift Watch, and on startup
+    anything left unchecked is checked. Before, a proposal from a failed run
+    sat unchecked and out of sight, and blocked that order's agent from
+    proposing again.
+  - A safety message from a driver with several jobs goes to the car that's
+    on the road, if there's exactly one. Replay test: drv-055's warning
+    light became the top safety card on CD-420576. Otherwise the driver gets
+    the safety line and "which car?".
+  - Only a successful tool result counts as read. Before, a refused proposal
+    echoed the unseen ids back, so a plain retry could cite them. A quote's
+    time comes only from the tool that returned it.
+  - The chat's approve button says who pays.
+  - An approved customer message is recorded as "approved for a person to
+    send", not "sent".
+  - An overdue loose end with a real deadline still ahead (CD-420603's 07:59
+    approval, with the 12:00 check-in to come) now shows that deadline.
+  - An escalated card names the shift lead as the one who decides.
+  - Each card says whether a driver is waiting (`driver_waiting_until`).
+  - The keys answer never closes the question. In one live run, "I lost the
+    car keys at the rest stop" was read as a keys question, which would have
+    sent the standing rule and told nobody.
+  - Corrections to this log: CD-420593's place in the queue (fix 1 above),
+    the 25 against 23→26 count, and the 45 against 46 record IDs.
+  - The 14-message classification set we had only run from a scratch script
+    is now a fixture with its output (`fixtures/driver-intents.json`): Claude
+    13 of 14 this run (14 of 14 the first time), the keyword rules 10 of 14.
+    The rules' score is fitted, since we widened their safety words from
+    these messages, and the fixture says so.
+- Passed to our frontend teammate: dates on times from other days; the
+  repeated names and times on timeline lines; "Translated from Finnish" on
+  our own outgoing messages; the "Driver waiting" count (now one field);
+  showing the language and team on cards; a Finland-team view.
+- Not fixed:
+  - Who decided is a desk picked in the screen, not a signed-in person.
+  - The queue rebuilds everything for every screen, every few seconds.
+  - The replays come from recordings made before today's prompt changes,
+    so in replay the agent is the older one; live mode runs the current one.
+  - A driver whose wait has run out gets the agent's question without a new
+    time to hear back by.
+- How we commit: when a step is done and checked, often several at once. So
+  git proves the order of tests and code only where we say it does (the
+  language set, 05fa07a before dbeaa62).
+- Evidence: the commit that closes this entry, `starter/evals/reworded-claude.txt`.
 
 ## Evidence in this repo
 

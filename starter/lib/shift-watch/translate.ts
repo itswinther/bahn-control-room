@@ -16,3 +16,16 @@ export async function toDriverLanguage(english: string, language: string): Promi
   const translated = block?.type === "text" ? block.text.trim() : ""
   return translated && translated !== english ? `${translated}\n\n(English) ${english}` : english
 }
+
+/** One-tap answer labels in the driver's language (the English is in the message above them). Unchanged on any doubt. */
+export async function labelsToDriverLanguage(labels: string[], language: string): Promise<string[]> {
+  if (!labels.length || !language || language === "en" || !liveReading()) return labels
+  const response = await (client ??= new Anthropic()).messages.create({
+    model: process.env.SHIFT_WATCH_MODEL ?? "claude-sonnet-5-5", max_tokens: 500, output_config: { effort: "low" },
+    system: `Translate each line into the language with ISO code "${language}": short button labels for a driver's app. Keep times and references exactly. One line out per line in, same order, nothing else.`,
+    messages: [{ role: "user", content: labels.join("\n") }],
+  })
+  const block = response.content.find((b) => b.type === "text")
+  const lines = block?.type === "text" ? block.text.trim().split("\n").map((l) => l.trim()) : []
+  return lines.length === labels.length ? lines : labels
+}

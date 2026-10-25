@@ -209,8 +209,8 @@ export async function buildQueue(team?: Team): Promise<QueueResponse> {
     const esc = outcome ? { at: null, from: null } : escalation(p.ownerDesk, deadline === p.createdAt ? null : deadline < p.createdAt ? p.createdAt : deadline, p.createdAt)
     items.push({
       id: `q_${p.id}`, kind: outcome ? "DECIDED" : "PROPOSAL", order_id: p.orderId, reference: ref.get(p.orderId) ?? p.orderId,
-      decision: p.status === "HELD" ? `Held for a person: ${p.summary}` : p.summary, outcome, language: null,
-      stopped_because: outcome ? null : stoppedBecause(p, runs.find((r) => r.id === p.runId)),
+      decision: p.status === "HELD" ? `Held for a person: ${p.summary}` : p.summary, outcome, language: null, driver_waiting_until: null,
+      stopped_because: outcome ? null : stoppedBecause(p, runs.find((r) => r.id === p.runId), esc.from ? "ops-shift" : p.ownerDesk),
       if_no_decision: outcome ? null : ifNobody(p.approval === "SHIFT_LEAD" ? "Nothing changes until the shift lead decides: the car stays where it is and the driver waits." : "Nothing is booked or sent until a person decides.", p.ownerDesk, esc.at, esc.from, hard, deadline < p.createdAt),
       escalated_from: esc.from, owner_desk: esc.from ? "ops-shift" : p.ownerDesk, deadline,
       deadline_reason: deadline === p.createdAt && !p.decisionDeadline ? "No deadline given; decide as soon as possible"
@@ -227,7 +227,9 @@ export async function buildQueue(team?: Team): Promise<QueueResponse> {
     const hard = hardDeadline(orderId)
     const sorted = [...list].sort((a, b) => (a.deadline ?? "9").localeCompare(b.deadline ?? "9"))
     const top = sorted[0]
-    const deadline = [top.deadline, hard?.at].filter((x): x is string => !!x).sort()[0] ?? null
+    // A loose end that's already overdue isn't a decide-by time when the order has a real one still ahead
+    // (CD-420603's 07:59 approval, with the 12:00 check-in to come): the card keeps the overdue fact in its text.
+    const deadline = top.deadline && hard && Date.parse(top.deadline) < nowMs ? hard.at : [top.deadline, hard?.at].filter((x): x is string => !!x).sort()[0] ?? null
     // Bahn's own loose ends keep their owner; only Shift Watch's commitments escalate.
     const esc = top.ours ? escalation(top.owner, top.deadline, null) : { at: null, from: null }
     const last = runs.filter((r) => r.orderId === orderId).sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0]
@@ -237,7 +239,7 @@ export async function buildQueue(team?: Team): Promise<QueueResponse> {
       stopped_because: last && ["STOPPED", "FAILED"].includes(last.status) ? `The agent stopped: ${last.stopReason ?? last.status.toLowerCase()}.` : null,
       if_no_decision: top.ours ? ifNobody("The driver hears nothing more until a person replies.", top.owner, esc.at, esc.from, hard) : null,
       deadline_reason: deadline === top.deadline ? top.deadlineReason : hard?.why ?? null,
-      safety: safety.has(orderId), checked: sorted.slice(1).map((r) => r.text), proposal_id: null, held_message_id: held.get(orderId) ?? null, outcome: null, language: null,
+      safety: safety.has(orderId), checked: sorted.slice(1).map((r) => r.text), proposal_id: null, held_message_id: held.get(orderId) ?? null, outcome: null, language: null, driver_waiting_until: null,
     })
   }
 
@@ -245,15 +247,15 @@ export async function buildQueue(team?: Team): Promise<QueueResponse> {
   const needs = new Map<string, LanguageNeed | null>()
   for (const m of threadMessages) if (WRITER[m.authorType]) needs.set(m.orderId, languageNeed(WRITER[m.authorType], s((m.details as Row).language) ?? "en"))
   for (const m of chat) if (m.direction === "IN" && m.orderId) needs.set(m.orderId, languageNeed("The driver", m.language, m.unclear))
-  for (const i of items) i.language = needs.get(i.order_id) ?? null
+  for (const i of items) { i.language = needs.get(i.order_id) ?? null; i.driver_waiting_until = promises.get(i.order_id) ?? null }
   const mine = (i: QueueItem) => Number(!!team && i.language?.team === team)
   items.sort((a, b) => Number(b.safety) - Number(a.safety) || mine(b) - mine(a) || (a.deadline ?? "9").localeCompare(b.deadline ?? "9"))
   return { at: now, summary: summarise(items, nowMs), items, quiet_count: orderRows.length - new Set(items.map((i) => i.order_id)).size }
 }
 
 /** Why the agent handed this to a person: the rule that needs a person, in the card's words. */
-function stoppedBecause(p: typeof proposals.$inferSelect, run?: { status: string; stopReason: string | null }): string {
-  const desk = DESK_NAME[p.ownerDesk] ?? p.ownerDesk
+function stoppedBecause(p: typeof proposals.$inferSelect, run: { status: string; stopReason: string | null } | undefined, owner: Desk): string {
+  const desk = DESK_NAME[owner] ?? owner
   const why = p.status === "HELD" ? `Shift Watch held it for a person: ${p.check?.reasons.map((r) => r.message).join(" ") ?? ""}`
     : p.approval === "SHIFT_LEAD" ? "It concerns safety, so only the shift lead decides."
     : p.approval === "CUSTOMER_VIA_PERSON" ? "It contacts the customer, and only a person does that."

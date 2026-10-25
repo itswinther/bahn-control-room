@@ -11,7 +11,7 @@ import type { DriverMessage, HeldMessageReview } from "@/lib/contract"
 import { toDriverMessage } from "./case"
 import { checkProposal, driverMessageOk } from "./checks"
 import { liveReading, readProposalText } from "./judge"
-import { toDriverLanguage } from "./translate"
+import { labelsToDriverLanguage, toDriverLanguage } from "./translate"
 
 /** After this many send-backs on one order, the next failing proposal is held for a person instead. */
 const MAX_SEND_BACKS = 2
@@ -89,7 +89,9 @@ async function reviewDriverMessages(orderId: string) {
       .where(and(eq(driverMessages.driverId, m.driverId), eq(driverMessages.direction, "IN"))).orderBy(desc(driverMessages.createdAt)).limit(1) : []
     // Already in two languages (written that way) goes out as written, so a driver never gets it translated twice.
     const text = last && last.language !== "en" && !m.text.includes("(English) ") ? await toDriverLanguage(m.text, last.language).catch(() => m.text) : m.text
-    await db.update(driverMessages).set(ok && text !== m.text ? { status: "SENT", text, language: last!.language, translation: m.text } : { status: ok ? "SENT" : "HELD" })
+    const labels = text !== m.text ? await labelsToDriverLanguage(m.quickReplies.map((q) => q.label), last!.language).catch(() => null) : null
+    const quickReplies = labels ? m.quickReplies.map((q, i) => ({ ...q, label: labels[i] })) : m.quickReplies
+    await db.update(driverMessages).set(ok && text !== m.text ? { status: "SENT", text, quickReplies, language: last!.language, translation: m.text } : { status: ok ? "SENT" : "HELD" })
       .where(eq(driverMessages.id, m.id))
     if (ok) released++
     else held++

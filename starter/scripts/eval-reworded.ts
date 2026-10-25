@@ -7,7 +7,7 @@ import { readFileSync } from "node:fs"
 import path from "node:path"
 import { checkProposal, driverMessageOk, type CheckInput } from "../lib/shift-watch/checks"
 import { canRead, readProposalText } from "../lib/shift-watch/judge"
-import { readByClaude } from "../lib/shift-watch/read"
+import { readByClaude, readByRules } from "../lib/shift-watch/read"
 
 type Case = { id: string; expect: string; command: string; summary: string; payload: Record<string, unknown>; evidence?: { table: string; id: string; minutes_old: number }[] }
 const { cases } = JSON.parse(readFileSync(path.join(process.cwd(), "fixtures", "reworded-mistakes.json"), "utf8")) as { cases: Case[] }
@@ -47,6 +47,19 @@ async function main() {
     console.log(`${m.id.padEnd(10)} want ${m.expect}  rules: ${show(rules)}${both ? `  rules+Claude: ${show(both)}` : ""}  "${m.text.slice(0, 60)}"`)
   }
   console.log(`\nRules alone: ${said.rules} of ${msgs.length}.${withClaude ? ` Rules plus Claude: ${said.claude} of ${msgs.length}.` : ""}`)
+
+  // What a driver's message is about (fixtures/driver-intents.json): the keyword rules, and Claude's reading with a key.
+  const { cases: intents } = JSON.parse(readFileSync(path.join(process.cwd(), "fixtures", "driver-intents.json"), "utf8")) as { cases: { id: string; text: string; intent: string }[] }
+  const sorted = { rules: 0, claude: 0 }
+  console.log("\nWhat a driver's message is about:")
+  for (const c of intents) {
+    const rules = readByRules(c.text).intent
+    const claude = withClaude ? (await readByClaude(c.text)).intent : null
+    sorted.rules += Number(rules === c.intent)
+    if (claude) sorted.claude += Number(claude === c.intent)
+    console.log(`${c.id.padEnd(13)} want ${c.intent.padEnd(17)} rules: ${(rules === c.intent ? "ok   " : "MISS ") + rules.padEnd(17)}${claude ? ` Claude: ${claude === c.intent ? "ok   " : "MISS "}${claude}` : ""}`)
+  }
+  console.log(`\nRules alone: ${sorted.rules} of ${intents.length}.${withClaude ? ` Claude: ${sorted.claude} of ${intents.length}.` : ""}`)
 
   // Drivers writing casually or in their own language (fixtures/driver-languages.json): live reading only.
   if (!withClaude) return
