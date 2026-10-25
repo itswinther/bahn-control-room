@@ -1207,6 +1207,98 @@ entries further down.
   card, on CD-420442.
 - Evidence: `starter/app/api/demo/advance/route.ts`, `starter/components/demo-menu.tsx`.
 
+### 2026-10-25 · teammate + Claude · a stress test of the backend and the screens together
+
+- Why (teammate): every check so far had been one person, one request at a
+  time, on Bahn's 100 orders. Before hand-in we wanted to know three things:
+  - whether anything breaks when people act at once;
+  - whether the screens and the backend still agree under load;
+  - an answer to Bahn's own technical question, how this scales, with
+    numbers instead of "should split cleanly".
+
+  This log also said we had no load test.
+- How:
+  - A fresh copy of `main`.
+  - A real Postgres 17 run locally without Docker (the `embedded-postgres`
+    npm package).
+  - A production build (`next build`, `next start`), because dev mode
+    recompiles and hides real timings.
+  - The team's checks first: `check:agent`, `eval:proposals`,
+    `eval:reworded`, `smoke`, `typecheck`.
+  - Then four kinds of test:
+    - **Races:** scripted parallel requests. Ten approvals of one proposal;
+      undo racing a new decision; five wakes of one agent; five quick
+      messages from one driver; bad input.
+    - **Load:** simulated open screens. Each re-renders its page every
+      6 seconds, like the live refresh, and polls `/api/queue` every 20
+      seconds, like the Shift Watch panel, for 60 seconds.
+    - **Scale:** Bahn's 100 orders copied 50 times in the test database
+      (5,000 orders, 96,383 related records, new ids). Then timing and a CPU
+      profile of the queue and case builders, and a reseed back to 100.
+    - **Browser:** the CD-420603 demo in a real browser, checking console
+      errors and page weight.
+- Held up:
+  - Ten approvals at once: one wins, nine get "Someone else decided this a
+    moment ago". One booking, one message to the driver.
+  - An undo by another desk is refused. Five wakes at once: one run, four
+    409s. Bad input gets 400 or 404.
+  - At 100 orders, 40 open case screens refresh in 0.2 s (0.3 s at worst).
+  - No console errors, and about 200 KB of gzipped JavaScript a page.
+- Found:
+  - **A waiting driver lost the promise's deadline.** While the agent
+    worked on CD-420603, the card showed the 12:00 check-in instead of the
+    driver's 09:15 promise. The order's overdue 07:59 approval made the
+    queue skip straight to the hard time. The card sat under "Today", the
+    overview counted a waiting driver, and the promise couldn't escalate.
+  - **Five quick messages from one driver** got three "we're on it" replies
+    with two different promise times. Each message read the open promise
+    before the others had written theirs.
+  - **`npm run typecheck` failed on a fresh clone** (3 errors) until Next
+    had generated its route types. Our README tells judges to run it.
+  - **Scale:**
+
+    | | 100 orders | 5,000 orders |
+    | --- | --- | --- |
+    | Building the queue | 40 ms, 16 KB | 1.3 s, 707 KB |
+    | One case | 61 ms | 256 ms |
+    | One page | about 0.1 s | 1.7–2.0 s, 1–1.3 MB of HTML |
+    | 5 open case screens | fine | 7 s per refresh |
+    | 10 open case screens | fine | 19 s per refresh |
+
+    At 5,000 orders, 5 screens already need longer than the 6-second
+    refresh, so the server never catches up.
+
+    The CPU profile points at:
+    - `queue.ts` searching whole lists for every card;
+    - reading all of `related_records` on every request;
+    - the case page building the case twice (once for the tab title);
+    - the panel rebuilding the whole queue every 20 seconds.
+- Changed (d48eb2d):
+  - A loose-end card is due at its earliest time still ahead, and a promise
+    Shift Watch made to a driver always counts, even once broken
+    (`lib/shift-watch/deadline.ts`). Escalation follows that promise.
+  - One driver's messages are handled in order
+    (`lib/shift-watch/one-at-a-time.ts`). Five quick messages now get one
+    "we're on it" and one promise, and four "added to your earlier
+    message"; other drivers don't wait.
+  - `npm run typecheck` runs `next typegen` first.
+  - New checks for both rules in `scripts/check-agent-rules.ts`, written
+    before the code and failing first. After rebasing on 2b80d27 (the
+    day-before check edits the same part of `intake.ts`), all of these pass
+    on the combined code:
+    - `check:agent`, `eval:proposals` (14 of 14), `smoke`, and a fresh-clone
+      typecheck;
+    - 11 end-to-end checks on CD-420603: the promise as the deadline while
+      the agent works, one reply to five messages, then the plan, approve
+      and the mock booking.
+- Not fixed, on purpose: the scaling problems. One process is fine for one
+  shift at Bahn's size today, and that's what the demo runs. The answer for
+  5,000 orders is the one in our plan: split the queue by desk, and build it
+  once for everyone watching instead of once per screen.
+- Evidence: commit d48eb2d. The race, load and scale scripts ran from
+  outside the repo and aren't committed; the numbers above are from that
+  run.
+
 ## Evidence in this repo
 
 - `starter/recordings/`: every recorded live agent run, also used by replay mode.
@@ -1217,7 +1309,8 @@ entries further down.
 - `starter/fixtures/`: the expected results and held-out sets those evals read.
 - `SHIFT-WATCH-RECAP.md`: the system before and after, and each of Bahn's recorded mistakes replayed.
 
-Not in the repo: screenshots and a load test. Everything has been tested on Bahn's 100 orders only.
+Not in the repo: screenshots, and the scripts for the stress test. Its results, at 100 and at 5,000
+orders, are in the log entry "a stress test of the backend and the screens together".
 
 ## Rules we keep
 

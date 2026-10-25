@@ -6,6 +6,8 @@ import { bookingOutcome, siteReply } from "../lib/mocks/replies"
 import { booksOrBuys, checkProposal, mayDecide } from "../lib/shift-watch/checks"
 import { languageNeed, parties, teamFor } from "../lib/shift-watch/language"
 import { readByRules, SAFETY_LINE } from "../lib/shift-watch/read"
+import { looseEndDeadline } from "../lib/shift-watch/deadline"
+import { oneAtATime } from "../lib/shift-watch/one-at-a-time"
 import { bookFerry } from "../lib/mocks"
 
 assert.deepEqual(route("travel.rebook_ferry"), { approval: "DESK", owner_desk: "ops-travel" })
@@ -81,4 +83,37 @@ assert.ok(languageNeed("The customer", "fr")!.why.includes("No team reads French
 assert.equal(parties({ driver: { name: "D", homeCountry: "FI", wrote: "en" }, pickup: { name: "P", country: "FI" }, customer: { name: "C", country: "FI" } }).mixed, false)
 assert.equal(parties({ driver: { name: "D", homeCountry: "DE", wrote: null }, pickup: { name: "P", country: "DE" }, delivery: { name: "L", country: "FI" } }).mixed, true)
 
-console.log("agent rules: ok")
+// A loose-end card is due at its earliest time still ahead. A promise Shift Watch made to a driver always
+// counts, even once broken, so CD-420603's waiting driver (09:15) isn't hidden behind the 12:00 check-in by
+// the order's overdue 07:59 approval.
+const bahn = { deadline: "2026-10-21T07:59:00Z" }, promise = { deadline: "2026-10-21T09:15:00Z", ours: true as const }
+const checkIn = { at: "2026-10-21T12:00:00Z" }
+const at = (iso: string) => Date.parse(iso)
+assert.deepEqual(looseEndDeadline([bahn, promise], checkIn, at("2026-10-21T09:00:00Z")), { deadline: promise.deadline, lead: promise })
+assert.deepEqual(looseEndDeadline([bahn, promise], checkIn, at("2026-10-21T09:20:00Z")), { deadline: promise.deadline, lead: promise })
+assert.deepEqual(looseEndDeadline([bahn], checkIn, at("2026-10-21T09:00:00Z")), { deadline: checkIn.at, lead: null })
+assert.deepEqual(looseEndDeadline([bahn], null, at("2026-10-21T09:00:00Z")), { deadline: bahn.deadline, lead: bahn })
+const soon = { deadline: "2026-10-21T10:00:00Z" }
+assert.deepEqual(looseEndDeadline([bahn, soon], checkIn, at("2026-10-21T09:00:00Z")), { deadline: soon.deadline, lead: soon })
+assert.deepEqual(looseEndDeadline([{ deadline: null }], checkIn, at("2026-10-21T09:00:00Z")), { deadline: checkIn.at, lead: null })
+assert.deepEqual(looseEndDeadline([{ deadline: null }], null, at("2026-10-21T09:00:00Z")), { deadline: null, lead: null })
+
+// Messages from one driver are handled one at a time (so five quick messages get one promise, not three);
+// different drivers don't wait for each other, and a failed one doesn't block the next.
+async function checkOneAtATime() {
+  const log: string[] = []
+  const job = (name: string, ms: number, fail = false) => async () => {
+    log.push(`start ${name}`)
+    await new Promise((r) => setTimeout(r, ms))
+    log.push(`end ${name}`)
+    if (fail) throw new Error(name)
+    return name
+  }
+  const results = await Promise.allSettled([
+    oneAtATime("drv-1", job("a", 30, true)), oneAtATime("drv-1", job("b", 10)), oneAtATime("drv-2", job("x", 5)),
+  ])
+  assert.deepEqual(results.map((r) => r.status), ["rejected", "fulfilled", "fulfilled"])
+  assert.deepEqual(log, ["start a", "start x", "end x", "end a", "start b", "end b"])
+}
+
+checkOneAtATime().then(() => console.log("agent rules: ok"), (e) => { console.error(e); process.exit(1) })
