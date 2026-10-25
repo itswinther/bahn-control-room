@@ -2,7 +2,7 @@
  * The screens' writes, straight to the team's routes. Each returns the route's error message as
  * text, so the card can show it in the backend's own words.
  */
-import type { DecisionRequest, HeldMessageReview, Proposal, RunRequest } from "@/lib/contract";
+import type { DecisionRequest, HeldMessageReview, Page, Presence, Proposal, RunRequest } from "@/lib/contract";
 
 type Result<T> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -23,3 +23,6 @@ export const undoHeldMessage = (id: string, reviewer: string) => post<unknown>(`
 export const runAgent = (req: RunRequest) => post<{ run_id: string }>("/api/agents/run", req);
 export const driverWrites = (driver_id: string, text: string) =>
   post<{ run_id: string | null }>("/api/driver/messages", { driver_id, text, simulated: true });
+export const ackPage = (id: string, person_id: string) => post<{ page: Page }>(`/api/pages/${id}/ack`, { person_id });
+export const passPage = (id: string, person_id: string) => post<{ page: Page }>(`/api/pages/${id}/pass`, { person_id });
+export const setPresence = (person_id: string, presence: Presence) => post<{ ok: true }>("/api/presence", { person_id, presence });

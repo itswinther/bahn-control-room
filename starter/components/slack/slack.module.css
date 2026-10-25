@@ -1,0 +1,345 @@
+/* Fills the main column under the header, edge to edge, like the Inbox. Slack-like layout, our own look. */
+.slack {
+  margin: calc(-1 * var(--main-top)) calc(-1 * var(--gutter)) -96px;
+  min-height: calc(100dvh - var(--header-h));
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-rows: auto 1fr;
+}
+
+.banner {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 8px var(--gutter);
+  background: var(--orange-bg);
+  color: var(--orange);
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+}
+
+/* ---------- Room list ---------- */
+
+.side {
+  padding: 20px 12px;
+  background: var(--band-bg);
+  color: var(--band-body);
+  overflow-y: auto;
+}
+
+.side h2 {
+  margin: 18px 10px 6px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--band-muted);
+}
+
+.side h2:first-child {
+  margin-top: 0;
+}
+
+.side ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.side a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 10px;
+  border-radius: var(--radius-chip);
+  color: inherit;
+  text-decoration: none;
+  font-size: 15px;
+}
+
+.side a > span:not(.dot):not(.badge) {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.side a:hover {
+  background: var(--band-raised);
+}
+
+.side a[aria-current="page"] {
+  background: var(--band-line);
+  color: var(--band-fg);
+  font-weight: 700;
+}
+
+.dmRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dmRow a {
+  flex: 1;
+  min-width: 0;
+}
+
+.dot {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 2px solid var(--band-muted);
+}
+
+.dot[data-presence="ACTIVE"] {
+  background: var(--green-strong);
+  border-color: var(--green-strong);
+}
+
+.dot[data-presence="ON_CALL"] {
+  background: var(--orange-strong);
+  border-color: var(--orange-strong);
+}
+
+.badge {
+  flex: none;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: var(--red-strong);
+  color: var(--asphalt);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 20px;
+  text-align: center;
+}
+
+.presence {
+  flex: none;
+  width: 84px;
+  height: 28px;
+  border: 1px solid var(--band-line);
+  border-radius: var(--radius-tag);
+  background: var(--band-raised);
+  color: var(--band-body);
+  font-size: 12px;
+}
+
+/* ---------- Messages ---------- */
+
+.main {
+  min-width: 0;
+  padding: 24px var(--gutter) 96px;
+}
+
+.mainHead {
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--divider-soft);
+}
+
+.mainHead h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 24px;
+  color: var(--headline);
+}
+
+.mainHead p,
+.empty {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.empty {
+  margin-top: 24px;
+}
+
+.messages,
+.thread {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.message {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  gap: 12px;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--divider-soft);
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-chip);
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+
+.messageBody > p {
+  margin: 0 0 6px;
+  color: var(--body);
+}
+
+.byline {
+  font-size: 14px;
+  color: var(--headline);
+}
+
+.byline time {
+  margin-left: 6px;
+  font-size: 13px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.mention {
+  padding: 1px 4px;
+  border-radius: var(--radius-tag);
+  background: var(--teal-bg);
+  color: var(--teal);
+  font-weight: 700;
+}
+
+.card {
+  max-width: 640px;
+  margin-top: 6px;
+  padding: 16px;
+  border: 1px solid var(--divider);
+  border-left: 4px solid var(--orange-display);
+  border-radius: var(--radius-inner);
+  background: var(--surface);
+}
+
+.card[data-safety] {
+  border-left-color: var(--red-strong);
+}
+
+.card p {
+  margin: 0;
+}
+
+.cardTop {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.trigger {
+  font-weight: 800;
+  color: var(--headline);
+}
+
+.ref {
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  color: var(--link);
+}
+
+.due {
+  padding: 2px 8px;
+  border-radius: var(--radius-tag);
+  background: var(--orange-bg);
+  color: var(--orange);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.what {
+  margin-top: 10px !important;
+  font-size: 16px;
+  color: var(--headline);
+}
+
+.for {
+  margin-top: 6px !important;
+  font-size: 14px;
+  color: var(--muted-strong);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.primary,
+.secondary {
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 18px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.primary {
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+
+.primary:hover {
+  background: var(--accent-hover);
+}
+
+.secondary {
+  background: var(--surface-sunken);
+  color: var(--headline);
+}
+
+.secondary:hover {
+  background: var(--surface-pressed);
+}
+
+.primary:disabled,
+.secondary:disabled {
+  opacity: 0.6;
+}
+
+.error {
+  margin-top: 10px !important;
+  font-size: 14px;
+  color: var(--danger);
+}
+
+.thread {
+  margin-top: 12px;
+  padding-left: 14px;
+  border-left: 2px solid var(--divider);
+}
+
+.thread li + li {
+  margin-top: 10px;
+}
+
+.thread p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--body);
+}
+
+@media (max-width: 760px) {
+  .slack {
+    grid-template-columns: 1fr;
+  }
+
+  .side {
+    max-height: 260px;
+  }
+}

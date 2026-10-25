@@ -58,6 +58,7 @@ export function Header({ live }: { live: boolean }) {
   const themeLabel = theme === "light" ? "Light" : theme === "dark" ? "Dark" : "Match system";
   const pathname = usePathname();
   const inInbox = pathname.startsWith("/inbox") || pathname.startsWith("/cases");
+  const inSlack = pathname.startsWith("/slack");
 
   return (
     <header className={styles.header}>
@@ -66,11 +67,14 @@ export function Header({ live }: { live: boolean }) {
           <Wordmark />
         </Link>
         <nav className={styles.nav} aria-label="Main">
-          <Link href="/" aria-current={!inInbox ? "page" : undefined}>
+          <Link href="/" aria-current={!inInbox && !inSlack ? "page" : undefined}>
             Overview
           </Link>
           <Link href="/inbox" aria-current={inInbox ? "page" : undefined}>
             Inbox
+          </Link>
+          <Link href="/slack" aria-current={inSlack ? "page" : undefined}>
+            Slack (mock)
           </Link>
         </nav>
       </div>

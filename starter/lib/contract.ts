@@ -285,3 +285,34 @@ export type ChatEvent =
   | { type: "action"; action: ChatAction }
   | { type: "error"; message: string }
   | { type: "done" }
+
+/* ---------- Paging (mock Slack: nothing is sent, the people are made up) ---------- */
+
+export type Presence = "ACTIVE" | "AWAY" | "ON_CALL"
+export type Person = { id: string; name: string; desk: Desk; role: "PRIMARY" | "BACKUP"; presence: Presence }
+export type PageTrigger = "SAFETY" | "DRIVER_DROPPED" | "ESCALATED" | "DUE_SOON"
+/** ROOM mentions the person in their desk's room; DM goes to their phone. */
+export type PageChannel = "ROOM" | "DM"
+export type PageHop = { rung: number; person_id: string; person_name: string; channel: PageChannel; at: string; result: "SENT" | "NO_ANSWER" | "PASSED" | "ACKED" }
+/** One page Shift Watch sent. "I'm on it" sets acked_*, and never closes the card: only the work does. */
+export type Page = {
+  id: string
+  order_id: string
+  reference: string
+  trigger: PageTrigger
+  desk: Desk
+  room: string
+  what: string
+  deadline: string | null
+  rung: number
+  person_id: string
+  channel: PageChannel
+  sent_at: string
+  acked_at: string | null
+  acked_by: string | null
+  /** Why it stopped moving up the ladder without an "I'm on it". */
+  ended: "NO_ONE_LEFT" | "CARD_CLOSED" | null
+  history: PageHop[]
+}
+/** GET /api/slack */
+export type SlackFeed = { now: string; people: Person[]; rooms: string[]; pages: Page[] }

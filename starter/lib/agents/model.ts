@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk"
 import type { BetaContentBlock, BetaMessageParam, BetaTool } from "@anthropic-ai/sdk/resources/beta/messages/messages"
+import { existsSync } from "node:fs"
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import path from "node:path"
 
@@ -25,6 +26,8 @@ export type ModelSource = {
 
 const RECORDINGS = path.join(process.cwd(), "recordings")
 const fileFor = (orderId: string, reason: string) => path.join(RECORDINGS, `${orderId}.${reason}.json`)
+/** Whether replay has a recorded run to play for this order and reason. */
+export const hasRecording = (orderId: string, reason: string) => existsSync(fileFor(orderId, reason))
 
 let client: Anthropic | null = null
 

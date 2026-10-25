@@ -16,4 +16,7 @@ export async function register() {
     void wakeDue().catch((e) => console.error("wakeDue:", e))
     void askConfirmations().catch((e) => console.error("askConfirmations:", e))
   }, 60_000)
+  // Every 15 s, page whoever a card needs and move unanswered pages up the ladder (replay and live).
+  const { runPager } = await import("./lib/shift-watch/pager")
+  setInterval(() => void runPager().catch((e) => console.error("pager:", e)), 15_000)
 }

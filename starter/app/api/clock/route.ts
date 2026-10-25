@@ -3,6 +3,7 @@ import { NextResponse } from "next/server"
 import { nowIso, resetClock } from "@/lib/clock"
 import { db } from "@/lib/db"
 import { clearBookings } from "@/lib/mocks"
+import { resetPaging } from "@/lib/shift-watch/pager"
 
 export const runtime = "nodejs"
 
@@ -12,12 +13,13 @@ export function GET() {
 }
 
 /**
- * Restart the demo at the snapshot (the reset button): clears our six tables and the mock bookings,
+ * Restart the demo at the snapshot (the reset button): clears our six tables, the mock bookings and the pages,
  * then resets the clock. Bahn's dataset tables are never touched.
  */
 export async function POST() {
   await db.execute(sql`TRUNCATE agent_runs, agent_steps, agent_notes, order_status, proposals, driver_messages`)
   clearBookings()
+  resetPaging()
   resetClock()
   return NextResponse.json({ now: nowIso() })
 }

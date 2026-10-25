@@ -14,6 +14,7 @@
     "smoke": "tsx scripts/smoke.ts",
     "demo:driver": "tsx scripts/demo-driver.ts",
     "check:agent": "tsx scripts/check-agent-rules.ts",
+    "check:paging": "tsx scripts/check-paging.ts",
     "eval:proposals": "tsx scripts/eval-proposals.ts",
     "eval:reworded": "tsx scripts/eval-reworded.ts",
     "record": "tsx scripts/record.ts"

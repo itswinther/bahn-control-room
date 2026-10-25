@@ -3,7 +3,8 @@
 // shift lead, and wake the order's agent.
 import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm"
 import type { DriverMessage, DriverMessageResponse, QuickReply } from "@/lib/contract"
-import { createRun, runOrderAgent } from "@/lib/agents/order-agent"
+import { hasRecording } from "@/lib/agents/model"
+import { agentMode, createRun, runOrderAgent } from "@/lib/agents/order-agent"
 import { nowIso } from "@/lib/clock"
 import { db } from "@/lib/db"
 import { orders, relatedRecords } from "@/lib/schema"
@@ -12,6 +13,8 @@ import { buildCase, toDriverMessage } from "./case"
 import { readByClaude, readByRules, SAFETY_LINE, type Reading } from "./read"
 import { fmtClock } from "@/lib/present/time"
 import { languageName } from "./language"
+import { page } from "./pager"
+import { DROP_OUT } from "./paging"
 import { toDriverLanguage } from "./translate"
 import { CONFIRM_YES, confirmYes } from "./confirm"
 import { driverZone, localTime, utcOffset } from "./zone"
@@ -131,7 +134,11 @@ export async function intake(driverId: string, text: string, opts: { quickReplyV
     translation: reading.language === "en" ? null : english, quickReplies: [], hearBackBy: closes ? null : promised, simulated: false, intent: null,
     repeatsMessageId: null, status: "SENT",
   })
+  // A driver saying they won't do the job pages a person at once: the agent can't find a new driver on its own.
+  if (DROP_OUT.test(reading.english ?? subject)) page({ order_id: job.id, reference: job.reference, trigger: "DRIVER_DROPPED", desk: "ops-dispatch", what: `Driver says they won't deliver: "${subject}"`, deadline: reply.hear_back_by })
   if (closes) return { message, reply, run_id: null }
+  // Replay only has recordings for a few orders; waking an agent without one would show a failed run on the card.
+  if (agentMode() !== "live" && !hasRecording(job.id, "DRIVER_MESSAGE")) return { message, reply, run_id: null }
 
   // The agent gets the driver's own words beside the English, and what the message leaves open, so it asks rather than assumes.
   const said = reading.english ? `'${reading.english}' (Shift Watch's English reading; the driver wrote in ${languageName(reading.language)}: '${subject}')` : `'${subject}'`
