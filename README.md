@@ -5,12 +5,31 @@ once, catches the drivers who go quiet before a pickup, and keeps one decision q
 09:00 on Bahn's 100 orders, a person sees 26; the other 74 stay quiet.
 
 **Two minutes with it** (from `starter/`, then http://localhost:3000; no API key needed):
-1. **Demo → Driver writes in.** CD-420603's driver is stuck in a ferry queue. Shift Watch answers him at once in
-   Hamburg time; the agent proposes the 22:00 crossing; pick who pays, approve, and watch what happens next.
+1. **Demo → Driver writes in.** CD-420603's driver is stuck in a ferry queue. Shift Watch answers the driver at once
+   in Hamburg time; the agent proposes the 22:00 crossing; pick who pays, approve, and watch what happens next.
 2. **Demo → A driver goes quiet.** Bahn's real case: a driver took a job and went silent. Shift Watch asked the day
    before; three hours of silence put the job back on the dispatch desk, a day before the pickup.
 3. **Demo → Wake three more agents.** A timed-out booking, a warning light, a driver stranded at a site: each lands
    in the Inbox with why it needs a person and what happens if nobody decides.
+4. **Slack (mock)** in the header. Bahn's people work in Slack, so when something can't wait, Shift Watch pages
+   them there. It pages for safety, for a card that moved to the shift lead, and for an agent's plan or a waiting
+   driver due within 10 minutes. It posts in the desk's room; a person who is away gets a direct message to their
+   phone; no answer in 3 minutes goes to the backup, then the shift lead. Safety goes straight to the shift lead.
+   "I'm on it" takes the card, and the card stays open until the work is done. Nothing is sent and the people are
+   made up.
+
+| | |
+|---|---|
+| ![The agent's plan for CD-420603: why it reached a person, what happens if nobody decides, and who pays](docs/screenshots/agent-plan.png) | ![After approval and the 10-second undo: the mock booking and what happens next](docs/screenshots/after-approve.png) |
+| **The agent's plan.** Checked by Shift Watch before a person sees it. | **After Approve.** The undo window has passed and the booking ran. |
+| ![The overview: a shift timeline per desk and Shift Watch's summary](docs/screenshots/overview.png) | ![CD-420442's driver went quiet: the card goes back to the dispatch desk a day before the pickup](docs/screenshots/quiet-driver.png) |
+| **Overview.** What's due, per desk, on the demo clock. | **A driver goes quiet.** Caught the day before, not after the customer cancels. |
+
+![Slack (mock): Shift Watch's safety page in #shift-lead, with I'm on it, Pass it on and Open case](docs/screenshots/slack.png)
+
+**Slack (mock).** The safety page in `#shift-lead`, moved on to the backup after 3 minutes without an answer.
+
+Screenshots: replay mode, no API key, on the demo clock that starts at Bahn's snapshot (21 Oct, 09:00 UTC).
 
 | Bahn judges on | Read |
 |---|---|
