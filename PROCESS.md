@@ -94,6 +94,15 @@ bottom. Every entry points to the commit, file or output that backs it up.
     translation guard.
     Evidence: the languages entry, `starter/fixtures/driver-languages.json`.
 
+11. **We checked our own screens for the look of AI-made design, and kept
+    what was Bahn's.** We asked Claude to research the common tells and audit
+    the screens it had built against them. About half were there: uppercase
+    display headings on every panel, coloured left-edge stripes, pills on
+    everything, a chatbot "Ask me anything" opening. We removed those. We kept
+    the cream background and pill-shaped main buttons, because they are Bahn's
+    own brand, and Claude's suggestion to cut the motion was our call to skip.
+    Evidence: the design entry at the end of the log, commit e9d5684.
+
 ## Log
 
 Format for every entry:
@@ -789,6 +798,28 @@ entries further down.
 - Evidence: `starter/lib/ui/adapt.ts`, `starter/lib/ui/data.ts`,
   `starter/components/case/decision-card.tsx`, `starter/components/demo-menu.tsx`.
 
+### 2026-10-24 · team + Claude · stress-testing the screens
+
+- Asked: stress test every feature the screens use before anything is
+  pushed, and never change a backend file to make a test pass.
+- Checked: three scripts against the real routes, with every screen loaded
+  after each step. Decisions: 12 clicks at once give one 200 and eleven 409s;
+  the wrong desk gets 403; no payer gets 400; undo by the reviewer works and
+  is refused once the decision has taken effect. Messages: held messages sent,
+  edited, undone and dropped; "which car?" for a driver with three jobs;
+  script tags in a message shown as text. Load: 60 page loads at once, then
+  every order in the queue with 3,000 extra messages. 73 of 74 passed; the
+  one miss was our test's own wrong guess (that driver has no expense claims).
+  All 100 case pages load. Then by hand in the browser: reject, undo, edit,
+  search, permissions, dark mode and phone width.
+- Changed: the screen had no way to use the backend's 10-second undo on a
+  released driver message, so the card now says "Sending · reaches the driver
+  in 9s · Undo". A rejected card's "It goes back once the undo window closes"
+  didn't say where it goes; it now says nothing was booked or sent. "What
+  happens next" no longer shows future steps with done ticks.
+- Not in the repo: the three scripts ran from a scratch folder.
+- Evidence: `starter/components/case/held-message.tsx`, commit 8f3365a.
+
 ### 2026-10-25 · team + Claude · a before-and-after recap
 
 - Asked: one file that says what the system was at the start and what it is
@@ -1032,6 +1063,77 @@ entries further down.
   git proves the order of tests and code only where we say it does (the
   language set, 05fa07a before dbeaa62).
 - Evidence: the commit that closes this entry, `starter/evals/reworded-claude.txt`.
+
+### 2026-10-25 · team + Claude · the screens after a teammate's review
+
+- Asked: a teammate reviewed the screens against the backend and against
+  the other teams' entries. Fix what the screens get wrong, without touching
+  a backend file.
+- Checked: each finding in the code before changing it. Two held only in
+  part: the "counted twice" numbers were one rule in the overview and another
+  in Shift Watch's summary, and the "due this hour" jump came from counting
+  at the snapshot time before the browser had the demo clock.
+- Changed:
+  - Shift Watch follows the case on screen, including the first call on
+    `/inbox`, where it used to say "the whole board".
+  - The overview counts the way Shift Watch does, so calls plus quiet orders
+    make 100, and it counts at the queue's own time until the clock syncs.
+  - A row inside the undo window says "Undo 8s", not "Done".
+  - The chat's approve button shows who pays before anyone presses it.
+  - Timeline chips are wide enough for their order number; inbox titles wrap
+    to two lines; the panel opens with Shift Watch's own three-line summary.
+  - The dark Shift Watch panel looked out of place; it now uses the page's
+    own surface in both themes.
+- Threw away: building order references from the order id
+  (`CD-42` + four digits). It matched all 100 orders, but it was a guess; the
+  panel now reads them from the queue.
+- Not done, the team's call: a driver-side page (after the 09:30 feature
+  freeze); a path without Docker (it needs a change to `lib/db.ts`, a backend
+  file).
+- Evidence: commits a1e8b0a and dbe20a3.
+
+### 2026-10-25 · team + Claude · languages and waiting drivers on the screens
+
+- Asked: everything passed to the frontend in the two judging entries above.
+- Checked: the backend moved twice while this was being built, so each time
+  we merged it first, ran its own checks (14 of 14) and our 72 stress checks,
+  and only then the screens. No card needs another language at demo start, so
+  we tested the display with a German and a Finnish message written into the
+  local database, then cleared them.
+- Changed:
+  - Cards and cases show the language, the country team that reads it, why,
+    and what the message leaves unclear ("Not clear: how late is not said").
+    A cross-border order lists who reads what.
+  - A "Team view" in the inbox (Finland, Denmark, Germany).
+  - "Driver waiting" counts `driver_waiting_until`. Before, the screen sorted
+    rows by matching Shift Watch's sentences; the count now comes from a field.
+  - Times from other days carry the date; one time per timeline line; no
+    generic "operator" roles; our own messages say "Sent in Finnish".
+- Didn't take the first answer: a "Finnish driver writes in" demo button
+  looks simple, but without a key every message reads as English, and the
+  fix would be in a backend file. The button works in live mode only and says
+  so; the Demo menu now shows which mode is on.
+- Evidence: commit 4ea52a3.
+
+### 2026-10-25 · team + Claude · taking the AI look out of the design
+
+- Asked: research the common tells of AI-made interfaces and audit our
+  screens for them.
+- Checked: practitioner write-ups and Anthropic's own frontend-design
+  guidance, then the stylesheets: 43 pill shapes, 24px card corners, nine
+  uppercase text styles, four pulsing "live" dots, coloured left-edge
+  stripes on every timeline chip, "Ask me anything on the board" in giant
+  type. Also what we avoided: no Inter, no purple gradients, no hero with
+  three feature cards, no marketing words.
+- Changed: headings in normal case; no left-edge stripes; pills only on main
+  buttons, with 6-10px corners elsewhere and 14px cards; Shift Watch opens on
+  its summary and first three calls; one live dot, by the clock. The shift
+  timeline moved to the top of the overview.
+- Kept: the cream background and pill buttons, which are Bahn's brand even
+  though one source lists cream as a new tell. The motion stayed, our call.
+- These tells are heuristics from blogs and community lists, not research,
+  and several warn that swapping one default for another is new slop.
+- Evidence: commits e9d5684 and 74866bb.
 
 ## Evidence in this repo
 
