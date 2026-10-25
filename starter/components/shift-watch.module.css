@@ -1,17 +1,24 @@
 /*
-  Shift Watch sits in one of Bahn's dark bands in both themes, so it reads as
-  a separate voice from the page. Colours are scoped here for that reason.
+  Shift Watch sits on Bahn's warm sand surface, set apart from the page by a
+  divider rather than a dark band, and follows the page's light or dark theme.
+  Colours are scoped here so the panel can change in one place.
 */
 .panel {
-  --p-bg: var(--band-bg);
-  --p-raised: var(--band-raised);
-  --p-line: var(--band-line);
-  --p-fg: var(--band-fg);
-  --p-body: var(--band-body);
-  --p-muted: var(--band-muted);
-  --p-teal: #64becd;
-  --p-teal-bg: #153135;
-  --p-green: #50be90;
+  --p-bg: var(--surface-subtle);
+  --p-raised: var(--surface);
+  --p-line: var(--divider-soft);
+  --p-fg: var(--headline);
+  --p-body: var(--body);
+  --p-muted: var(--muted);
+  --p-teal: var(--teal);
+  --p-teal-bg: var(--teal-bg);
+  --p-green: var(--green);
+  /* Filled buttons and the operator's own messages. */
+  --p-solid: var(--accent);
+  --p-solid-fg: var(--accent-fg);
+  --p-solid-hover: var(--accent-hover);
+
+  border-left: 1px solid var(--divider-soft);
 
   position: sticky;
   top: var(--header-h);
@@ -170,8 +177,8 @@
   max-width: 85%;
   padding: 10px 14px;
   border-radius: 18px 18px 4px 18px;
-  background: var(--p-fg);
-  color: #12110e;
+  background: var(--p-solid);
+  color: var(--p-solid-fg);
   font-size: 15px;
   line-height: 21px;
   font-weight: 500;
@@ -260,15 +267,15 @@
   padding: 0 20px;
   border: 0;
   border-radius: var(--radius-pill);
-  background: var(--p-fg);
-  color: #12110e;
+  background: var(--p-solid);
+  color: var(--p-solid-fg);
   font-size: 15px;
   font-weight: 600;
   transition: background-color 0.15s var(--ease), gap 0.15s var(--ease);
 }
 
 .action:hover {
-  background: #e2ded4;
+  background: var(--p-solid-hover);
 }
 
 .actionGhost {
@@ -434,14 +441,14 @@
 
 .offline {
   margin: 0 0 6px;
-  color: var(--band-muted);
+  color: var(--p-muted);
   font-size: 13px;
   font-weight: 600;
 }
 
 .thinking {
   margin: 0;
-  color: var(--band-muted);
+  color: var(--p-muted);
   font-size: 14px;
   animation: pulse-soft 1.6s var(--ease) infinite;
 }
