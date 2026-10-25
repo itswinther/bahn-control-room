@@ -774,6 +774,30 @@ entries further down.
   doesn't solve yet.
 - Evidence: `SHIFT-WATCH-RECAP.md`.
 
+### 2026-10-25 · team + Claude · the agent remembers what people decided
+
+- Why: we reread the partner's point about memory: one thread per order, a
+  notes file so "a new agent ... can just read what happened there". Our
+  notes already work that way, and each wake-up is a short fresh run, so
+  context never compacts. But when the agent woke again, it saw its earlier
+  proposals only by status ("EXECUTED"). It didn't see the person's note,
+  who pays, or the booking reference. Our mock booking isn't in the
+  dataset's reservations, so nothing else told it what was booked. Since
+  agents now wake themselves at the check-in cutoff, it could have proposed
+  the same booking again.
+- Changed: `get_order` now gives the agent, for each of its earlier
+  proposals, what a person decided (decision, note, who pays, reviewer) and
+  what ran (result, references, next steps, error).
+- Checked: live, from a reset. The driver writes in, the agent proposes the
+  22:00 crossing, the travel desk approves with Bahn paying, and it books
+  MOCK-VCL-102122-2200. Then an operator asks the agent where the order
+  stands. In 5 tool calls it answered with the reference, the arrival inside
+  the promise, the old booking kept until 12:00 UTC, and boarding
+  unconfirmed. It made no new proposal. Its notes now hold the reference,
+  who pays and the 12:00 check. We did not run the same case without the
+  change.
+- Evidence: `starter/lib/agents/tools/index.ts` (`get_order`).
+
 ## Evidence in this repo
 
 Filled in as the build goes:
