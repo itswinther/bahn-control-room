@@ -6,7 +6,8 @@ const HOUR = 3_600_000;
 
 export function groupOf(item: QueueItem, now: number): Group {
   if (item.kind === "WAITING") return "parked";
-  if (item.kind === "SAFETY" || item.outcome) return "now";
+  // A plan an agent has ready is a decision you can make now, whatever its deadline.
+  if (item.kind === "SAFETY" || item.kind === "DECISION" || item.kind === "HELD" || item.outcome) return "now";
   if (item.deadline && Date.parse(item.deadline) - now < HOUR) return "now";
   return "today";
 }

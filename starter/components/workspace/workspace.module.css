@@ -264,6 +264,17 @@
   overflow: hidden;
 }
 
+.sectionHead {
+  display: flex;
+  justify-content: space-between;
+  padding: 14px 10px 6px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
 .emptyRow {
   padding: 16px 10px;
   font-size: 14px;
@@ -578,26 +589,4 @@
   padding: 10px 14px;
   border-radius: var(--radius-inner);
   background: var(--teal-bg);
-}
-
-/* A country team's view: its language's cards first after safety. */
-.team {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 600;
-}
-.team select {
-  height: 32px;
-  padding: 0 28px 0 12px;
-  border: 1px solid var(--divider);
-  border-radius: var(--radius-control);
-  background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23726958' stroke-width='2.4'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 10px center;
-  appearance: none;
-  color: var(--headline);
-  font: inherit;
-  font-size: 13px;
 }

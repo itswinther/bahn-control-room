@@ -1135,6 +1135,30 @@ entries further down.
   and several warn that swapping one default for another is new slop.
 - Evidence: commits e9d5684 and 74866bb.
 
+### 2026-10-25 · team + Claude · testing the demo by hand
+
+- What we did: played the demo ourselves in the browser, in replay and in
+  live mode, instead of only through the API.
+- Found and changed:
+  - "Wake three more agents" worked but left you on the same page, so
+    nothing seemed to happen. It now opens the Inbox.
+  - The three new plans looked scattered: each sorted by its own deadline
+    among 20-odd older loose ends, and CD-420299's (23 Oct) landed under
+    "Today". Plans an agent has ready now come right after safety and
+    always sit under "Now". The list is in three labelled parts: Safety,
+    Agent plans ready, To chase.
+  - The Team view only reordered cards with a non-English message. At demo
+    start there are none, so switching team visibly did nothing. We tried
+    matching orders by country too, then removed the selector instead: the
+    card's language tag already says which team reads it, and
+    `?team=` stays in the API.
+  - The timeline's info panel stayed open after the mouse left the chip.
+- A reload loop in the browser turned out to be a tab still open from the
+  old Bahn app on the same port. We moved the demo to port 3010 and checked
+  in a clean browser: one page load in 20 seconds.
+- Evidence: `starter/lib/shift-watch/queue.ts`, `starter/lib/ui/queue.ts`,
+  `starter/components/workspace/workspace.tsx`, `starter/components/demo-menu.tsx`.
+
 ## Evidence in this repo
 
 - `starter/recordings/`: every recorded live agent run, also used by replay mode.

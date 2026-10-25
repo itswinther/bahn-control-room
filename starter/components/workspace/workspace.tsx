@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Check, Inbox, MessageCircle, Search, X } from "lucide-react";
 import type { CaseView, QueueResponse } from "@/lib/ui/contract";
 import { groupOf, needsCall, sortQueue, type Group } from "@/lib/ui/queue";
@@ -13,8 +13,10 @@ import styles from "./workspace.module.css";
 
 const GROUP_LABEL: Record<Group, string> = { now: "Now", today: "Today", parked: "Parked" };
 
-/** Bahn's country teams; each reads its own language besides English (lib/shift-watch/language.ts). */
-const TEAMS: [string, string][] = [["", "Everyone"], ["FI", "Finland team"], ["DK", "Denmark team"], ["DE", "Germany team"]];
+/** "Now" reads in three parts, each sorted by its own deadline: safety, the plans agents have ready, then what to chase. */
+const sectionOf = (i: QueueResponse["items"][number]) =>
+  i.kind === "SAFETY" ? "Safety" : i.kind === "DECISION" || i.kind === "HELD" || i.outcome ? "Agent plans ready" : "To chase";
+
 
 export function Workspace({
   queue,
@@ -96,23 +98,6 @@ export function Workspace({
             </kbd>
           )}
         </div>
-        <label className={styles.team}>
-          <span>Team view</span>
-          <select
-            value={team ?? ""}
-            onChange={(e) => {
-              const next = e.target.value;
-              const path = isCaseRoute && selectedId ? `/cases/${selectedId}` : "/inbox";
-              router.push(next ? `${path}?team=${next}` : path, { scroll: false });
-            }}
-          >
-            {TEAMS.map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
         {q ? (
           <p className={styles.resultCount} role="status">
             {listed.length} {listed.length === 1 ? "match" : "matches"}
@@ -138,10 +123,18 @@ export function Workspace({
               )}
             </li>
           )}
-          {listed.map((i) => {
+          {listed.map((i, n) => {
             const d = !!i.outcome && !i.outcome.failed && !i.outcome.undo_until;
+            const section = sectionOf(i);
+            const head = !q && group === "now" && (n === 0 || sectionOf(listed[n - 1]) !== section);
             return (
-              <li key={i.id}>
+              <Fragment key={i.id}>
+              {head && (
+                <li className={styles.sectionHead} aria-hidden="true">
+                  {section} <span>{listed.filter((x) => sectionOf(x) === section).length}</span>
+                </li>
+              )}
+              <li>
                 <Link
                   href={`/cases/${i.order_id}${keep}`}
                   scroll={false}
@@ -162,6 +155,7 @@ export function Workspace({
                   </span>
                 </Link>
               </li>
+              </Fragment>
             );
           })}
         </ul>

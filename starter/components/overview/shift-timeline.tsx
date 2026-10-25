@@ -171,6 +171,7 @@ export function ShiftTimeline({ items }: { items: QueueItem[] }) {
                       top: `calc(${p.row} * var(--row-h) + 6px)`,
                     }}
                     onMouseEnter={(e) => show(p, e.currentTarget)}
+                    onMouseLeave={() => setTip(null)}
                     onFocus={(e) => show(p, e.currentTarget)}
                     onBlur={() => setTip(null)}
                     aria-label={`${TYPE[p.ev.type].label}, ${p.item.reference} (${p.item.topic}): ${p.ev.label}, ${clock(p.start)}${p.ev.end ? ` to ${clock(p.ev.end)}` : ""}${late ? ", late" : ""}`}

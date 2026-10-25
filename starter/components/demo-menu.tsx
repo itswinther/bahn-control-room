@@ -86,7 +86,9 @@ export function DemoMenu({ live }: { live: boolean }) {
             run(async () => {
               const results = await Promise.all([...OTHER_RUNS.map(runAgent), driverWrites("drv-319", "The warning light is still on. I'm parked and waiting.")]);
               const started = results.filter((r) => r.ok).length;
-              return started ? `${started} agents started. Their plans show up in a few seconds.` : results.map((r) => (r.ok ? "" : r.error)).join(" ");
+              // Open the Inbox, where their cards land: the warning light on top, the other two as their plans arrive.
+              if (started) router.push("/inbox");
+              return started ? `${started} agents started. Their cards appear in the Inbox in a few seconds.` : results.map((r) => (r.ok ? "" : r.error)).join(" ");
             })
           }
         >

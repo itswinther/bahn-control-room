@@ -249,7 +249,9 @@ export async function buildQueue(team?: Team): Promise<QueueResponse> {
   for (const m of chat) if (m.direction === "IN" && m.orderId) needs.set(m.orderId, languageNeed("The driver", m.language, m.unclear))
   for (const i of items) { i.language = needs.get(i.order_id) ?? null; i.driver_waiting_until = promises.get(i.order_id) ?? null }
   const mine = (i: QueueItem) => Number(!!team && i.language?.team === team)
-  items.sort((a, b) => Number(b.safety) - Number(a.safety) || mine(b) - mine(a) || (a.deadline ?? "9").localeCompare(b.deadline ?? "9"))
+  // After safety, a plan an agent has ready to decide comes before loose ends someone has to chase.
+  const ready = (i: QueueItem) => Number(i.kind === "PROPOSAL" || i.kind === "DECIDED")
+  items.sort((a, b) => Number(b.safety) - Number(a.safety) || mine(b) - mine(a) || ready(b) - ready(a) || (a.deadline ?? "9").localeCompare(b.deadline ?? "9"))
   return { at: now, summary: summarise(items, nowMs), items, quiet_count: orderRows.length - new Set(items.map((i) => i.order_id)).size }
 }
 
