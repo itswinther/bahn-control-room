@@ -31,12 +31,9 @@ once, catches the drivers who go quiet before a pickup, and keeps one decision q
 
 Screenshots: replay mode, no API key, on the demo clock that starts at Bahn's snapshot (21 Oct, 09:00 UTC).
 
-| Bahn judges on | Read |
-|---|---|
-| The control room (40%) | [`SHIFT-WATCH-RECAP.md`](SHIFT-WATCH-RECAP.md): what it does, Bahn's mistakes replayed, the demo end to end |
-| How we worked with AI (30%) | [`PROCESS.md`](PROCESS.md): what we asked, checked, threw away, and two scored judging rounds |
-| Taste (30%) | The screens, and the "Taste" part of the recap |
-
+- **What it does:** [`SHIFT-WATCH-RECAP.md`](SHIFT-WATCH-RECAP.md): Bahn's mistakes replayed, and the demo end to end.
+- **How we built it with AI:** [`PROCESS.md`](PROCESS.md): what we asked, checked, threw away, and where we didn't take
+  the first answer.
 - **Run it, every screen, and the checks:** [`starter/README.md`](starter/README.md).
 - **Measured, not claimed:** held-out tests in `starter/fixtures/`, their outputs in `starter/evals/`.
 
