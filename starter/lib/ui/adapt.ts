@@ -35,6 +35,32 @@ export function kindOf(raw: Pick<RawItem, "kind" | "decision" | "safety" | "driv
   return "LOOSE_END";
 }
 
+/** One or two words for what the call is about, for the timeline chips. First match wins, so the more
+ *  specific topics come first ("handover" before "proof" for a missing signed handover with photos). */
+const TOPICS: [RegExp, string][] = [
+  [/warning|recovery|breakdown/i, "warning"],
+  [/crossing|ferry|sailing|vehicle-space/i, "ferry"],
+  [/wait (ran out|ends)|driver (still )?waiting|promised an answer/i, "driver waiting"],
+  [/required rest|\brest\b/i, "driver rest"],
+  [/fitness/i, "driver fitness"],
+  [/active .* duty/i, "driver schedule"],
+  [/invoice|billing/i, "invoice"],
+  [/delivery window|customer promise/i, "delivery date"],
+  [/address|access hours/i, "address"],
+  [/handover|receive and sign/i, "handover"],
+  [/\bkeys?\b|key holder/i, "keys"],
+  [/proof|photo/i, "proof"],
+  [/release/i, "release"],
+  [/trade-in/i, "trade-in"],
+  [/expense/i, "expense"],
+  [/condition|damage/i, "damage claim"],
+  [/identity|\bvin\b/i, "car identity"],
+  [/site confirmation/i, "site"],
+  [/follow-?up/i, "follow-up"],
+  [/pickup/i, "pickup"],
+];
+export const topicOf = (text: string) => TOPICS.find(([re]) => re.test(text))?.[1] ?? "check";
+
 /** The row's words, without what its chip already says ("Due:", "Overdue:"). */
 const title = (decision: string) =>
   decision
@@ -85,7 +111,7 @@ export async function adaptQueue(raw: RawQueue, mode: "replay" | "live"): Promis
       deadline: i.deadline, deadline_reason: i.deadline_reason,
       checked: i.checked, proposal_id: i.proposal_id, held_message_id: i.held_message_id, outcome: i.outcome,
       stopped_because: i.stopped_because, if_no_decision: i.if_no_decision, escalated_from: i.escalated_from, language: i.language,
-      driver_waiting_until: i.driver_waiting_until,
+      driver_waiting_until: i.driver_waiting_until, topic: topicOf(i.decision),
       events: eventsFor(i, kind),
     };
   });

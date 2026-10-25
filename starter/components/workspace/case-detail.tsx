@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
-import { FileText, Languages, Loader2, MessageCircleQuestion } from "lucide-react";
+import { ArrowUpRight, FileText, Languages, Loader2, MessageCircleQuestion } from "lucide-react";
 import type { CaseView, QueueItem } from "@/lib/ui/contract";
 import { languageName, relative, urgency, when } from "@/lib/ui/present";
 import { useClock, useFocusOrder, usePanel } from "../providers";
@@ -146,10 +145,19 @@ export function CaseDetail({ data, item }: { data: CaseView; item?: QueueItem })
             <span className={styles.tabCount}>{t.count}</span>
           </button>
         ))}
-        <Link href={`/orders/${order.id}`} className={styles.fullRecord}>
+        {/* Bahn's own order page, in its own design: a new tab, so the control room stays where it was. */}
+        <a
+          href={`/orders/${order.id}`}
+          target="_blank"
+          rel="noopener"
+          className={styles.fullRecord}
+          title="Opens Bahn's original order page in a new tab"
+        >
           <FileText size={15} strokeWidth={1.8} aria-hidden="true" />
-          Full record
-        </Link>
+          Full record in Bahn&apos;s view
+          <ArrowUpRight size={14} strokeWidth={2} aria-hidden="true" />
+          <span className="visually-hidden">(opens in a new tab)</span>
+        </a>
       </div>
       <div id="detail-panel" role="tabpanel" aria-labelledby={`tab-${tab}`} className={caseStyles.tabBody}>
         {tab === "timeline" && <Timeline entries={data.timeline} />}

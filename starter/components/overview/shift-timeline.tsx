@@ -12,8 +12,8 @@ const HOUR = 3_600_000;
 /** Lanes in this order first; any other desk with work follows. */
 const DESK_ORDER: Desk[] = ["ops-shift", "ops-dispatch", "ops-travel", "ops-readiness", "ops-support"];
 const MAX_ROWS = 3;
-/** Narrowest chip: icon plus a six-digit order number (matches .event min-width). */
-const CHIP_MIN_PX = 92;
+/** Narrowest chip: icon, a six-digit order number and a short topic (matches .event min-width). */
+const CHIP_MIN_PX = 156;
 
 const TYPE: Record<TimelineEvent["type"], { label: string; Icon: typeof Hand }> = {
   SAFETY: { label: "Safety", Icon: ShieldAlert },
@@ -174,12 +174,11 @@ export function ShiftTimeline({ items }: { items: QueueItem[] }) {
                     onMouseEnter={(e) => show(p, e.currentTarget)}
                     onFocus={(e) => show(p, e.currentTarget)}
                     onBlur={() => setTip(null)}
-                    aria-label={`${TYPE[p.ev.type].label}, ${p.item.reference}: ${p.ev.label}, ${clock(p.start)}${p.ev.end ? ` to ${clock(p.ev.end)}` : ""}${late ? ", late" : ""}`}
+                    aria-label={`${TYPE[p.ev.type].label}, ${p.item.reference} (${p.item.topic}): ${p.ev.label}, ${clock(p.start)}${p.ev.end ? ` to ${clock(p.ev.end)}` : ""}${late ? ", late" : ""}`}
                   >
                     {decided ? <Check size={13} strokeWidth={2.6} aria-hidden="true" /> : <Icon size={13} strokeWidth={2.2} aria-hidden="true" />}
                     <span className={styles.eventText}>
-                      <b>{p.item.reference.replace("CD-", "")}</b>
-                      {p.ev.end && ` ${p.ev.label}`}
+                      <b>{p.item.reference.replace("CD-", "")}</b> {p.item.topic}
                     </span>
                   </Link>
                 );

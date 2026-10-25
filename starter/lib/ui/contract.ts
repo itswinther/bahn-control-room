@@ -51,6 +51,8 @@ export interface QueueItem {
   language: LanguageNeed | null;
   /** A driver was promised an answer by this time and hasn't had one, whatever the card's kind. */
   driver_waiting_until: Iso | null;
+  /** One or two words for what it's about ("ferry", "handover"), for the timeline chips. */
+  topic: string;
   /** What's scheduled for this order, for the overview timeline. */
   events: TimelineEvent[];
 }
