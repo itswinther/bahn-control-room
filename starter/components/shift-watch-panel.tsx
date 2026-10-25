@@ -202,10 +202,6 @@ export function ShiftWatchPanel() {
         </button>
       </div>
 
-      <p className={styles.context}>
-        Open: <strong>{contextLabel}</strong>
-      </p>
-
       {/* Announce each answer once it's complete, not every streamed chunk. */}
       <p className="visually-hidden" aria-live="polite">
         {lastComplete}

@@ -25,7 +25,8 @@
   height: calc(100dvh - var(--header-h));
   width: var(--panel-w);
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  /* Header, the conversation, the input. */
+  grid-template-rows: auto minmax(0, 1fr) auto;
   background: var(--p-bg);
   color: var(--p-body);
   overflow: hidden;
@@ -88,26 +89,6 @@
   background: var(--p-raised);
   color: var(--p-fg);
   place-items: center;
-}
-
-.context {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0 20px 4px;
-  padding: 10px 14px;
-  border-radius: var(--radius-inner);
-  background: var(--p-raised);
-  font-size: 14px;
-  color: var(--p-muted);
-}
-
-.context strong {
-  color: var(--p-fg);
-  font-weight: 700;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .contextDot {
