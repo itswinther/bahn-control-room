@@ -1299,6 +1299,41 @@ entries further down.
   outside the repo and aren't committed; the numbers above are from that
   run.
 
+### 2026-10-25 · team + Claude · putting the three streams together
+
+- Three lines of work were running at once in one checkout: the language,
+  no-show and demo work, a Slack and paging integration from a second
+  session, and winther's fixes on `main`. Two of them edited the same files
+  (`intake.ts`, `instrumentation.ts`, `demo-menu.tsx`) without committing,
+  which twice left the dev server reloading a half-written file.
+- How we merged:
+  - each stream got its own commit first, staging only that stream's lines
+    in the shared files;
+  - then one merge with `main`. The only conflict was the import lines in
+    `intake.ts`, where both sides needed theirs.
+  - We checked that every important change survived: winther's
+    one-reply-per-driver-at-a-time and the promise as a card's deadline;
+    the day-before confirmation; the Slack drop-out paging and its replay
+    guard; and both new `package.json` scripts.
+- Slack and paging, what it adds: Shift Watch pages for safety cards,
+  escalated cards and decisions due within ten minutes. A driver saying
+  they won't do the job pages the dispatch desk at once. A page goes to the
+  desk's person (in their room, or by DM when away), then their backup,
+  then the shift lead, moving up after three minutes without an answer. A
+  mock Slack screen shows it all. Bahn said Slack was out of scope, so
+  nothing connects to Slack: it shows who would be paged, with made-up
+  people. The README said "No Slack"; it now says this.
+- Checked on the merged code: typecheck, `check:agent`, `check:paging`,
+  `eval:proposals` (14 of 14), then a production build. On it we played the
+  ferry case through approval, opened the Slack screen (one page waiting)
+  and ran "A driver goes quiet" (one card, on CD-420442).
+- Recording the demo: the dev server reloads the page whenever a file
+  changes, which looked like a broken app while two sessions were editing.
+  We record on the production build (`next build`, `next start`), which has
+  no live reload.
+- Evidence: the merge commit, `starter/lib/shift-watch/pager.ts`,
+  `starter/lib/shift-watch/paging.ts`, `starter/README.md`.
+
 ## Evidence in this repo
 
 - `starter/recordings/`: every recorded live agent run, also used by replay mode.

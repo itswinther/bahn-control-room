@@ -27,7 +27,7 @@ Then play the demo case, CD-420603, from the screen. Its driver is stuck in the 
 2. The agent's recorded run proposes the 22:00 crossing. It appears in **Inbox** with why it reached a person and what happens if nobody decides.
 3. Pick who pays and press **Approve**. You can undo for 10 seconds; then the mock booking runs, the driver gets the new crossing in their local time, and the card shows what happens next.
 
-**Demo → Wake three more agents** plays the other recordings (a timed-out booking, a warning light, a driver past her wait limit). **Demo → Restart the demo** clears our tables and goes back to 09:00. Each recording plays once per reset. The same steps work without the screen: `curl -X POST http://localhost:3000/api/clock`, then `npm run demo:driver -- ord-00603`.
+**Demo → Wake three more agents** plays the other recordings (a timed-out booking, a warning light, a driver past her wait limit) and opens the Inbox, where their plans land under "Agent plans ready". **Demo → A driver goes quiet** plays Bahn's own no-show on CD-420442: at 09:00 Shift Watch asked the booked driver to confirm tomorrow's pickup; the button jumps the clock three hours, the other drivers have said yes, this one hasn't, and the dispatch desk gets "Driver has gone quiet … re-offer the job" a day before the pickup. **Demo → Restart the demo** clears our tables and goes back to 09:00. Each recording plays once per reset. The same steps work without the screen: `curl -X POST http://localhost:3000/api/clock`, then `npm run demo:driver -- ord-00603`.
 
 ## The screens
 
@@ -35,6 +35,7 @@ Then play the demo case, CD-420603, from the screen. Its driver is stuck in the 
 - `/inbox` and `/cases/:orderId`: **Inbox.** The decision queue on the left; on the right, the agent's plan with approve, edit or reject, any message Shift Watch held back from a driver, and the order's timeline, travel (booked, quoted or requested), the agent's notes and steps.
 - **Shift Watch panel** on every screen: ask about any order. It needs `ANTHROPIC_API_KEY`; without one it answers from the records and says so.
 - **Deciding as** (top right) is the desk your decisions go out as. The backend checks it: only the shift lead decides safety calls.
+- `/slack`: **Slack (mock).** Where Shift Watch pages people: the desk's person in their room (or by DM when away), then their backup, then the shift lead, with acknowledge and pass. Made-up people, nothing connected.
 - Bahn's starter screens are still here: the lane board at `/orders`, the support mailbox at `/mail`, and the full record at `/orders/:id` (linked from each case as "Full record").
 
 The screens live in `app/(control-room)/`, `components/` and `lib/ui/`. They read Shift Watch's queue and case builders directly (`lib/ui/data.ts`, `lib/ui/adapt.ts`) and write through the API routes (`lib/ui/api.ts`). Bahn's starter screens keep their own layout in `app/(starter)/`.
@@ -52,13 +53,15 @@ Based on our conversations with Bahn during the hackathon.
 | Tying the areas together is as valid as going deep on one. | Driver support, on-the-road problems and the travel desk's decisions meet in one queue, ordered by safety, then deadline. |
 | Problems spanning several orders exist but aren't common. | No cross-order agent. When a driver with several jobs writes in, Shift Watch asks "which car?" first. |
 | GPS route-deviation triggers are small nudges, not a main focus. | Tracking is shown as evidence with its time, never as a live position or a reason on its own. |
-| Slack is out of scope; cost isn't graded; the starter is optional. | No Slack. We kept the starter's data layer and moved its lane board to `/orders`. Sonnet against Opus was chosen on speed and accuracy, not price. |
+| A driver took a job, didn't deliver, and wrote "won't deliver" days later; nobody caught it and the customer cancelled. Mock data is fine to show it. | The day before a pickup, Shift Watch asks the booked driver to confirm. No answer in three hours, or a slot that opens with the job not started, puts a card on the dispatch desk while there's time to re-offer. Shown on CD-420442 ("Demo → A driver goes quiet"). |
+| Slack is out of scope; cost isn't graded; the starter is optional. | Nothing connects to Slack. A mock Slack screen shows who Shift Watch would page, and how a page climbs to the shift lead when nobody answers. We kept the starter's data layer and moved its lane board to `/orders`. Sonnet against Opus was chosen on speed and accuracy, not price. |
 
 ## Check it
 
 ```sh
 npm run typecheck
 npm run check:agent        # the rules enforced in code
+npm run check:paging       # who Shift Watch pages, and when a driver message counts as dropping the job
 npm run eval:proposals     # Bahn's 14 recorded proposals: 14 of 14 (the checks were written from these, so see the next line)
 npm run eval:reworded      # held-out mistakes and driver messages: rules alone (add -- --claude with a key)
 ```
