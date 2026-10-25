@@ -806,3 +806,12 @@ details.panel:not([open]) .stepsSummary::after {
   font-size: 12px;
   font-weight: 700;
 }
+
+.unclear {
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--orange-bg);
+  color: var(--orange);
+  font-size: 13px;
+  font-weight: 700;
+}

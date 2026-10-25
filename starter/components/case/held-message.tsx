@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { AlertTriangle, Send, Trash2, Undo2 } from "lucide-react";
 import type { DriverMessage } from "@/lib/ui/contract";
 import { reviewHeldMessage, undoHeldMessage } from "@/lib/ui/api";
-import { clock } from "@/lib/ui/present";
+import { clock, when } from "@/lib/ui/present";
 import { useClock, useDesk } from "../providers";
 import styles from "./decision.module.css";
 
@@ -16,6 +16,7 @@ export function HeldMessage({ message }: { message: DriverMessage }) {
 
 function Held({ message }: { message: DriverMessage }) {
   const router = useRouter();
+  const { now } = useClock();
   const { desk } = useDesk();
   const [text, setText] = useState(message.text);
   const [editing, setEditing] = useState(false);
@@ -35,7 +36,7 @@ function Held({ message }: { message: DriverMessage }) {
     <section className={styles.card} data-state="held" aria-labelledby={`held-${message.id}`}>
       <div className={styles.top}>
         <span className={styles.kicker}>Held back</span>
-        <span className={styles.approval}>Message to the driver · {clock(message.created_at)}</span>
+        <span className={styles.approval}>Message to the driver · {when(message.created_at, now)}</span>
       </div>
       <h2 id={`held-${message.id}`} className={styles.summaryText}>
         <AlertTriangle size={16} strokeWidth={2} aria-hidden="true" /> Shift Watch stopped this before the driver saw it. Read it before it goes out.

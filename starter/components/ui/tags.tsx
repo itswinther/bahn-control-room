@@ -1,5 +1,5 @@
-import { AlertTriangle, CircleDashed, Clock, Hand, ShieldAlert, UserRound } from "lucide-react";
-import type { LegState, QueueKind } from "@/lib/ui/contract";
+import { AlertTriangle, CircleDashed, Clock, Hand, Languages, ShieldAlert, UserRound } from "lucide-react";
+import type { LanguageNeed, LegState, QueueKind } from "@/lib/ui/contract";
 import { KIND_LABEL, LEG_LABEL } from "@/lib/ui/present";
 import styles from "./tags.module.css";
 
@@ -52,6 +52,17 @@ export function Tag({ tone = "grey", children }: { tone?: string; children: Reac
   return (
     <span className={styles.tag} data-tone={tone}>
       {children}
+    </span>
+  );
+}
+
+/** Someone on the order wrote in another language: which one, and the country team that reads it. */
+export function LanguageTag({ need }: { need: LanguageNeed }) {
+  return (
+    <span className={styles.tag} data-tone="teal" title={need.why}>
+      <Languages size={14} strokeWidth={2} aria-hidden="true" />
+      {need.name}
+      {need.team ? ` · ${need.team} team` : ""}
     </span>
   );
 }

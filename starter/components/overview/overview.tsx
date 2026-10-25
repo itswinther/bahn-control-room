@@ -23,7 +23,8 @@ export function Overview({ queue }: { queue: QueueResponse }) {
   const active = open.filter((i) => i.kind !== "WAITING");
   const dueNow = open.filter((i) => i.deadline && Date.parse(i.deadline) < t + 3_600_000);
   const safety = active.filter((i) => i.kind === "SAFETY");
-  const waiting = active.filter((i) => i.kind === "DRIVER_WAITING");
+  // A driver waiting on an answer counts whatever the card's kind (a plan can be waiting on a person too).
+  const waiting = active.filter((i) => i.kind === "DRIVER_WAITING" || i.driver_waiting_until);
   const held = active.filter((i) => i.kind === "HELD");
 
   // Every desk with something due this hour, busiest first.

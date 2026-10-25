@@ -50,7 +50,7 @@ export function Wordmark() {
   );
 }
 
-export function Header() {
+export function Header({ live }: { live: boolean }) {
   const { now, ready } = useClock();
   const { open, setOpen } = usePanel();
   const { theme, cycle } = useTheme();
@@ -82,7 +82,7 @@ export function Header() {
           <span suppressHydrationWarning>{ready ? dayClock(now) : "Wed 21 Oct, 09:00 UTC"}</span>
         </span>
         <DeskPicker />
-        <DemoMenu />
+        <DemoMenu live={live} />
         <button
           type="button"
           className={styles.iconButton}

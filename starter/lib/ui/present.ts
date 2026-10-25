@@ -146,3 +146,10 @@ export function money(minor: number, currency = "EUR"): string {
     maximumFractionDigits: minor % 100 === 0 ? 0 : 2,
   }).format(minor / 100);
 }
+
+const LANGUAGE: Record<string, string> = {
+  en: "English", fi: "Finnish", sv: "Swedish", da: "Danish", de: "German", fr: "French", nl: "Dutch", no: "Norwegian",
+};
+
+/** "German" for "de"; the code itself when it isn't one Bahn's teams see. */
+export const languageName = (code: string) => LANGUAGE[code] ?? code;

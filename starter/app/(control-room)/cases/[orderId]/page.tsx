@@ -14,7 +14,9 @@ export async function generateMetadata(props: PageProps<"/cases/[orderId]">): Pr
 
 export default async function CasePage(props: PageProps<"/cases/[orderId]">) {
   const { orderId } = await props.params;
-  const [queue, data] = await Promise.all([getQueue(), getCase(orderId)]);
+  const { team } = await props.searchParams;
+  const t = typeof team === "string" ? team : null;
+  const [queue, data] = await Promise.all([getQueue(t), getCase(orderId)]);
   if (!data) notFound();
-  return <Workspace queue={queue} data={data} selectedId={orderId} isCaseRoute />;
+  return <Workspace queue={queue} data={data} selectedId={orderId} isCaseRoute team={t} />;
 }

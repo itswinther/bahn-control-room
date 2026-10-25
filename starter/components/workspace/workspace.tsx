@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Check, Inbox, MessageCircle, Search, X } from "lucide-react";
 import type { CaseView, QueueResponse } from "@/lib/ui/contract";
@@ -12,17 +13,25 @@ import styles from "./workspace.module.css";
 
 const GROUP_LABEL: Record<Group, string> = { now: "Now", today: "Today", parked: "Parked" };
 
+/** Bahn's country teams; each reads its own language besides English (lib/shift-watch/language.ts). */
+const TEAMS: [string, string][] = [["", "Everyone"], ["FI", "Finland team"], ["DK", "Denmark team"], ["DE", "Germany team"]];
+
 export function Workspace({
   queue,
   data,
   selectedId,
   isCaseRoute,
+  team,
 }: {
   queue: QueueResponse;
   data: CaseView | null;
   selectedId: string | null;
   isCaseRoute: boolean;
+  /** A country team's view: its language's cards come first after safety (GET /api/queue?team=). */
+  team: string | null;
 }) {
+  const router = useRouter();
+  const keep = team ? `?team=${team}` : "";
   const { now, ready } = useClock();
   const { open: panelOpen, setOpen } = usePanel();
   useLiveRefresh();
@@ -87,6 +96,23 @@ export function Workspace({
             </kbd>
           )}
         </div>
+        <label className={styles.team}>
+          <span>Team view</span>
+          <select
+            value={team ?? ""}
+            onChange={(e) => {
+              const next = e.target.value;
+              const path = isCaseRoute && selectedId ? `/cases/${selectedId}` : "/inbox";
+              router.push(next ? `${path}?team=${next}` : path, { scroll: false });
+            }}
+          >
+            {TEAMS.map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
         {q ? (
           <p className={styles.resultCount} role="status">
             {listed.length} {listed.length === 1 ? "match" : "matches"}
@@ -117,7 +143,7 @@ export function Workspace({
             return (
               <li key={i.id}>
                 <Link
-                  href={`/cases/${i.order_id}`}
+                  href={`/cases/${i.order_id}${keep}`}
                   scroll={false}
                   className={styles.row}
                   aria-current={i.order_id === selectedId ? "true" : undefined}
@@ -130,6 +156,7 @@ export function Workspace({
                     <span className={styles.ref}>
                       {i.reference}
                       {q && <span className={styles.rowGroup}> · {GROUP_LABEL[groupOf(i, t)]}</span>}
+                      {i.language && <span className={styles.rowLang}> · {i.language.name}</span>}
                     </span>
                     <span className={styles.rowTitle}>{i.title}</span>
                   </span>
@@ -146,7 +173,7 @@ export function Workspace({
 
       <div className={styles.pane}>
         {isCaseRoute && (
-          <Link href="/inbox" className={styles.back}>
+          <Link href={`/inbox${keep}`} className={styles.back}>
             <ArrowLeft size={18} strokeWidth={1.8} aria-hidden="true" /> All calls
           </Link>
         )}

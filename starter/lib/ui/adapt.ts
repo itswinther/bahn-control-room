@@ -25,10 +25,12 @@ import { DESK_LABEL } from "./present";
 const MIN = 60_000;
 
 /** One label per row, in the words the screens use. */
-export function kindOf(raw: Pick<RawItem, "kind" | "decision" | "safety">): QueueKind {
+export function kindOf(raw: Pick<RawItem, "kind" | "decision" | "safety" | "driver_waiting_until" | "held_message_id">): QueueKind {
   if (raw.safety) return "SAFETY";
   if (raw.kind === "PROPOSAL" || raw.kind === "DECIDED") return raw.decision.startsWith("Held for a person") ? "HELD" : "DECISION";
-  if (/^(Driver (still )?waiting|Driver's wait (ran out|ends)|Message to the driver held)/.test(raw.decision)) return "DRIVER_WAITING";
+  // Shift Watch's own fields first; its wording only for what it has no field for yet.
+  if (raw.driver_waiting_until || raw.held_message_id) return "DRIVER_WAITING";
+  if (/^Driver's wait (ran out|ends)/.test(raw.decision)) return "DRIVER_WAITING";
   if (raw.decision.startsWith("Next check (")) return "WAITING";
   return "LOOSE_END";
 }
@@ -82,7 +84,8 @@ export async function adaptQueue(raw: RawQueue, mode: "replay" | "live"): Promis
       vehicle: f?.vehicle || null, route: f?.route ?? null, owner_desk: i.owner_desk,
       deadline: i.deadline, deadline_reason: i.deadline_reason,
       checked: i.checked, proposal_id: i.proposal_id, held_message_id: i.held_message_id, outcome: i.outcome,
-      stopped_because: i.stopped_because, if_no_decision: i.if_no_decision, escalated_from: i.escalated_from,
+      stopped_because: i.stopped_because, if_no_decision: i.if_no_decision, escalated_from: i.escalated_from, language: i.language,
+      driver_waiting_until: i.driver_waiting_until,
       events: eventsFor(i, kind),
     };
   });
@@ -107,7 +110,8 @@ function timelineOf(c: CaseResponse): TimelineEntry[] {
   for (const t of c.view.threads) for (const m of t.messages) {
     out.push({
       id: m.id, at: m.at, source: m.author.kind === "agent" ? "AGENT" : sourceOf(m.channel),
-      who: [m.author.name, m.author.role].filter((x, i, all) => x && (i === 0 || x.toLowerCase() !== all[0]?.toLowerCase())).join(" · "),
+      // A role only when it says something the channel doesn't: "driver" or "customer", not "operator" or "agent".
+      who: [m.author.name, ["driver", "customer"].includes(m.author.role?.toLowerCase() ?? "") ? m.author.role : null].filter(Boolean).join(" · "),
       text: m.body, language: m.language ?? undefined,
     });
   }
@@ -122,7 +126,8 @@ function timelineOf(c: CaseResponse): TimelineEntry[] {
       id: m.id, at: m.created_at, source: m.direction === "IN" ? "APP_CHAT" : m.author === "operator" ? "OPERATOR" : "SHIFT_WATCH",
       who: m.direction === "IN" ? `${driverName(m.driver_id)} · driver${m.simulated ? " (scripted for the demo)" : ""}` : m.author === "operator" ? "Operator" : "Shift Watch",
       text: m.text, language: m.language, translation: m.translation ?? undefined,
-      agent_written: m.direction === "OUT" && m.author !== "operator", hear_back_by: m.hear_back_by,
+      agent_written: m.direction === "OUT" && m.author !== "operator", hear_back_by: m.hear_back_by, unclear: m.unclear,
+      outgoing: m.direction === "OUT",
       tone: m.intent === "SAFETY" ? "critical" : undefined,
     });
   }
@@ -189,6 +194,7 @@ export function adaptCase(c: CaseResponse): CaseView {
     notes: notesOf(c), notes_updated_at: c.note?.updated_at ?? null,
     timeline: timelineOf(c), travel: travelOf(c.legs), facts,
     // Held ones, and ones a person just released that the driver won't see until the undo window closes.
+    languages: c.languages,
     held_messages: c.driver_messages.filter((m) => m.direction === "OUT" && (m.status === "HELD" || (m.status === "SENT" && m.created_at > now))),
   };
 }

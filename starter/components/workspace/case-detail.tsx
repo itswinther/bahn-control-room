@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { FileText, Loader2, MessageCircleQuestion } from "lucide-react";
+import { FileText, Languages, Loader2, MessageCircleQuestion } from "lucide-react";
 import type { CaseView, QueueItem } from "@/lib/ui/contract";
-import { clock, relative, urgency } from "@/lib/ui/present";
+import { languageName, relative, urgency, when } from "@/lib/ui/present";
 import { useClock, useFocusOrder, usePanel } from "../providers";
-import { KindTag } from "../ui/tags";
+import { KindTag, LanguageTag } from "../ui/tags";
 import { RouteStrip } from "../ui/route-strip";
 import { DecisionCard } from "../case/decision-card";
 import { HeldMessage } from "../case/held-message";
@@ -18,6 +18,8 @@ import caseStyles from "../case/case.module.css";
 import styles from "./workspace.module.css";
 
 type Tab = "timeline" | "travel" | "notes" | "steps";
+
+const PARTY_LABEL = { driver: "Driver", pickup: "Pickup", delivery: "Delivery", customer: "Customer" } as const;
 
 /** How long a decided plan stays on top of the case, showing what happened: the same five minutes the
  *  queue keeps a decided card (DECIDED_SHOWN_MS in lib/shift-watch/queue.ts). */
@@ -55,9 +57,10 @@ export function CaseDetail({ data, item }: { data: CaseView; item?: QueueItem })
           <KindTag kind={item?.kind ?? data.kind} />
           <span className={styles.ref}>{order.reference}</span>
           <span className={styles.muted}>{order.vehicle}</span>
+          {item?.language && <LanguageTag need={item.language} />}
           {deadline != null && !decided && (
             <span className={styles.callBy} data-urgency={u} suppressHydrationWarning title={item?.deadline_reason ?? status?.deadline_reason ?? undefined}>
-              Call by {clock(deadline)}
+              Call by {when(deadline, now)}
               {ready && ` · ${u === "overdue" ? `late ${relative(deadline, now).replace(" ago", "")}` : relative(deadline, now).replace("in ", "")}`}
             </span>
           )}
@@ -72,6 +75,21 @@ export function CaseDetail({ data, item }: { data: CaseView; item?: QueueItem })
           />
         </div>
       </header>
+
+      {data.languages.mixed && (
+        <p className={styles.parties}>
+          <Languages size={15} strokeWidth={1.8} aria-hidden="true" />
+          <span>
+            <strong>Cross-border.</strong>{" "}
+            {data.languages.parties
+              .filter((p) => p.language)
+              .map((p) => `${PARTY_LABEL[p.role]} ${p.role === "pickup" || p.role === "delivery" ? `(${p.name}) ` : ""}${languageName(p.language!)}`)
+              .join(" · ")}
+          </span>
+        </p>
+      )}
+
+      {item?.language && <p className={styles.langNote}>{item.language.why}</p>}
 
       {data.running && (
         <p className={styles.working} role="status">
@@ -100,7 +118,7 @@ export function CaseDetail({ data, item }: { data: CaseView; item?: QueueItem })
           <div className={styles.nothingRow}>
             {status?.next_check_at && (
               <span className={styles.muted}>
-                Agent checks again {clock(status.next_check_at)}
+                Agent checks again {when(status.next_check_at, now)}
                 {ready ? ` · ${relative(Date.parse(status.next_check_at), now)}` : ""}
               </span>
             )}

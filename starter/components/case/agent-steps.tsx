@@ -1,5 +1,6 @@
 import type { AgentStep, Proposal } from "@/lib/ui/contract";
-import { clock } from "@/lib/ui/present";
+import { when } from "@/lib/ui/present";
+import { useClock } from "../providers";
 
 const STATUS_LABEL: Record<Proposal["status"], string> = {
   PENDING_CHECK: "Waiting for Shift Watch",
@@ -47,6 +48,7 @@ export function AgentSteps({
   stopReason: string | null;
   earlier: Proposal[];
 }) {
+  const { now } = useClock();
   return (
     <details className={styles.panel} open>
       <summary className={styles.stepsSummary}>
@@ -62,7 +64,7 @@ export function AgentSteps({
             <span className={styles.stepText}>
               {s.result_summary}
               <span className={styles.stepWho}>
-                {s.agent === "shift-watch" ? "Shift Watch" : "Order agent"} · {clock(s.at)}
+                {s.agent === "shift-watch" ? "Shift Watch" : "Order agent"} · {when(s.at, now)}
               </span>
             </span>
           </li>

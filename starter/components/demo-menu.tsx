@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
-import { ChevronDown, MessageSquare, Play, RotateCcw } from "lucide-react";
+import { ChevronDown, Languages, MessageSquare, Play, RotateCcw } from "lucide-react";
 import type { Desk, RunRequest } from "@/lib/contract";
 import { driverWrites, runAgent } from "@/lib/ui/api";
 import { DESK_LABEL } from "@/lib/ui/present";
@@ -36,7 +36,7 @@ export function DeskPicker() {
 }
 
 /** Drives the demo from the screen: the scripted driver, the recorded agent runs, and a restart. */
-export function DemoMenu() {
+export function DemoMenu({ live }: { live: boolean }) {
   const router = useRouter();
   const { reset } = useClock();
   const menu = useRef<HTMLDetailsElement>(null);
@@ -56,7 +56,9 @@ export function DemoMenu() {
         Demo <ChevronDown size={15} strokeWidth={2} aria-hidden="true" />
       </summary>
       <div className={styles.demoMenu}>
-        <p className={styles.demoNote}>Agents replay recorded live runs. Ferry prices and site replies are made up.</p>
+        <p className={styles.demoNote}>
+          {live ? "Live: agents and Shift Watch run on Claude." : "Replay: agents replay recorded live runs."} Ferry prices and site replies are made up.
+        </p>
         <button
           type="button"
           disabled={busy}
@@ -92,6 +94,27 @@ export function DemoMenu() {
           <span>
             <strong>Wake three more agents</strong>
             CD-420299, CD-420322, CD-420593
+          </span>
+        </button>
+        <button
+          type="button"
+          disabled={busy || !live}
+          title={live ? undefined : "Needs live mode: without an API key Shift Watch reads every message as English"}
+          onClick={() =>
+            run(async () => {
+              // Colloquial Finnish that leaves the delay open, so the card shows the language, the team and the gap.
+              const res = await driverWrites("drv-034", "Moi, oon jumissa ruuhkassa Lahden kohdalla, myöhästyn varmaan vähän. Onko ok?");
+              if (!res.ok) return res.error;
+              menu.current?.removeAttribute("open");
+              router.push("/cases/ord-00366?team=FI");
+              return "CD-420366's driver wrote in Finnish. The card names the language and the Finland team.";
+            })
+          }
+        >
+          <Languages size={17} strokeWidth={1.8} aria-hidden="true" />
+          <span>
+            <strong>A Finnish driver writes in</strong>
+            {live ? "CD-420366, stuck in traffic near Lahti" : "Needs live mode (an API key) to read the language"}
           </span>
         </button>
         <button type="button" disabled={busy} onClick={() => run(async () => (await reset(), "Restarted at 09:00."))}>

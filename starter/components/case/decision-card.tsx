@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, ArrowRight, Check, CircleCheck, CircleX, Loader2, Pencil, ShieldCheck, Undo2, X } from "lucide-react";
 import type { Proposal, QueueItem, WhoPays } from "@/lib/ui/contract";
 import { decideProposal, undoDecision } from "@/lib/ui/api";
-import { APPROVAL_LABEL, DESK_LABEL, WHO_PAYS_LABEL, clock, money } from "@/lib/ui/present";
+import { APPROVAL_LABEL, DESK_LABEL, WHO_PAYS_LABEL, money, when } from "@/lib/ui/present";
 import { useClock, useDesk } from "../providers";
 import styles from "./decision.module.css";
 
@@ -83,7 +83,7 @@ function Outcome({ proposal: p }: { proposal: Proposal }) {
         <div>
           <h2 className={styles.outcomeTitle}>{heading}</h2>
           <p className={styles.outcomeMeta}>
-            {who} · {clock(r.at)}
+            {who} · {when(r.at, now)}
             {r.who_pays ? ` · ${WHO_PAYS_LABEL[r.who_pays]} pays` : ""}
             {r.decision === "EDITED" ? " · with changes" : ""}
           </p>
@@ -150,6 +150,7 @@ function Outcome({ proposal: p }: { proposal: Proposal }) {
 
 function Pending({ proposal, title, item }: { proposal: Proposal; title: string; item?: QueueItem }) {
   const router = useRouter();
+  const { now } = useClock();
   const { desk } = useDesk();
   const [mode, setMode] = useState<Mode>("idle");
   const [whoPays, setWhoPays] = useState<WhoPays | null>(proposal.cost?.who_pays ?? null);
@@ -241,7 +242,7 @@ function Pending({ proposal, title, item }: { proposal: Proposal; title: string;
               {proposal.evidence_refs.map((e) => (
                 <span key={e.id} className={styles.evidenceChip} title={`${e.table} · ${e.id}`}>
                   {TABLE_LABEL[e.table] ?? e.table}
-                  {e.observed_at ? ` · ${clock(e.observed_at)}` : ""}
+                  {e.observed_at ? ` · ${when(e.observed_at, now)}` : ""}
                   {e.mock && <span className={styles.mock}>made up</span>}
                 </span>
               ))}

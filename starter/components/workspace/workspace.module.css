@@ -64,7 +64,8 @@
   align-self: start;
   height: calc(100dvh - var(--header-h));
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  /* Search, team view, groups, the calls, the footer. */
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
   gap: 10px;
   padding: 14px 12px;
   background: var(--surface-subtle);
@@ -550,4 +551,53 @@
 }
 .fullRecord:hover {
   color: var(--headline);
+}
+
+.rowLang {
+  color: var(--teal);
+  font-weight: 600;
+}
+
+/* Who on the order reads what, on a cross-border order. */
+.parties,
+.langNote {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 0;
+  color: var(--body);
+  font-size: 15px;
+  max-width: 72ch;
+}
+.parties svg {
+  flex: none;
+  margin-top: 3px;
+  color: var(--teal);
+}
+.langNote {
+  padding: 10px 14px;
+  border-radius: var(--radius-inner);
+  background: var(--teal-bg);
+}
+
+/* A country team's view: its language's cards first after safety. */
+.team {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+.team select {
+  height: 32px;
+  padding: 0 28px 0 12px;
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-pill);
+  background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23726958' stroke-width='2.4'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 10px center;
+  appearance: none;
+  color: var(--headline);
+  font: inherit;
+  font-size: 13px;
 }

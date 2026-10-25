@@ -6,16 +6,18 @@ import "server-only";
 import { agentMode } from "@/lib/agents/order-agent";
 import { buildCase } from "@/lib/shift-watch/case";
 import { settleDue } from "@/lib/shift-watch/decide";
+import { isTeam } from "@/lib/shift-watch/language";
 import { buildQueue } from "@/lib/shift-watch/queue";
 import type { CaseView, QueueResponse } from "./contract";
 import { adaptCase, adaptQueue } from "./adapt";
 
 const ORDER_ID = /^ord-\d{5}$/;
 
-export async function getQueue(): Promise<QueueResponse> {
+/** `team`: a country team's view (FI, DK, DE) puts the cards in the language it reads first, after safety. */
+export async function getQueue(team?: string | null): Promise<QueueResponse> {
   // Decisions whose undo window has passed take effect before anyone reads the queue.
   await settleDue();
-  return adaptQueue(await buildQueue(), agentMode());
+  return adaptQueue(await buildQueue(isTeam(team) ? team : undefined), agentMode());
 }
 
 export async function getCase(orderId: string): Promise<CaseView | null> {

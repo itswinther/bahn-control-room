@@ -42,7 +42,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {themeScript}
         </Script>
         <Providers>
-          <AppShell>{children}</AppShell>
+          {/* Live: agents and Shift Watch's reading run on Claude (needs a key); otherwise recorded runs replay. */}
+          <AppShell live={process.env.AGENT_MODE === "live" && !!process.env.ANTHROPIC_API_KEY}>{children}</AppShell>
         </Providers>
       </body>
     </html>

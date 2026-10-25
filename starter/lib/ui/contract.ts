@@ -14,7 +14,9 @@ import type {
   WhoPays,
 } from "@/lib/contract";
 
-export type { AgentStep, Approval, CardOutcome, Desk, DriverMessage, OrderStatus, Proposal, WhoPays };
+import type { LanguageNeed, Party } from "@/lib/shift-watch/language";
+
+export type { AgentStep, Approval, CardOutcome, Desk, DriverMessage, LanguageNeed, OrderStatus, Party, Proposal, WhoPays };
 
 export type Iso = string;
 
@@ -45,6 +47,10 @@ export interface QueueItem {
   stopped_because: string | null;
   if_no_decision: string | null;
   escalated_from: Desk | null;
+  /** Someone on the order wrote in another language: which, what's unclear, and which country team reads it. */
+  language: LanguageNeed | null;
+  /** A driver was promised an answer by this time and hasn't had one, whatever the card's kind. */
+  driver_waiting_until: Iso | null;
   /** What's scheduled for this order, for the overview timeline. */
   events: TimelineEvent[];
 }
@@ -84,9 +90,13 @@ export interface TimelineEntry {
   text: string;
   language?: string;
   translation?: string;
+  /** Sent to the driver: `text` is what they got, `translation` our English. */
+  outgoing?: boolean;
   /** Messages written by an agent are always marked. */
   agent_written?: boolean;
   hear_back_by?: Iso | null;
+  /** What the message leaves out ("no hour given"), as Shift Watch read it. Never filled in. */
+  unclear?: string[];
   tone?: "neutral" | "warning" | "critical" | "good";
 }
 
@@ -143,4 +153,6 @@ export interface CaseView {
   facts: Fact[];
   /** Agent messages to the driver that Shift Watch held for a person. */
   held_messages: DriverMessage[];
+  /** Who is on the order and the language each likely reads; `mixed` on a cross-border order. */
+  languages: { parties: Party[]; mixed: boolean };
 }
