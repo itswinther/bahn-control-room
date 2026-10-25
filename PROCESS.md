@@ -760,6 +760,20 @@ entries further down.
 - Evidence: `starter/lib/ui/adapt.ts`, `starter/lib/ui/data.ts`,
   `starter/components/case/decision-card.tsx`, `starter/components/demo-menu.tsx`.
 
+### 2026-10-25 · team + Claude · a before-and-after recap
+
+- Asked: one file that says what the system was at the start and what it is
+  now, with and without Shift Watch, and how each mistake in Bahn's records
+  is now caught.
+- Checked: every claim against a record or a run. We replayed the three
+  other recordings from a reset, and the recap matches them: CD-420299
+  passes because the agent checked the timed-out booking first, CD-420322 is
+  the top card for the shift lead, and CD-420593's agent only asks the
+  driver. The first draft said that agent also asked the site; the
+  recording shows it didn't, so we took it out. The recap also lists what it
+  doesn't solve yet.
+- Evidence: `SHIFT-WATCH-RECAP.md`.
+
 ## Evidence in this repo
 
 Filled in as the build goes:
