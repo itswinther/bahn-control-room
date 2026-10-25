@@ -37,7 +37,7 @@ export const toolDefs: BetaTool[] = [
   },
   {
     name: "get_order",
-    description: "Read the order: route, time windows, driver assignment, bookings, travel quotes, alerts, work items, operator notes, Bahn's own agent proposals and their reviews, and the proposals you made earlier with Shift Watch's check result. Also lists sites owned by the paying customer, which you must never contact.",
+    description: "Read the order: route, time windows, driver assignment, bookings, travel quotes, alerts, work items, operator notes, Bahn's own agent proposals and their reviews, and the proposals you made earlier with Shift Watch's check result, what a person decided, and what ran (booking references included). Also lists sites owned by the paying customer, which you must never contact.",
     input_schema: { type: "object", properties: {}, additionalProperties: false },
   },
   {
@@ -142,7 +142,11 @@ async function getOrder(ctx: ToolContext): Promise<ToolOutput> {
       alerts: view.alerts, work_items: view.workItems, incidents: view.incidents, operator_notes: view.notes,
       documents: view.documents, bahn_agent_proposals: view.proposals,
       sites_owned_by_customer: customerSites,
-      our_proposals: ours.map((p) => ({ id: p.id, status: p.status, command: p.command, summary: p.summary, check: p.check, created_at: p.createdAt })),
+      // What a person decided and what ran: our mock bookings aren't in the dataset's reservations, so this is
+      // the only place a later run learns the new booking reference.
+      our_proposals: ours.map((p) => ({ id: p.id, status: p.status, command: p.command, summary: p.summary, check: p.check, created_at: p.createdAt,
+        review: p.review && { decision: p.review.decision, note: p.review.note, who_pays: p.review.who_pays, reviewer: p.review.reviewer, at: p.review.at },
+        execution: p.execution && { status: p.execution.status, at: p.execution.at, result: p.execution.result_summary, references: p.execution.references, next_steps: p.execution.next_steps, error: p.execution.error } })),
     },
     summary: `Read ${view.header.reference}: ${view.reservations.length} booking(s), ${view.alerts.length} alert(s), ${ours.length} earlier proposal(s) of ours`,
   }
