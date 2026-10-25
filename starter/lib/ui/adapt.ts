@@ -22,7 +22,6 @@ import type {
 } from "./contract";
 import { DESK_LABEL } from "./present";
 
-const MIN = 60_000;
 
 /** One label per row, in the words the screens use. */
 export function kindOf(raw: Pick<RawItem, "kind" | "decision" | "safety" | "driver_waiting_until" | "held_message_id">): QueueKind {
@@ -70,9 +69,9 @@ const title = (decision: string) =>
     .replace(/^Next check overdue \(\S+\): waiting on /, "Overdue: waiting on ")
     .replace(/^Next check \(\S+\): waiting on /, "Waiting on ");
 
+/** One moment per card, at its deadline: the only real time a card has, so nothing is drawn as a span. */
 function eventsFor(raw: RawItem, kind: QueueKind): TimelineEvent[] {
   if (!raw.deadline) return [];
-  const end = Date.parse(raw.deadline);
   const label = raw.deadline_reason ?? "Decide by";
   if (kind === "WAITING") return [{ type: "CHECK", start: raw.deadline, end: null, label }];
   const type: TimelineEvent["type"] =
@@ -80,7 +79,7 @@ function eventsFor(raw: RawItem, kind: QueueKind): TimelineEvent[] {
     : kind === "DRIVER_WAITING" || /^Driver (was promised|said)/.test(label) ? "DRIVER"
     : /check-in|Pickup slot/i.test(label) ? "TRAVEL"
     : "DECISION";
-  return [{ type, start: new Date(end - 30 * MIN).toISOString(), end: raw.deadline, label }];
+  return [{ type, start: raw.deadline, end: null, label }];
 }
 
 /** Car and route per order, for the list rows and search. */

@@ -12,8 +12,9 @@ const HOUR = 3_600_000;
 /** Lanes in this order first; any other desk with work follows. */
 const DESK_ORDER: Desk[] = ["ops-shift", "ops-dispatch", "ops-travel", "ops-readiness", "ops-support"];
 const MAX_ROWS = 3;
-/** Narrowest chip: icon, a six-digit order number and a short topic (matches .event min-width). */
-const CHIP_MIN_PX = 156;
+/** Room a label needs (icon, order number, topic), so labels in one row don't overlap. Layout only: every
+ *  event is still drawn at its exact time. */
+const LABEL_PX = 150;
 
 const TYPE: Record<TimelineEvent["type"], { label: string; Icon: typeof Hand }> = {
   SAFETY: { label: "Safety", Icon: ShieldAlert },
@@ -84,11 +85,12 @@ export function ShiftTimeline({ items }: { items: QueueItem[] }) {
         (item.events ?? []).map((ev) => {
           const s = Date.parse(ev.start);
           // A moment (agent check) gets a small footprint so it can be packed.
-          const e = Math.max(ev.end ? Date.parse(ev.end) : s, s + (span * CHIP_MIN_PX) / trackW);
+          const e = s + (span * LABEL_PX) / trackW;
           return { item, ev, start: s, end: e };
         }),
       )
-      .filter((p) => p.end > start && p.start < end);
+      // Only what happens inside the window, so nothing is pinned to an edge at the wrong time.
+      .filter((p) => p.start >= start && p.start < end);
     const { placed, hidden } = pack(evs, span * 0.004);
     const rows = Math.max(1, ...placed.map((p) => p.row + 1));
     return { desk, placed, hidden, rows, count: new Set(evs.map((p) => p.item.id)).size };
@@ -153,8 +155,7 @@ export function ShiftTimeline({ items }: { items: QueueItem[] }) {
                 // The real end, not the chip's minimum footprint.
                 const realEnd = p.ev.end ? Date.parse(p.ev.end) : p.start;
                 const late = !decided && p.ev.type === "DECISION" && realEnd < now;
-                const left = Math.max(0, pct(p.start));
-                const width = Math.min(100, pct(p.end)) - left;
+                const left = pct(p.start);
                 const { Icon } = TYPE[p.ev.type];
                 return (
                   <Link
@@ -167,8 +168,6 @@ export function ShiftTimeline({ items }: { items: QueueItem[] }) {
                     data-decided={decided ? "" : undefined}
                     style={{
                       left: `${left}%`,
-                      // A moment sizes to its label instead of a time span.
-                      width: p.ev.end ? `${width}%` : undefined,
                       top: `calc(${p.row} * var(--row-h) + 6px)`,
                     }}
                     onMouseEnter={(e) => show(p, e.currentTarget)}
