@@ -37,6 +37,8 @@ export function Overview({ queue }: { queue: QueueResponse }) {
 
   return (
     <div className={styles.page}>
+      <ShiftTimeline items={queue.items} />
+
       <div className={styles.kpis}>
         <Link href="/inbox" className={styles.kpi}>
           <span className={styles.kLabel}>Need a call</span>
@@ -61,8 +63,6 @@ export function Overview({ queue }: { queue: QueueResponse }) {
           <span className={styles.kValue}>{waiting.length}</span>
         </Link>
       </div>
-
-      <ShiftTimeline items={queue.items} />
 
       <div className={styles.grid}>
         <section className={styles.card} aria-labelledby="next-title">
